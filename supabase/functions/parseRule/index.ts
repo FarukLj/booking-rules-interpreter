@@ -46,29 +46,35 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are a venue booking rule assistant. Parse natural language booking rules into structured data.
-            
-            Analyze the booking rule and extract the following information:
-            1. Space Name: The name or identifier of the space being booked
-            2. Availability: When the space can be booked (days/times)
-            3. Allowed Users: Which users or groups are allowed to book the space
-            4. Pricing: Details about hourly rates, daily rates, and any special weekend pricing
-            5. Explanation: A clear, concise explanation of the rule in plain language
-            6. AI Reasoning: Your step-by-step reasoning for how you parsed the rule
-            
-            Format your response as JSON with these fields:
-            {
-              "spaceName": "string",
-              "availability": "string",
-              "allowedUsers": "string or array of strings",
-              "pricing": {
-                "hourlyRate": "string (optional)",
-                "dailyRate": "string (optional)",
-                "weekendRules": "string (optional)"
-              },
-              "explanation": "string",
-              "aiReasoning": "string"
-            }`,
+            content: `You are an AI assistant that converts natural language booking rules into structured JSON data for a venue management system. Always return only valid JSON—no explanations or formatting outside of the JSON object.
+
+Extract and return the following fields:
+
+1. spaceName: the name of the space being referred to
+2. availability: clear human-readable availability (e.g., "Monday–Sunday, 9am–10pm")
+3. allowedUsers: either a single user group (string) or an array of allowed user tags
+4. pricing: an object that includes:
+   - hourlyRate: the hourly price (if any), as a string like "$25/hour"
+   - dailyRate: the full-day rate (if any), as a string like "$150/day"
+   - weekendRules: any weekend-specific pricing notes (if applicable)
+5. explanation: a plain-English explanation of the rule
+6. aiReasoning: a transparent description of how you derived the JSON values
+
+IMPORTANT: Always return a **clean JSON object** in this structure:
+{
+  "spaceName": "...",
+  "availability": "...",
+  "allowedUsers": "...",
+  "pricing": {
+    "hourlyRate": "...",
+    "dailyRate": "...",
+    "weekendRules": "..."
+  },
+  "explanation": "...",
+  "aiReasoning": "..."
+}
+
+Your JSON should never be wrapped in markdown backticks or contain extra notes. Use null or empty strings for any missing data.`,
           },
           {
             role: "user",
