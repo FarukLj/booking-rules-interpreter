@@ -3,6 +3,8 @@ import { useState } from "react";
 import { BookingRuleInput } from "@/components/BookingRuleInput";
 import { RuleModal } from "@/components/RuleModal";
 import { RuleResult } from "@/types/RuleResult";
+import { toast } from "@/components/ui/sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -12,24 +14,20 @@ const Index = () => {
   const handleRuleSubmit = async (ruleText: string) => {
     setIsLoading(true);
     try {
-      const response = await fetch("/api/analyze-booking-rule", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ rule: ruleText }),
+      // Call the parseRule edge function
+      const { data, error } = await supabase.functions.invoke('parseRule', {
+        body: { rule: ruleText }
       });
 
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
+      if (error) {
+        throw error;
       }
 
-      const data = await response.json();
       setRuleResult(data);
       setShowModal(true);
     } catch (error) {
       console.error("Failed to analyze rule:", error);
-      // You could add toast notification here
+      toast.error("Failed to analyze booking rule. Please try again.");
     } finally {
       setIsLoading(false);
     }

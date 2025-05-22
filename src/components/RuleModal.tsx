@@ -47,7 +47,7 @@ export function RuleModal({ result, isOpen, onClose }: RuleModalProps) {
                   {result.allowedUsers}
                 </Badge>
               ) : (
-                result.allowedUsers.map((user, i) => (
+                Array.isArray(result.allowedUsers) && result.allowedUsers.map((user, i) => (
                   <Badge key={i} variant="secondary" className="px-3 py-1 text-sm">
                     {user}
                   </Badge>
@@ -89,7 +89,7 @@ export function RuleModal({ result, isOpen, onClose }: RuleModalProps) {
             <div>
               <h3 className="text-sm font-medium text-slate-500 mb-1">AI Reasoning</h3>
               <div className="bg-slate-50 p-3 rounded-md text-sm text-slate-700 max-h-40 overflow-y-auto">
-                <pre className="whitespace-pre-wrap">{result.aiReasoning}</pre>
+                <p className="whitespace-pre-wrap">{result.aiReasoning}</p>
               </div>
             </div>
           )}
