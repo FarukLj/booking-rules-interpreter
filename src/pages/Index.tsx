@@ -1,12 +1,106 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+
+import { useState } from "react";
+import { BookingRuleInput } from "@/components/BookingRuleInput";
+import { RuleModal } from "@/components/RuleModal";
+import { RuleResult } from "@/types/RuleResult";
 
 const Index = () => {
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [showModal, setShowModal] = useState<boolean>(false);
+  const [ruleResult, setRuleResult] = useState<RuleResult | null>(null);
+
+  const handleRuleSubmit = async (ruleText: string) => {
+    setIsLoading(true);
+    try {
+      const response = await fetch("/api/analyze-booking-rule", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ rule: ruleText }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setRuleResult(data);
+      setShowModal(true);
+    } catch (error) {
+      console.error("Failed to analyze rule:", error);
+      // You could add toast notification here
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-gray-600">Start building your amazing project here!</p>
-      </div>
+    <div className="min-h-screen flex flex-col bg-slate-50">
+      <header className="bg-white shadow-sm py-6">
+        <div className="container mx-auto px-4">
+          <h1 className="text-3xl font-bold text-slate-800">AI Booking Rule Assistant</h1>
+          <p className="text-slate-500 mt-2">
+            Enter your venue booking rules in natural language and get a structured interpretation
+          </p>
+        </div>
+      </header>
+
+      <main className="container mx-auto px-4 py-12 flex-grow">
+        <div className="max-w-3xl mx-auto">
+          <BookingRuleInput onSubmit={handleRuleSubmit} isLoading={isLoading} />
+          
+          <div className="mt-12 bg-white p-6 rounded-lg shadow-sm border border-slate-200">
+            <h2 className="text-xl font-semibold text-slate-800 mb-4">How it works</h2>
+            <div className="grid md:grid-cols-3 gap-6">
+              <div className="flex flex-col items-center text-center p-4">
+                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-3">
+                  <span className="text-blue-600 font-bold">1</span>
+                </div>
+                <h3 className="font-medium mb-2">Enter your rule</h3>
+                <p className="text-slate-500 text-sm">Type your booking rule in natural language</p>
+              </div>
+              <div className="flex flex-col items-center text-center p-4">
+                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-3">
+                  <span className="text-blue-600 font-bold">2</span>
+                </div>
+                <h3 className="font-medium mb-2">AI Analysis</h3>
+                <p className="text-slate-500 text-sm">Our AI interprets your rule into structured data</p>
+              </div>
+              <div className="flex flex-col items-center text-center p-4">
+                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-3">
+                  <span className="text-blue-600 font-bold">3</span>
+                </div>
+                <h3 className="font-medium mb-2">Review Results</h3>
+                <p className="text-slate-500 text-sm">Get a clear breakdown of the booking rule</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="mt-8 bg-white p-6 rounded-lg shadow-sm border border-slate-200">
+            <h2 className="text-xl font-semibold text-slate-800 mb-4">Example Rules</h2>
+            <ul className="space-y-3 text-slate-700">
+              <li className="p-3 bg-slate-50 rounded-md">"Only The Team can book Space 1 from 9am to 10pm at $25/hour or $150 full day"</li>
+              <li className="p-3 bg-slate-50 rounded-md">"Premium Members can book Conference Room A on weekdays from 8am-6pm at $50/hour"</li>
+              <li className="p-3 bg-slate-50 rounded-md">"Studio 3 is available for Staff on weekends, $200 flat rate"</li>
+            </ul>
+          </div>
+        </div>
+      </main>
+
+      <footer className="bg-white border-t border-slate-200 py-6">
+        <div className="container mx-auto px-4 text-center text-slate-500 text-sm">
+          © {new Date().getFullYear()} AI Booking Rule Assistant. All rights reserved.
+        </div>
+      </footer>
+      
+      {showModal && ruleResult && (
+        <RuleModal 
+          result={ruleResult} 
+          isOpen={showModal} 
+          onClose={() => setShowModal(false)} 
+        />
+      )}
     </div>
   );
 };

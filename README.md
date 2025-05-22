@@ -1,73 +1,70 @@
-# Welcome to your Lovable project
 
-## Project info
+# AI Booking Rule Assistant
 
-**URL**: https://lovable.dev/projects/a5953f09-b045-4c67-bcc7-cf156ecd78d8
+An AI-powered application that helps interpret and structure natural language booking rules for venues.
 
-## How can I edit this code?
+## Features
 
-There are several ways of editing your application.
+- Natural language input for booking rules
+- AI-powered interpretation using OpenAI's GPT-4
+- Structured display of booking rules including:
+  - Space Name
+  - Availability
+  - Allowed Users
+  - Pricing
+  - Rule Explanation
+  - AI Reasoning
 
-**Use Lovable**
+## Setup
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/a5953f09-b045-4c67-bcc7-cf156ecd78d8) and start prompting.
+### Prerequisites
 
-Changes made via Lovable will be committed automatically to this repo.
+- Node.js and npm installed
+- Supabase account for Edge Functions
+- OpenAI API key
 
-**Use your preferred IDE**
+### Setting Up Supabase Edge Function
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+1. Connect your Lovable project to Supabase using the Supabase button in the top right corner
+2. After connecting, deploy the Edge Function:
+   
+   ```
+   supabase functions deploy analyze-booking-rule
+   ```
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+3. Add your OpenAI API key to Supabase secrets:
 
-Follow these steps:
+   ```
+   supabase secrets set OPENAI_API_KEY=your_openai_api_key
+   ```
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+### Running the Application
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+1. Install dependencies:
 
-# Step 3: Install the necessary dependencies.
-npm i
+   ```
+   npm install
+   ```
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+2. Start the development server:
 
-**Edit a file directly in GitHub**
+   ```
+   npm run dev
+   ```
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+3. Open your browser to `http://localhost:8080`
 
-**Use GitHub Codespaces**
+## Example Rules
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+Try entering these example rules:
 
-## What technologies are used for this project?
+- "Only The Team can book Space 1 from 9am to 10pm at $25/hour or $150 full day"
+- "Premium Members can book Conference Room A on weekdays from 8am-6pm at $50/hour"
+- "Studio 3 is available for Staff on weekends, $200 flat rate"
 
-This project is built with:
+## How It Works
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/a5953f09-b045-4c67-bcc7-cf156ecd78d8) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+1. Enter your booking rule in natural language
+2. The rule is sent to our Supabase Edge Function, which securely calls the OpenAI API
+3. GPT-4 interprets the rule and returns a structured representation
+4. The app displays the structured rule in an easy-to-read format
