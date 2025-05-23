@@ -13,7 +13,10 @@ serve(async (req) => {
     const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
     if (!openaiApiKey) {
       return new Response(
-        JSON.stringify({ error: "OpenAI API key not configured" }),
+        JSON.stringify({ 
+          error: "OpenAI API key not configured",
+          details: "Please set the OPENAI_API_KEY in your Supabase Edge Function secrets."
+        }),
         {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -88,8 +91,15 @@ Your JSON should never be wrapped in markdown backticks or contain extra notes. 
     if (!openAiResponse.ok) {
       const errorData = await openAiResponse.json();
       console.error("OpenAI API error:", errorData);
+      
+      // Extract specific error message if available
+      const errorMessage = errorData?.error?.message || "Unknown OpenAI API error";
+      
       return new Response(
-        JSON.stringify({ error: "Failed to process with AI" }),
+        JSON.stringify({ 
+          error: "OpenAI API error", 
+          details: errorMessage 
+        }),
         {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -107,7 +117,10 @@ Your JSON should never be wrapped in markdown backticks or contain extra notes. 
   } catch (error) {
     console.error("Error processing request:", error);
     return new Response(
-      JSON.stringify({ error: "Internal server error" }),
+      JSON.stringify({ 
+        error: "Internal server error",
+        details: error.message || "An unknown error occurred"
+      }),
       {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

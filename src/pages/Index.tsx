@@ -23,11 +23,16 @@ const Index = () => {
         throw error;
       }
 
+      // Check if the response contains an error message
+      if (data && data.error) {
+        throw new Error(data.details || data.error);
+      }
+
       setRuleResult(data);
       setShowModal(true);
     } catch (error) {
       console.error("Failed to analyze rule:", error);
-      toast.error("Failed to analyze booking rule. Please try again.");
+      toast.error(`Failed to analyze booking rule: ${error.message || "Please try again."}`);
     } finally {
       setIsLoading(false);
     }
