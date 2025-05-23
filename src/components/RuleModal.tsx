@@ -10,6 +10,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { RuleResult } from "@/types/RuleResult";
 import { Badge } from "@/components/ui/badge";
+import { BookingConditionsBlock } from "./BookingConditionsBlock";
+import { PricingRulesBlock } from "./PricingRulesBlock";
 
 interface RuleModalProps {
   result: RuleResult;
@@ -20,7 +22,7 @@ interface RuleModalProps {
 export function RuleModal({ result, isOpen, onClose }: RuleModalProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl">Booking Rule Analysis</DialogTitle>
           <DialogDescription>
@@ -93,6 +95,21 @@ export function RuleModal({ result, isOpen, onClose }: RuleModalProps) {
               </div>
             </div>
           )}
+          
+          {/* Separator between AI summary and interactive blocks */}
+          <div className="border-t border-slate-200 pt-6">
+            <h2 className="text-xl font-semibold text-slate-800 mb-6">Interactive Rule Configuration</h2>
+            
+            {/* Booking Conditions Block */}
+            <div className="mb-8">
+              <BookingConditionsBlock />
+            </div>
+            
+            {/* Pricing Rules Block */}
+            <div className="mb-4">
+              <PricingRulesBlock />
+            </div>
+          </div>
         </div>
         
         <DialogFooter>
