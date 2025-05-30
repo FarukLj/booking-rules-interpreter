@@ -1,6 +1,8 @@
 
 import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Toggle } from "@/components/ui/toggle";
 import { BufferTimeRule } from "@/types/RuleResult";
 
 interface BufferTimeRulesBlockProps {
@@ -15,9 +17,21 @@ export function BufferTimeRulesBlock({ initialRules = [] }: BufferTimeRulesBlock
       explanation: "Default buffer time rule"
     }]
   );
+  
+  const [logicOperators, setLogicOperators] = useState<string[]>(
+    new Array(Math.max(0, rules.length - 1)).fill("AND")
+  );
 
-  const spaceOptions = ["Space 1", "Space 2", "Conference Room A", "Studio 1", "Studio 2", "Meeting Room B"];
-  const durationOptions = ["15min", "30min", "45min", "1h", "1h30min", "2h"];
+  const spaceOptions = ["Space 1", "Space 2", "Conference Room A", "Studio 1", "Studio 2", "Meeting Room B", "Court A", "Gym"];
+  
+  // Generate buffer time options from 15m to 24h in 15-minute increments
+  const durationOptions = [];
+  for (let i = 15; i <= 60; i += 15) {
+    durationOptions.push(`${i}min`);
+  }
+  for (let i = 2; i <= 24; i++) {
+    durationOptions.push(`${i}h`);
+  }
 
   const updateRule = (index: number, field: keyof BufferTimeRule, value: any) => {
     setRules(prev => prev.map((rule, i) => 
@@ -25,46 +39,88 @@ export function BufferTimeRulesBlock({ initialRules = [] }: BufferTimeRulesBlock
     ));
   };
 
+  const updateLogicOperator = (index: number, operator: string) => {
+    setLogicOperators(prev => prev.map((op, i) => i === index ? operator : op));
+  };
+
+  const getSelectedSpaces = (spaces: string[]) => {
+    if (spaces.length <= 2) return spaces.join(", ");
+    return `${spaces.slice(0, 2).join(", ")}...`;
+  };
+
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-semibold text-slate-800">Buffer Time Rules</h3>
       
       {rules.map((rule, index) => (
-        <div key={index} className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-          <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="text-slate-600">Add a buffer time of</span>
+        <div key={index}>
+          <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="text-slate-600">For</span>
+              
+              <Select value={getSelectedSpaces(rule.spaces)}>
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {spaceOptions.map(space => (
+                    <div key={space} className="flex items-center space-x-2 p-2">
+                      <Checkbox 
+                        checked={rule.spaces.includes(space)}
+                        onCheckedChange={(checked) => {
+                          const newSpaces = checked 
+                            ? [...rule.spaces, space]
+                            : rule.spaces.filter(s => s !== space);
+                          updateRule(index, 'spaces', newSpaces);
+                        }}
+                      />
+                      <span>{space}</span>
+                    </div>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <span className="text-slate-600">, enforce a buffer time of</span>
+              
+              <Select value={rule.buffer_duration} onValueChange={(value) => updateRule(index, 'buffer_duration', value)}>
+                <SelectTrigger className="w-24">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {durationOptions.map(duration => (
+                    <SelectItem key={duration} value={duration}>{duration}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <span className="text-slate-600">between bookings</span>
+            </div>
             
-            <Select value={rule.buffer_duration} onValueChange={(value) => updateRule(index, 'buffer_duration', value)}>
-              <SelectTrigger className="w-24">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {durationOptions.map(duration => (
-                  <SelectItem key={duration} value={duration}>{duration}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            
-            <span className="text-slate-600">between bookings in</span>
-            
-            <Select 
-              value={rule.spaces[0]} 
-              onValueChange={(value) => updateRule(index, 'spaces', [value])}
-            >
-              <SelectTrigger className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {spaceOptions.map(space => (
-                  <SelectItem key={space} value={space}>{space}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {rule.explanation && (
+              <div className="mt-3 text-xs text-slate-600 bg-white p-2 rounded border">
+                <strong>Explanation:</strong> {rule.explanation}
+              </div>
+            )}
           </div>
           
-          {rule.explanation && (
-            <div className="mt-2 text-xs text-slate-600 bg-white p-2 rounded border">
-              {rule.explanation}
+          {index < rules.length - 1 && (
+            <div className="flex justify-center my-2">
+              <div className="flex items-center space-x-2">
+                <Toggle
+                  pressed={logicOperators[index] === "AND"}
+                  onPressedChange={(pressed) => updateLogicOperator(index, pressed ? "AND" : "OR")}
+                  className="w-12 h-8"
+                >
+                  AND
+                </Toggle>
+                <Toggle
+                  pressed={logicOperators[index] === "OR"}
+                  onPressedChange={(pressed) => updateLogicOperator(index, pressed ? "OR" : "AND")}
+                  className="w-12 h-8"
+                >
+                  OR
+                </Toggle>
+              </div>
             </div>
           )}
         </div>
