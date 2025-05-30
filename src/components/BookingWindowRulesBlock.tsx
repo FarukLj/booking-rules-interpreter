@@ -49,13 +49,13 @@ export function BookingWindowRulesBlock({ initialRules = [] }: BookingWindowRule
   const getSelectedSpaces = (spaces: string[]) => {
     if (spaces.length === 0) return "Select spaces";
     if (spaces.length <= 2) return spaces.join(", ");
-    return `${spaces.slice(0, 2).join(", ")}...`;
+    return `${spaces.slice(0, 2).join(", ")} +${spaces.length - 2}`;
   };
 
   const getSelectedTags = (tags: string[] = []) => {
     if (tags.length === 0) return "Select tags";
     if (tags.length <= 2) return tags.join(", ");
-    return `${tags.slice(0, 2).join(", ")}...`;
+    return `${tags.slice(0, 2).join(", ")} +${tags.length - 2}`;
   };
 
   const getUserScopeValue = (scope: string) => {
@@ -65,6 +65,23 @@ export function BookingWindowRulesBlock({ initialRules = [] }: BookingWindowRule
       case "users_with_no_tags": return "Users with none of the tags";
       default: return "All users";
     }
+  };
+
+  const toggleSpace = (ruleIndex: number, space: string) => {
+    const rule = rules[ruleIndex];
+    const newSpaces = rule.spaces.includes(space)
+      ? rule.spaces.filter(s => s !== space)
+      : [...rule.spaces, space];
+    updateRule(ruleIndex, 'spaces', newSpaces);
+  };
+
+  const toggleTag = (ruleIndex: number, tag: string) => {
+    const rule = rules[ruleIndex];
+    const currentTags = rule.tags || [];
+    const newTags = currentTags.includes(tag)
+      ? currentTags.filter(t => t !== tag)
+      : [...currentTags, tag];
+    updateRule(ruleIndex, 'tags', newTags);
   };
 
   return (
@@ -94,21 +111,16 @@ export function BookingWindowRulesBlock({ initialRules = [] }: BookingWindowRule
               </Select>
               
               {(rule.user_scope === "users_with_tags" || rule.user_scope === "users_with_no_tags") && (
-                <Select>
+                <Select value={getSelectedTags(rule.tags)}>
                   <SelectTrigger className="w-32">
-                    <SelectValue>{getSelectedTags(rule.tags)}</SelectValue>
+                    <SelectValue placeholder="Select tags">{getSelectedTags(rule.tags)}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {tagOptions.map(tag => (
-                      <div key={tag} className="flex items-center space-x-2 p-2">
+                      <div key={tag} className="flex items-center space-x-2 p-2 cursor-pointer hover:bg-slate-100" onClick={() => toggleTag(index, tag)}>
                         <Checkbox 
                           checked={rule.tags?.includes(tag)}
-                          onCheckedChange={(checked) => {
-                            const newTags = checked 
-                              ? [...(rule.tags || []), tag]
-                              : (rule.tags || []).filter(t => t !== tag);
-                            updateRule(index, 'tags', newTags);
-                          }}
+                          readOnly
                         />
                         <span>{tag}</span>
                       </div>
@@ -119,21 +131,16 @@ export function BookingWindowRulesBlock({ initialRules = [] }: BookingWindowRule
               
               <span className="text-slate-600">cannot make a booking for</span>
               
-              <Select>
+              <Select value={getSelectedSpaces(rule.spaces)}>
                 <SelectTrigger className="w-32">
-                  <SelectValue>{getSelectedSpaces(rule.spaces)}</SelectValue>
+                  <SelectValue placeholder="Select spaces">{getSelectedSpaces(rule.spaces)}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {spaceOptions.map(space => (
-                    <div key={space} className="flex items-center space-x-2 p-2">
+                    <div key={space} className="flex items-center space-x-2 p-2 cursor-pointer hover:bg-slate-100" onClick={() => toggleSpace(index, space)}>
                       <Checkbox 
                         checked={rule.spaces.includes(space)}
-                        onCheckedChange={(checked) => {
-                          const newSpaces = checked 
-                            ? [...rule.spaces, space]
-                            : rule.spaces.filter(s => s !== space);
-                          updateRule(index, 'spaces', newSpaces);
-                        }}
+                        readOnly
                       />
                       <span>{space}</span>
                     </div>

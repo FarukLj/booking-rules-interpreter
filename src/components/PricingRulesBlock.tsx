@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -66,20 +65,20 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
   const getSelectedSpaces = (spaces: string[]) => {
     if (spaces.length === 0) return "Select spaces";
     if (spaces.length <= 2) return spaces.join(", ");
-    return `${spaces.slice(0, 2).join(", ")}...`;
+    return `${spaces.slice(0, 2).join(", ")} +${spaces.length - 2}`;
   };
 
   const getSelectedDays = (days: string[]) => {
     if (days.length === 0) return "Select days";
     if (days.length === 7) return "All days";
     if (days.length <= 2) return days.join(", ");
-    return `${days.slice(0, 2).join(", ")}...`;
+    return `${days.slice(0, 2).join(", ")} +${days.length - 2}`;
   };
 
   const getSelectedTags = (tags: string[] = []) => {
     if (tags.length === 0) return "Select tags";
     if (tags.length <= 2) return tags.join(", ");
-    return `${tags.slice(0, 2).join(", ")}...`;
+    return `${tags.slice(0, 2).join(", ")} +${tags.length - 2}`;
   };
 
   const formatTimeDisplay = (time: string) => {
@@ -88,6 +87,31 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
     const period = hour >= 12 ? 'PM' : 'AM';
     const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
     return `${displayHour}:${minute} ${period}`;
+  };
+
+  const toggleSpace = (ruleIndex: number, space: string) => {
+    const rule = rules[ruleIndex];
+    const newSpaces = rule.space.includes(space)
+      ? rule.space.filter(s => s !== space)
+      : [...rule.space, space];
+    updateRule(ruleIndex, 'space', newSpaces);
+  };
+
+  const toggleDay = (ruleIndex: number, day: string) => {
+    const rule = rules[ruleIndex];
+    const newDays = rule.days.includes(day)
+      ? rule.days.filter(d => d !== day)
+      : [...rule.days, day];
+    updateRule(ruleIndex, 'days', newDays);
+  };
+
+  const toggleTag = (ruleIndex: number, tag: string) => {
+    const rule = rules[ruleIndex];
+    const currentTags = Array.isArray(rule.value) ? rule.value : [];
+    const newTags = currentTags.includes(tag)
+      ? currentTags.filter(t => t !== tag)
+      : [...currentTags, tag];
+    updateRule(ruleIndex, 'value', newTags);
   };
 
   return (
@@ -100,21 +124,16 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
             <div className="flex flex-wrap items-center gap-2 text-sm">
               <span className="text-slate-600">For</span>
               
-              <Select>
+              <Select value={getSelectedSpaces(rule.space)}>
                 <SelectTrigger className="w-40">
-                  <SelectValue>{getSelectedSpaces(rule.space)}</SelectValue>
+                  <SelectValue placeholder="Select spaces">{getSelectedSpaces(rule.space)}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {spaceOptions.map(space => (
-                    <div key={space} className="flex items-center space-x-2 p-2">
+                    <div key={space} className="flex items-center space-x-2 p-2 cursor-pointer hover:bg-slate-100" onClick={() => toggleSpace(index, space)}>
                       <Checkbox 
                         checked={rule.space.includes(space)}
-                        onCheckedChange={(checked) => {
-                          const newSpaces = checked 
-                            ? [...rule.space, space]
-                            : rule.space.filter(s => s !== space);
-                          updateRule(index, 'space', newSpaces);
-                        }}
+                        readOnly
                       />
                       <span>{space}</span>
                     </div>
@@ -140,7 +159,7 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
               
               <span className="text-slate-600">to</span>
               
-              <Select value={rule.time_range.split('–')[1]} onValueChange={(value) => {
+              <Select value={rule.time_range.split('–')[1] || '17:00'} onValueChange={(value) => {
                 const startTime = rule.time_range.split('–')[0] || '09:00';
                 updateRule(index, 'time_range', `${startTime}–${value}`);
               }}>
@@ -156,21 +175,16 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
               
               <span className="text-slate-600">on</span>
               
-              <Select>
+              <Select value={getSelectedDays(rule.days)}>
                 <SelectTrigger className="w-32">
-                  <SelectValue>{getSelectedDays(rule.days)}</SelectValue>
+                  <SelectValue placeholder="Select days">{getSelectedDays(rule.days)}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {dayOptions.map(day => (
-                    <div key={day} className="flex items-center space-x-2 p-2">
+                    <div key={day} className="flex items-center space-x-2 p-2 cursor-pointer hover:bg-slate-100" onClick={() => toggleDay(index, day)}>
                       <Checkbox 
                         checked={rule.days.includes(day)}
-                        onCheckedChange={(checked) => {
-                          const newDays = checked 
-                            ? [...rule.days, day]
-                            : rule.days.filter(d => d !== day);
-                          updateRule(index, 'days', newDays);
-                        }}
+                        readOnly
                       />
                       <span>{day}</span>
                     </div>
@@ -225,33 +239,38 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
                 </SelectContent>
               </Select>
               
-              <Select 
-                value={Array.isArray(rule.value) ? rule.value[0] : rule.value} 
-                onValueChange={(value) => updateRule(index, 'value', rule.condition_type === "duration" ? value : [value])}
-              >
-                <SelectTrigger className="w-32">
-                  <SelectValue>
-                    {rule.condition_type === "duration" 
-                      ? rule.value 
-                      : getSelectedTags(Array.isArray(rule.value) ? rule.value : [])
-                    }
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {rule.condition_type === "duration" ? (
-                    durationValues.map(value => (
+              {rule.condition_type === "duration" ? (
+                <Select 
+                  value={Array.isArray(rule.value) ? rule.value[0] : rule.value} 
+                  onValueChange={(value) => updateRule(index, 'value', value)}
+                >
+                  <SelectTrigger className="w-32">
+                    <SelectValue>{Array.isArray(rule.value) ? rule.value[0] : rule.value}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {durationValues.map(value => (
                       <SelectItem key={value} value={value}>{value}</SelectItem>
-                    ))
-                  ) : (
-                    tagOptions.map(tag => (
-                      <div key={tag} className="flex items-center space-x-2 p-2">
-                        <Checkbox defaultChecked={Array.isArray(rule.value) && rule.value.includes(tag)} />
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Select value={getSelectedTags(Array.isArray(rule.value) ? rule.value : [])}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue placeholder="Select tags">{getSelectedTags(Array.isArray(rule.value) ? rule.value : [])}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {tagOptions.map(tag => (
+                      <div key={tag} className="flex items-center space-x-2 p-2 cursor-pointer hover:bg-slate-100" onClick={() => toggleTag(index, tag)}>
+                        <Checkbox 
+                          checked={Array.isArray(rule.value) && rule.value.includes(tag)}
+                          readOnly
+                        />
                         <span>{tag}</span>
                       </div>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
             
             {rule.explanation && (

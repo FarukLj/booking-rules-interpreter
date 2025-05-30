@@ -46,7 +46,15 @@ export function BufferTimeRulesBlock({ initialRules = [] }: BufferTimeRulesBlock
   const getSelectedSpaces = (spaces: string[]) => {
     if (spaces.length === 0) return "Select spaces";
     if (spaces.length <= 2) return spaces.join(", ");
-    return `${spaces.slice(0, 2).join(", ")}...`;
+    return `${spaces.slice(0, 2).join(", ")} +${spaces.length - 2}`;
+  };
+
+  const toggleSpace = (ruleIndex: number, space: string) => {
+    const rule = rules[ruleIndex];
+    const newSpaces = rule.spaces.includes(space)
+      ? rule.spaces.filter(s => s !== space)
+      : [...rule.spaces, space];
+    updateRule(ruleIndex, 'spaces', newSpaces);
   };
 
   return (
@@ -59,21 +67,16 @@ export function BufferTimeRulesBlock({ initialRules = [] }: BufferTimeRulesBlock
             <div className="flex flex-wrap items-center gap-2 text-sm">
               <span className="text-slate-600">For</span>
               
-              <Select>
+              <Select value={getSelectedSpaces(rule.spaces)}>
                 <SelectTrigger className="w-40">
-                  <SelectValue>{getSelectedSpaces(rule.spaces)}</SelectValue>
+                  <SelectValue placeholder="Select spaces">{getSelectedSpaces(rule.spaces)}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {spaceOptions.map(space => (
-                    <div key={space} className="flex items-center space-x-2 p-2">
+                    <div key={space} className="flex items-center space-x-2 p-2 cursor-pointer hover:bg-slate-100" onClick={() => toggleSpace(index, space)}>
                       <Checkbox 
                         checked={rule.spaces.includes(space)}
-                        onCheckedChange={(checked) => {
-                          const newSpaces = checked 
-                            ? [...rule.spaces, space]
-                            : rule.spaces.filter(s => s !== space);
-                          updateRule(index, 'spaces', newSpaces);
-                        }}
+                        readOnly
                       />
                       <span>{space}</span>
                     </div>
