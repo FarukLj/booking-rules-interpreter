@@ -1,4 +1,3 @@
-
 import {
   Dialog,
   DialogContent,
@@ -12,6 +11,9 @@ import { RuleResult } from "@/types/RuleResult";
 import { Badge } from "@/components/ui/badge";
 import { BookingConditionsBlock } from "./BookingConditionsBlock";
 import { PricingRulesBlock } from "./PricingRulesBlock";
+import { QuotaRulesBlock } from "./QuotaRulesBlock";
+import { BufferTimeRulesBlock } from "./BufferTimeRulesBlock";
+import { BookingWindowRulesBlock } from "./BookingWindowRulesBlock";
 
 interface RuleModalProps {
   result: RuleResult;
@@ -20,72 +22,106 @@ interface RuleModalProps {
 }
 
 export function RuleModal({ result, isOpen, onClose }: RuleModalProps) {
+  // Check if we have new format data
+  const hasNewFormat = result.booking_conditions || result.pricing_rules || result.quota_rules || 
+                      result.buffer_time_rules || result.booking_window_rules || result.summary;
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-2xl">Booking Rule Analysis</DialogTitle>
+          <DialogTitle className="text-2xl">
+            {hasNewFormat ? "AI-Generated Booking Rules Summary" : "Booking Rule Analysis"}
+          </DialogTitle>
           <DialogDescription>
-            Here's the structured interpretation of your booking rule
+            {hasNewFormat 
+              ? "Here's the structured interpretation of your booking rules" 
+              : "Here's the structured interpretation of your booking rule"
+            }
           </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-6 my-4">
-          <div>
-            <h3 className="text-sm font-medium text-slate-500 mb-1">Space Name</h3>
-            <p className="text-lg font-medium">{result.spaceName}</p>
-          </div>
-          
-          <div>
-            <h3 className="text-sm font-medium text-slate-500 mb-1">Availability</h3>
-            <p className="text-lg font-medium">{result.availability}</p>
-          </div>
-          
-          <div>
-            <h3 className="text-sm font-medium text-slate-500 mb-1">Allowed Users</h3>
-            <div className="flex flex-wrap gap-2">
-              {typeof result.allowedUsers === 'string' ? (
-                <Badge variant="secondary" className="px-3 py-1 text-sm">
-                  {result.allowedUsers}
-                </Badge>
-              ) : (
-                Array.isArray(result.allowedUsers) && result.allowedUsers.map((user, i) => (
-                  <Badge key={i} variant="secondary" className="px-3 py-1 text-sm">
-                    {user}
-                  </Badge>
-                ))
-              )}
+          {/* New format summary */}
+          {hasNewFormat && result.summary && (
+            <div>
+              <h3 className="text-sm font-medium text-slate-500 mb-1">Summary</h3>
+              <div className="bg-slate-50 p-3 rounded-md">
+                <p className="text-slate-800">{result.summary}</p>
+              </div>
             </div>
-          </div>
-          
-          <div>
-            <h3 className="text-sm font-medium text-slate-500 mb-1">Pricing</h3>
-            <div className="bg-slate-50 p-3 rounded-md">
-              {result.pricing.hourlyRate && (
-                <div className="flex justify-between text-slate-800">
-                  <span>Hourly Rate:</span>
-                  <span className="font-medium">{result.pricing.hourlyRate}</span>
+          )}
+
+          {/* Legacy format display - keep for backward compatibility */}
+          {!hasNewFormat && (
+            <>
+              {result.spaceName && (
+                <div>
+                  <h3 className="text-sm font-medium text-slate-500 mb-1">Space Name</h3>
+                  <p className="text-lg font-medium">{result.spaceName}</p>
                 </div>
               )}
-              {result.pricing.dailyRate && (
-                <div className="flex justify-between text-slate-800">
-                  <span>Daily Rate:</span>
-                  <span className="font-medium">{result.pricing.dailyRate}</span>
+              
+              {result.availability && (
+                <div>
+                  <h3 className="text-sm font-medium text-slate-500 mb-1">Availability</h3>
+                  <p className="text-lg font-medium">{result.availability}</p>
                 </div>
               )}
-              {result.pricing.weekendRules && (
-                <div className="flex justify-between text-slate-800">
-                  <span>Weekend Rules:</span>
-                  <span className="font-medium">{result.pricing.weekendRules}</span>
+              
+              {result.allowedUsers && (
+                <div>
+                  <h3 className="text-sm font-medium text-slate-500 mb-1">Allowed Users</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {typeof result.allowedUsers === 'string' ? (
+                      <Badge variant="secondary" className="px-3 py-1 text-sm">
+                        {result.allowedUsers}
+                      </Badge>
+                    ) : (
+                      Array.isArray(result.allowedUsers) && result.allowedUsers.map((user, i) => (
+                        <Badge key={i} variant="secondary" className="px-3 py-1 text-sm">
+                          {user}
+                        </Badge>
+                      ))
+                    )}
+                  </div>
                 </div>
               )}
-            </div>
-          </div>
-          
-          <div>
-            <h3 className="text-sm font-medium text-slate-500 mb-1">Explanation</h3>
-            <p className="text-slate-800">{result.explanation}</p>
-          </div>
+              
+              {result.pricing && (
+                <div>
+                  <h3 className="text-sm font-medium text-slate-500 mb-1">Pricing</h3>
+                  <div className="bg-slate-50 p-3 rounded-md">
+                    {result.pricing.hourlyRate && (
+                      <div className="flex justify-between text-slate-800">
+                        <span>Hourly Rate:</span>
+                        <span className="font-medium">{result.pricing.hourlyRate}</span>
+                      </div>
+                    )}
+                    {result.pricing.dailyRate && (
+                      <div className="flex justify-between text-slate-800">
+                        <span>Daily Rate:</span>
+                        <span className="font-medium">{result.pricing.dailyRate}</span>
+                      </div>
+                    )}
+                    {result.pricing.weekendRules && (
+                      <div className="flex justify-between text-slate-800">
+                        <span>Weekend Rules:</span>
+                        <span className="font-medium">{result.pricing.weekendRules}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              {result.explanation && (
+                <div>
+                  <h3 className="text-sm font-medium text-slate-500 mb-1">Explanation</h3>
+                  <p className="text-slate-800">{result.explanation}</p>
+                </div>
+              )}
+            </>
+          )}
           
           {result.aiReasoning && (
             <div>
@@ -101,14 +137,39 @@ export function RuleModal({ result, isOpen, onClose }: RuleModalProps) {
             <h2 className="text-xl font-semibold text-slate-800 mb-6">Interactive Rule Configuration</h2>
             
             {/* Booking Conditions Block */}
-            <div className="mb-8">
-              <BookingConditionsBlock />
-            </div>
+            {(result.booking_conditions || !hasNewFormat) && (
+              <div className="mb-8">
+                <BookingConditionsBlock initialConditions={result.booking_conditions} />
+              </div>
+            )}
             
             {/* Pricing Rules Block */}
-            <div className="mb-4">
-              <PricingRulesBlock />
-            </div>
+            {(result.pricing_rules || !hasNewFormat) && (
+              <div className="mb-8">
+                <PricingRulesBlock initialRules={result.pricing_rules} />
+              </div>
+            )}
+
+            {/* Quota Rules Block */}
+            {result.quota_rules && result.quota_rules.length > 0 && (
+              <div className="mb-8">
+                <QuotaRulesBlock initialRules={result.quota_rules} />
+              </div>
+            )}
+
+            {/* Buffer Time Rules Block */}
+            {result.buffer_time_rules && result.buffer_time_rules.length > 0 && (
+              <div className="mb-8">
+                <BufferTimeRulesBlock initialRules={result.buffer_time_rules} />
+              </div>
+            )}
+
+            {/* Booking Window Rules Block */}
+            {result.booking_window_rules && result.booking_window_rules.length > 0 && (
+              <div className="mb-4">
+                <BookingWindowRulesBlock initialRules={result.booking_window_rules} />
+              </div>
+            )}
           </div>
         </div>
         

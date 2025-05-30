@@ -2,17 +2,7 @@
 import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-
-interface PricingRule {
-  timeRange: string;
-  weekdays: string[];
-  space: string;
-  price: string;
-  rateUnit: string;
-  conditionType: string;
-  conditionOperator: string;
-  conditionValue: string;
-}
+import { PricingRule } from "@/types/RuleResult";
 
 interface PricingRulesBlockProps {
   initialRules?: PricingRule[];
@@ -21,31 +11,40 @@ interface PricingRulesBlockProps {
 export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps) {
   const [rules, setRules] = useState<PricingRule[]>(
     initialRules.length > 0 ? initialRules : [{
-      timeRange: "09:00–22:00",
-      weekdays: ["Monday–Friday"],
-      space: "Space 1",
-      price: "25",
-      rateUnit: "per 1h",
-      conditionType: "it's duration",
-      conditionOperator: "is greater than",
-      conditionValue: "1h"
+      space: ["Space 1"],
+      time_range: "09:00–22:00",
+      days: ["Monday–Friday"],
+      rate: { amount: 25, unit: "per_hour" },
+      condition_type: "duration",
+      operator: "is_greater_than",
+      value: "1h",
+      explanation: "Default pricing rule"
     }]
   );
 
   const timeRangeOptions = ["00:00–24:00", "08:00–18:00", "09:00–17:00", "09:00–22:00", "18:00–24:00"];
   const weekdayOptions = ["Monday–Friday", "Saturday–Sunday", "Monday–Sunday", "Weekdays", "Weekends"];
   const spaceOptions = ["Space 1", "Space 2", "Conference Room A", "Studio 3", "Meeting Room B"];
-  const rateUnitOptions = ["fixed", "per 15min", "per 30min", "per 1h", "per 2h", "per day"];
+  const rateUnitOptions = ["fixed", "per_15min", "per_30min", "per_hour", "per_2hours", "per_day"];
   
-  const durationOperators = ["is less than", "is less than or equal to", "is greater than", "is greater than or equal to", "is equal to", "is not equal to", "is not a multiple of"];
-  const tagOperators = ["contains any of", "contains none of"];
+  const durationOperators = ["is_less_than", "is_less_than_or_equal_to", "is_greater_than", "is_greater_than_or_equal_to", "is_equal_to", "is_not_equal_to", "is_not_a_multiple_of"];
+  const tagOperators = ["contains_any_of", "contains_none_of"];
   
   const durationValues = ["15min", "30min", "1h", "1h30min", "2h", "3h", "4h", "6h", "8h", "12h", "24h"];
   const tagValues = ["The Team", "Gold Membership", "Premium Members", "Staff", "Public"];
 
-  const updateRule = (index: number, field: keyof PricingRule, value: string) => {
+  const updateRule = (index: number, field: keyof PricingRule, value: any) => {
     setRules(prev => prev.map((rule, i) => 
       i === index ? { ...rule, [field]: value } : rule
+    ));
+  };
+
+  const updateRateField = (index: number, field: 'amount' | 'unit', value: any) => {
+    setRules(prev => prev.map((rule, i) => 
+      i === index ? { 
+        ...rule, 
+        rate: { ...rule.rate, [field]: field === 'amount' ? parseFloat(value) || 0 : value }
+      } : rule
     ));
   };
 
@@ -58,7 +57,7 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <span className="text-slate-600">between</span>
             
-            <Select value={rule.timeRange} onValueChange={(value) => updateRule(index, 'timeRange', value)}>
+            <Select value={rule.time_range} onValueChange={(value) => updateRule(index, 'time_range', value)}>
               <SelectTrigger className="w-32">
                 <SelectValue />
               </SelectTrigger>
@@ -71,7 +70,7 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
             
             <span className="text-slate-600">on</span>
             
-            <Select value={rule.weekdays[0]} onValueChange={(value) => updateRule(index, 'weekdays', value)}>
+            <Select value={rule.days[0]} onValueChange={(value) => updateRule(index, 'days', [value])}>
               <SelectTrigger className="w-36">
                 <SelectValue />
               </SelectTrigger>
@@ -82,7 +81,7 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
               </SelectContent>
             </Select>
             
-            <Select value={rule.space} onValueChange={(value) => updateRule(index, 'space', value)}>
+            <Select value={rule.space[0]} onValueChange={(value) => updateRule(index, 'space', [value])}>
               <SelectTrigger className="w-32">
                 <SelectValue />
               </SelectTrigger>
@@ -97,57 +96,66 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
             
             <Input 
               type="number" 
-              value={rule.price} 
-              onChange={(e) => updateRule(index, 'price', e.target.value)}
+              value={rule.rate.amount} 
+              onChange={(e) => updateRateField(index, 'amount', e.target.value)}
               className="w-20"
               placeholder="25"
             />
             
-            <Select value={rule.rateUnit} onValueChange={(value) => updateRule(index, 'rateUnit', value)}>
-              <SelectTrigger className="w-24">
+            <Select value={rule.rate.unit} onValueChange={(value) => updateRateField(index, 'unit', value)}>
+              <SelectTrigger className="w-32">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {rateUnitOptions.map(unit => (
-                  <SelectItem key={unit} value={unit}>{unit}</SelectItem>
+                  <SelectItem key={unit} value={unit}>{unit.replace('_', ' ')}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
             
             <span className="text-slate-600">for a booking if</span>
             
-            <Select value={rule.conditionType} onValueChange={(value) => updateRule(index, 'conditionType', value)}>
+            <Select value={rule.condition_type} onValueChange={(value) => updateRule(index, 'condition_type', value)}>
               <SelectTrigger className="w-40">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="it's duration">it's duration</SelectItem>
-                <SelectItem value="the holder's set of tags">the holder's set of tags</SelectItem>
+                <SelectItem value="duration">it's duration</SelectItem>
+                <SelectItem value="user_tags">the holder's set of tags</SelectItem>
               </SelectContent>
             </Select>
             
-            <Select value={rule.conditionOperator} onValueChange={(value) => updateRule(index, 'conditionOperator', value)}>
+            <Select value={rule.operator} onValueChange={(value) => updateRule(index, 'operator', value)}>
               <SelectTrigger className="w-44">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {(rule.conditionType === "it's duration" ? durationOperators : tagOperators).map(operator => (
-                  <SelectItem key={operator} value={operator}>{operator}</SelectItem>
+                {(rule.condition_type === "duration" ? durationOperators : tagOperators).map(operator => (
+                  <SelectItem key={operator} value={operator}>{operator.replace(/_/g, ' ')}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
             
-            <Select value={rule.conditionValue} onValueChange={(value) => updateRule(index, 'conditionValue', value)}>
+            <Select 
+              value={Array.isArray(rule.value) ? rule.value[0] : rule.value} 
+              onValueChange={(value) => updateRule(index, 'value', rule.condition_type === "duration" ? value : [value])}
+            >
               <SelectTrigger className="w-32">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {(rule.conditionType === "it's duration" ? durationValues : tagValues).map(value => (
+                {(rule.condition_type === "duration" ? durationValues : tagValues).map(value => (
                   <SelectItem key={value} value={value}>{value}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
+          
+          {rule.explanation && (
+            <div className="mt-2 text-xs text-slate-600 bg-white p-2 rounded border">
+              {rule.explanation}
+            </div>
+          )}
         </div>
       ))}
     </div>
