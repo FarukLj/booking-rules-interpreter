@@ -33,8 +33,8 @@ export function BookingWindowRulesBlock({ initialRules = [] }: BookingWindowRule
   ];
   
   const constraintOptions = ["less than", "more than"];
-  const spaceOptions = ["Space 1", "Space 2", "Conference Room A", "Studio 3", "Meeting Room B", "Court A", "Gym"];
-  const tagOptions = ["Basic", "VIP", "Premium", "Member", "Staff", "The Team", "Gold Members", "Instructor"];
+  const spaceOptions = ["Space 1", "Space 2", "Conference Room A", "Studio 1", "Studio 2", "Studio 3", "Meeting Room B", "Court A", "Gym"];
+  const tagOptions = ["Basic", "VIP", "Premium", "Member", "Staff", "The Team", "Gold Members", "Instructor", "Pro Member", "Public", "Visitor"];
 
   const updateRule = (index: number, field: keyof BookingWindowRule, value: any) => {
     setRules(prev => prev.map((rule, i) => 
@@ -47,11 +47,13 @@ export function BookingWindowRulesBlock({ initialRules = [] }: BookingWindowRule
   };
 
   const getSelectedSpaces = (spaces: string[]) => {
+    if (spaces.length === 0) return "Select spaces";
     if (spaces.length <= 2) return spaces.join(", ");
     return `${spaces.slice(0, 2).join(", ")}...`;
   };
 
   const getSelectedTags = (tags: string[] = []) => {
+    if (tags.length === 0) return "Select tags";
     if (tags.length <= 2) return tags.join(", ");
     return `${tags.slice(0, 2).join(", ")}...`;
   };
@@ -92,9 +94,9 @@ export function BookingWindowRulesBlock({ initialRules = [] }: BookingWindowRule
               </Select>
               
               {(rule.user_scope === "users_with_tags" || rule.user_scope === "users_with_no_tags") && (
-                <Select value={getSelectedTags(rule.tags)}>
+                <Select>
                   <SelectTrigger className="w-32">
-                    <SelectValue placeholder="Select tags" />
+                    <SelectValue>{getSelectedTags(rule.tags)}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {tagOptions.map(tag => (
@@ -117,9 +119,9 @@ export function BookingWindowRulesBlock({ initialRules = [] }: BookingWindowRule
               
               <span className="text-slate-600">cannot make a booking for</span>
               
-              <Select value={getSelectedSpaces(rule.spaces)}>
+              <Select>
                 <SelectTrigger className="w-32">
-                  <SelectValue />
+                  <SelectValue>{getSelectedSpaces(rule.spaces)}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {spaceOptions.map(space => (

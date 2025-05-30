@@ -31,15 +31,13 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
   const timeOptions = Array.from({ length: 96 }, (_, i) => {
     const hour = Math.floor(i / 4);
     const minute = (i % 4) * 15;
-    const period = hour >= 12 ? 'PM' : 'AM';
-    const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-    return `${displayHour}:${minute.toString().padStart(2, '0')} ${period}`;
+    return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
   });
   
   const dayOptions = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-  const spaceOptions = ["Space 1", "Space 2", "Conference Room A", "Studio A", "Studio B", "Meeting Room B", "Court A", "Gym"];
+  const spaceOptions = ["Space 1", "Space 2", "Conference Room A", "Studio 1", "Studio 2", "Studio 3", "Meeting Room B", "Court A", "Gym"];
   const rateUnitOptions = ["fixed", "per_15min", "per_30min", "per_hour", "per_2hours", "per_day"];
-  const tagOptions = ["Public", "The Team", "Premium Members", "Gold Members", "Basic", "VIP", "Staff", "Instructor"];
+  const tagOptions = ["Public", "The Team", "Premium Members", "Gold Members", "Basic", "VIP", "Staff", "Instructor", "Pro Member", "Visitor"];
   
   const durationOperators = ["is_less_than", "is_less_than_or_equal_to", "is_greater_than", "is_greater_than_or_equal_to", "is_equal_to", "is_not_equal_to"];
   const tagOperators = ["contains_any_of", "contains_none_of"];
@@ -66,13 +64,30 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
   };
 
   const getSelectedSpaces = (spaces: string[]) => {
+    if (spaces.length === 0) return "Select spaces";
     if (spaces.length <= 2) return spaces.join(", ");
     return `${spaces.slice(0, 2).join(", ")}...`;
   };
 
   const getSelectedDays = (days: string[]) => {
+    if (days.length === 0) return "Select days";
+    if (days.length === 7) return "All days";
     if (days.length <= 2) return days.join(", ");
     return `${days.slice(0, 2).join(", ")}...`;
+  };
+
+  const getSelectedTags = (tags: string[] = []) => {
+    if (tags.length === 0) return "Select tags";
+    if (tags.length <= 2) return tags.join(", ");
+    return `${tags.slice(0, 2).join(", ")}...`;
+  };
+
+  const formatTimeDisplay = (time: string) => {
+    const hour = parseInt(time.split(':')[0]);
+    const minute = time.split(':')[1];
+    const period = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+    return `${displayHour}:${minute} ${period}`;
   };
 
   return (
@@ -85,9 +100,9 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
             <div className="flex flex-wrap items-center gap-2 text-sm">
               <span className="text-slate-600">For</span>
               
-              <Select value={getSelectedSpaces(rule.space)} onValueChange={(value) => updateRule(index, 'space', [value])}>
+              <Select>
                 <SelectTrigger className="w-40">
-                  <SelectValue />
+                  <SelectValue>{getSelectedSpaces(rule.space)}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {spaceOptions.map(space => (
@@ -114,11 +129,11 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
                 updateRule(index, 'time_range', `${value}–${endTime}`);
               }}>
                 <SelectTrigger className="w-24">
-                  <SelectValue placeholder="From" />
+                  <SelectValue>{formatTimeDisplay(rule.time_range.split('–')[0])}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {timeOptions.map(time => (
-                    <SelectItem key={time} value={time.replace(/\s(AM|PM)/, '').replace(':', '')}>{time}</SelectItem>
+                    <SelectItem key={time} value={time}>{formatTimeDisplay(time)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -130,20 +145,20 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
                 updateRule(index, 'time_range', `${startTime}–${value}`);
               }}>
                 <SelectTrigger className="w-24">
-                  <SelectValue placeholder="To" />
+                  <SelectValue>{formatTimeDisplay(rule.time_range.split('–')[1] || '17:00')}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {timeOptions.map(time => (
-                    <SelectItem key={time} value={time.replace(/\s(AM|PM)/, '').replace(':', '')}>{time}</SelectItem>
+                    <SelectItem key={time} value={time}>{formatTimeDisplay(time)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               
               <span className="text-slate-600">on</span>
               
-              <Select value={getSelectedDays(rule.days)}>
+              <Select>
                 <SelectTrigger className="w-32">
-                  <SelectValue />
+                  <SelectValue>{getSelectedDays(rule.days)}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {dayOptions.map(day => (
@@ -215,7 +230,12 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
                 onValueChange={(value) => updateRule(index, 'value', rule.condition_type === "duration" ? value : [value])}
               >
                 <SelectTrigger className="w-32">
-                  <SelectValue />
+                  <SelectValue>
+                    {rule.condition_type === "duration" 
+                      ? rule.value 
+                      : getSelectedTags(Array.isArray(rule.value) ? rule.value : [])
+                    }
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {rule.condition_type === "duration" ? (

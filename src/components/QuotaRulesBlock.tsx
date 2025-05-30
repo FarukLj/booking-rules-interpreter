@@ -40,9 +40,9 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
   ];
   
   const periodOptions = ["day", "week", "calendar month", "at any given moment"];
-  const spaceOptions = ["Space 1", "Space 2", "Conference Room A", "Studio A", "Studio B", "Meeting Room B", "Court A", "Gym"];
+  const spaceOptions = ["Space 1", "Space 2", "Conference Room A", "Studio 1", "Studio 2", "Studio 3", "Meeting Room B", "Court A", "Gym"];
   const considerationTimeOptions = ["any time of the week", "only the specific times"];
-  const tagOptions = ["Member", "VIP", "Premium", "Basic", "Staff", "The Team", "Gold Members", "Instructor"];
+  const tagOptions = ["Member", "VIP", "Premium", "Basic", "Staff", "The Team", "Gold Members", "Instructor", "Pro Member", "Public", "Visitor"];
   
   const hourOptions = Array.from({ length: 101 }, (_, i) => `${i}h`);
   const minuteOptions = ["0m", "15m", "30m", "45m"];
@@ -50,9 +50,7 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
   const timeOptions = Array.from({ length: 96 }, (_, i) => {
     const hour = Math.floor(i / 4);
     const minute = (i % 4) * 15;
-    const period = hour >= 12 ? 'PM' : 'AM';
-    const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-    return `${displayHour}:${minute.toString().padStart(2, '0')} ${period}`;
+    return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
   });
   
   const dayOptions = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -68,13 +66,22 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
   };
 
   const getSelectedSpaces = (spaces: string[]) => {
+    if (spaces.length === 0) return "Select spaces";
     if (spaces.length <= 2) return spaces.join(", ");
     return `${spaces.slice(0, 2).join(", ")}...`;
   };
 
   const getSelectedTags = (tags: string[] = []) => {
+    if (tags.length === 0) return "Select tags";
     if (tags.length <= 2) return tags.join(", ");
     return `${tags.slice(0, 2).join(", ")}...`;
+  };
+
+  const getSelectedDays = (days: string[] = dayOptions) => {
+    if (days.length === 0) return "Select days";
+    if (days.length === 7) return "All days";
+    if (days.length <= 2) return days.join(", ");
+    return `${days.slice(0, 2).join(", ")}...`;
   };
 
   const getTargetValue = (target: string) => {
@@ -84,6 +91,14 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
       case "group_with_tag": return "Group of users with the tag";
       default: return "Individuals";
     }
+  };
+
+  const formatTimeDisplay = (time: string) => {
+    const hour = parseInt(time.split(':')[0]);
+    const minute = time.split(':')[1];
+    const period = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+    return `${displayHour}:${minute} ${period}`;
   };
 
   return (
@@ -116,9 +131,9 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
               </Select>
               
               {(rule.target === "individuals_with_tags" || rule.target === "group_with_tag") && (
-                <Select value={getSelectedTags(rule.tags)}>
+                <Select>
                   <SelectTrigger className="w-32">
-                    <SelectValue placeholder="Select tags" />
+                    <SelectValue>{getSelectedTags(rule.tags)}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {tagOptions.map(tag => (
@@ -156,7 +171,7 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
               
               {rule.quota_type === 'time' ? (
                 <>
-                  <Select value={rule.value.toString().replace(/[hm]/g, '')} onValueChange={(value) => {
+                  <Select value={rule.value.toString().split('h')[0]} onValueChange={(value) => {
                     const minutes = rule.value.toString().includes('m') ? rule.value.toString().split('h')[1]?.replace('m', '') || '0' : '0';
                     updateRule(index, 'value', `${value}h${minutes}m`);
                   }}>
@@ -170,7 +185,7 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
                     </SelectContent>
                   </Select>
                   
-                  <Select value="0m" onValueChange={(value) => {
+                  <Select value={rule.value.toString().includes('m') ? rule.value.toString().split('h')[1] || '0m' : '0m'} onValueChange={(value) => {
                     const hours = rule.value.toString().split('h')[0] || '0';
                     updateRule(index, 'value', `${hours}h${value}`);
                   }}>
@@ -207,9 +222,9 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
                 </SelectContent>
               </Select>
               
-              <Select value={getSelectedSpaces(rule.affected_spaces)}>
+              <Select>
                 <SelectTrigger className="w-32">
-                  <SelectValue />
+                  <SelectValue>{getSelectedSpaces(rule.affected_spaces)}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {spaceOptions.map(space => (
@@ -250,11 +265,11 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
                     updateRule(index, 'time_range', `${value}–${endTime}`);
                   }}>
                     <SelectTrigger className="w-24">
-                      <SelectValue placeholder="From" />
+                      <SelectValue>{rule.time_range ? formatTimeDisplay(rule.time_range.split('–')[0]) : 'From'}</SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {timeOptions.map(time => (
-                        <SelectItem key={time} value={time.replace(/\s(AM|PM)/, '').replace(':', '')}>{time}</SelectItem>
+                        <SelectItem key={time} value={time}>{formatTimeDisplay(time)}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -266,20 +281,20 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
                     updateRule(index, 'time_range', `${startTime}–${value}`);
                   }}>
                     <SelectTrigger className="w-24">
-                      <SelectValue placeholder="To" />
+                      <SelectValue>{rule.time_range ? formatTimeDisplay(rule.time_range.split('–')[1]) : 'To'}</SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {timeOptions.map(time => (
-                        <SelectItem key={time} value={time.replace(/\s(AM|PM)/, '').replace(':', '')}>{time}</SelectItem>
+                        <SelectItem key={time} value={time}>{formatTimeDisplay(time)}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                   
                   <span className="text-slate-600">on</span>
                   
-                  <Select value="Selected days">
+                  <Select>
                     <SelectTrigger className="w-32">
-                      <SelectValue />
+                      <SelectValue>{getSelectedDays()}</SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {dayOptions.map(day => (

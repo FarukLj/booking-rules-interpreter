@@ -22,7 +22,7 @@ export function BufferTimeRulesBlock({ initialRules = [] }: BufferTimeRulesBlock
     new Array(Math.max(0, rules.length - 1)).fill("AND")
   );
 
-  const spaceOptions = ["Space 1", "Space 2", "Conference Room A", "Studio 1", "Studio 2", "Meeting Room B", "Court A", "Gym"];
+  const spaceOptions = ["Space 1", "Space 2", "Conference Room A", "Studio 1", "Studio 2", "Studio 3", "Meeting Room B", "Court A", "Gym"];
   
   // Generate buffer time options from 15m to 24h in 15-minute increments
   const durationOptions = [];
@@ -44,6 +44,7 @@ export function BufferTimeRulesBlock({ initialRules = [] }: BufferTimeRulesBlock
   };
 
   const getSelectedSpaces = (spaces: string[]) => {
+    if (spaces.length === 0) return "Select spaces";
     if (spaces.length <= 2) return spaces.join(", ");
     return `${spaces.slice(0, 2).join(", ")}...`;
   };
@@ -58,9 +59,9 @@ export function BufferTimeRulesBlock({ initialRules = [] }: BufferTimeRulesBlock
             <div className="flex flex-wrap items-center gap-2 text-sm">
               <span className="text-slate-600">For</span>
               
-              <Select value={getSelectedSpaces(rule.spaces)}>
+              <Select>
                 <SelectTrigger className="w-40">
-                  <SelectValue />
+                  <SelectValue>{getSelectedSpaces(rule.spaces)}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {spaceOptions.map(space => (

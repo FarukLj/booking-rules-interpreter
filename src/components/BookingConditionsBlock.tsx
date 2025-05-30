@@ -25,17 +25,17 @@ export function BookingConditionsBlock({ initialConditions = [] }: BookingCondit
     new Array(Math.max(0, conditions.length - 1)).fill("AND")
   );
 
-  const spaceOptions = ["Space 1", "Space 2", "Conference Room A", "Studio A", "Studio B", "Meeting Room B", "Court A", "Gym"];
+  const spaceOptions = ["Space 1", "Space 2", "Conference Room A", "Studio 1", "Studio 2", "Studio 3", "Meeting Room B", "Court A", "Gym"];
   const timeOptions = Array.from({ length: 96 }, (_, i) => {
     const hour = Math.floor(i / 4);
     const minute = (i % 4) * 15;
     const period = hour >= 12 ? 'PM' : 'AM';
     const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-    return `${displayHour}:${minute.toString().padStart(2, '0')} ${period}`;
+    return `${displayHour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
   });
   
   const dayOptions = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-  const tagOptions = ["Public", "The Team", "Premium Members", "Gold Members", "Basic", "VIP", "Staff", "Instructor"];
+  const tagOptions = ["Public", "The Team", "Premium Members", "Gold Members", "Basic", "VIP", "Staff", "Instructor", "Pro Member", "Visitor"];
   
   const durationOperators = ["is_less_than", "is_less_than_or_equal_to", "is_greater_than", "is_greater_than_or_equal_to", "is_equal_to", "is_not_equal_to"];
   const tagOperators = ["contains_any_of", "contains_none_of"];
@@ -53,8 +53,30 @@ export function BookingConditionsBlock({ initialConditions = [] }: BookingCondit
   };
 
   const getSelectedSpaces = (spaces: string[]) => {
+    if (spaces.length === 0) return "Select spaces";
     if (spaces.length <= 2) return spaces.join(", ");
     return `${spaces.slice(0, 2).join(", ")}...`;
+  };
+
+  const getSelectedDays = (days: string[] = dayOptions) => {
+    if (days.length === 0) return "Select days";
+    if (days.length === 7) return "All days";
+    if (days.length <= 2) return days.join(", ");
+    return `${days.slice(0, 2).join(", ")}...`;
+  };
+
+  const getSelectedTags = (tags: string[] = []) => {
+    if (tags.length === 0) return "Select tags";
+    if (tags.length <= 2) return tags.join(", ");
+    return `${tags.slice(0, 2).join(", ")}...`;
+  };
+
+  const formatTimeDisplay = (time: string) => {
+    const hour = parseInt(time.split(':')[0]);
+    const minute = time.split(':')[1];
+    const period = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+    return `${displayHour}:${minute} ${period}`;
   };
 
   return (
@@ -67,9 +89,9 @@ export function BookingConditionsBlock({ initialConditions = [] }: BookingCondit
             <div className="flex flex-wrap items-center gap-2 text-sm">
               <span className="text-slate-600">For</span>
               
-              <Select value={getSelectedSpaces(condition.space)} onValueChange={(value) => updateCondition(index, 'space', [value])}>
+              <Select>
                 <SelectTrigger className="w-40">
-                  <SelectValue />
+                  <SelectValue>{getSelectedSpaces(condition.space)}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {spaceOptions.map(space => (
@@ -96,11 +118,11 @@ export function BookingConditionsBlock({ initialConditions = [] }: BookingCondit
                 updateCondition(index, 'time_range', `${value}–${endTime}`);
               }}>
                 <SelectTrigger className="w-24">
-                  <SelectValue placeholder="From" />
+                  <SelectValue>{formatTimeDisplay(condition.time_range.split('–')[0])}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {timeOptions.map(time => (
-                    <SelectItem key={time} value={time.replace(/\s(AM|PM)/, '').replace(':', '')}>{time}</SelectItem>
+                    <SelectItem key={time} value={time}>{formatTimeDisplay(time)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -112,20 +134,20 @@ export function BookingConditionsBlock({ initialConditions = [] }: BookingCondit
                 updateCondition(index, 'time_range', `${startTime}–${value}`);
               }}>
                 <SelectTrigger className="w-24">
-                  <SelectValue placeholder="To" />
+                  <SelectValue>{formatTimeDisplay(condition.time_range.split('–')[1] || '17:00')}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {timeOptions.map(time => (
-                    <SelectItem key={time} value={time.replace(/\s(AM|PM)/, '').replace(':', '')}>{time}</SelectItem>
+                    <SelectItem key={time} value={time}>{formatTimeDisplay(time)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               
               <span className="text-slate-600">on</span>
               
-              <Select value="Selected days">
+              <Select>
                 <SelectTrigger className="w-32">
-                  <SelectValue />
+                  <SelectValue>{getSelectedDays()}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {dayOptions.map(day => (
@@ -165,7 +187,12 @@ export function BookingConditionsBlock({ initialConditions = [] }: BookingCondit
                 onValueChange={(value) => updateCondition(index, 'value', condition.condition_type === "duration" ? value : [value])}
               >
                 <SelectTrigger className="w-32">
-                  <SelectValue />
+                  <SelectValue>
+                    {condition.condition_type === "duration" 
+                      ? condition.value 
+                      : getSelectedTags(Array.isArray(condition.value) ? condition.value : [])
+                    }
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {condition.condition_type === "duration" ? (
