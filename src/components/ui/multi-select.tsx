@@ -26,24 +26,6 @@ export function MultiSelect({
   placeholder = "Select items",
   className
 }: MultiSelectProps) {
-  const getDisplayValue = () => {
-    if (selected.length === 0) {
-      return (
-        <span className="text-muted-foreground">{placeholder}</span>
-      );
-    }
-    
-    if (selected.length === 1) {
-      return selected[0];
-    }
-    
-    if (selected.length === 2) {
-      return selected.join(", ");
-    }
-    
-    return `${selected[0]} +${selected.length - 1} more`;
-  };
-
   const toggleItem = (item: string) => {
     const newSelected = selected.includes(item)
       ? selected.filter(s => s !== item)
@@ -57,6 +39,59 @@ export function MultiSelect({
     onSelectionChange(newSelected);
   };
 
+  const renderDisplayValue = () => {
+    if (!selected || selected.length === 0) {
+      return (
+        <span className="text-muted-foreground text-sm">{placeholder}</span>
+      );
+    }
+
+    if (selected.length === 1) {
+      return (
+        <div className="flex items-center gap-1">
+          <Badge variant="secondary" className="text-xs px-2 py-0.5 h-5">
+            {selected[0]}
+            <X
+              className="ml-1 h-3 w-3 cursor-pointer hover:text-destructive"
+              onClick={(e) => removeItem(selected[0], e)}
+            />
+          </Badge>
+        </div>
+      );
+    }
+
+    if (selected.length === 2) {
+      return (
+        <div className="flex items-center gap-1 flex-wrap">
+          {selected.map((item) => (
+            <Badge key={item} variant="secondary" className="text-xs px-2 py-0.5 h-5">
+              {item}
+              <X
+                className="ml-1 h-3 w-3 cursor-pointer hover:text-destructive"
+                onClick={(e) => removeItem(item, e)}
+              />
+            </Badge>
+          ))}
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex items-center gap-1">
+        <Badge variant="secondary" className="text-xs px-2 py-0.5 h-5">
+          {selected[0]}
+          <X
+            className="ml-1 h-3 w-3 cursor-pointer hover:text-destructive"
+            onClick={(e) => removeItem(selected[0], e)}
+          />
+        </Badge>
+        <span className="text-xs text-slate-600 font-medium">
+          +{selected.length - 1} more
+        </span>
+      </div>
+    );
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -64,49 +99,18 @@ export function MultiSelect({
           variant="outline"
           role="combobox"
           className={cn(
-            "justify-between font-normal",
+            "justify-between font-normal min-h-[2.5rem] h-auto",
             selected.length === 0 && "text-muted-foreground",
             className
           )}
         >
-          <div className="flex items-center gap-1 flex-1 min-w-0">
-            {selected.length === 0 ? (
-              <span>{placeholder}</span>
-            ) : selected.length <= 2 ? (
-              <div className="flex flex-wrap gap-1">
-                {selected.map((item) => (
-                  <Badge
-                    key={item}
-                    variant="secondary"
-                    className="text-xs px-1 py-0 h-5"
-                  >
-                    {item}
-                    <X
-                      className="ml-1 h-3 w-3 cursor-pointer hover:text-destructive"
-                      onClick={(e) => removeItem(item, e)}
-                    />
-                  </Badge>
-                ))}
-              </div>
-            ) : (
-              <div className="flex items-center gap-1">
-                <Badge variant="secondary" className="text-xs px-1 py-0 h-5">
-                  {selected[0]}
-                  <X
-                    className="ml-1 h-3 w-3 cursor-pointer hover:text-destructive"
-                    onClick={(e) => removeItem(selected[0], e)}
-                  />
-                </Badge>
-                <span className="text-xs text-muted-foreground">
-                  +{selected.length - 1} more
-                </span>
-              </div>
-            )}
+          <div className="flex items-center gap-1 flex-1 min-w-0 py-1">
+            {renderDisplayValue()}
           </div>
-          <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
+          <ChevronDown className="h-4 w-4 opacity-50 shrink-0 ml-2" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-56" align="start">
+      <DropdownMenuContent className="w-56 max-h-64 overflow-y-auto" align="start">
         {options.map((option) => (
           <DropdownMenuItem
             key={option}

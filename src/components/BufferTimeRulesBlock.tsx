@@ -55,7 +55,7 @@ export function BufferTimeRulesBlock({ initialRules = [] }: BufferTimeRulesBlock
               
               <MultiSelect
                 options={spaceOptions}
-                selected={rule.spaces}
+                selected={rule.spaces || []}
                 onSelectionChange={(selected) => updateRule(index, 'spaces', selected)}
                 placeholder="Select spaces"
                 className="w-40"
@@ -63,9 +63,11 @@ export function BufferTimeRulesBlock({ initialRules = [] }: BufferTimeRulesBlock
               
               <span className="text-slate-600">, enforce a buffer time of</span>
               
-              <Select value={rule.buffer_duration} onValueChange={(value) => updateRule(index, 'buffer_duration', value)}>
+              <Select value={rule.buffer_duration || '30min'} onValueChange={(value) => updateRule(index, 'buffer_duration', value)}>
                 <SelectTrigger className="w-24">
-                  <SelectValue />
+                  <SelectValue placeholder="Duration">
+                    {rule.buffer_duration || '30min'}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {durationOptions.map(duration => (

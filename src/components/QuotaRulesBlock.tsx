@@ -65,9 +65,13 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
         <div key={index}>
           <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
             <div className="flex flex-wrap items-center gap-2 text-sm">
-              <Select value={rule.target} onValueChange={(value) => updateRule(index, 'target', value)}>
+              <Select value={rule.target || 'individuals'} onValueChange={(value) => updateRule(index, 'target', value)}>
                 <SelectTrigger className="w-44">
-                  <SelectValue />
+                  <SelectValue placeholder="Select target">
+                    {rule.target === "individuals" ? "Individuals" : 
+                     rule.target === "individuals_with_tags" ? "Individuals with tags" : 
+                     "Group with tag"}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="individuals">Individuals</SelectItem>
@@ -94,7 +98,7 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
               {rule.quota_type === "time" ? (
                 <input 
                   type="text" 
-                  value={rule.value} 
+                  value={rule.value || '2h'} 
                   onChange={(e) => updateRule(index, 'value', e.target.value)}
                   className="w-20 px-2 py-1 border border-input rounded-md text-sm"
                   placeholder="2h"
@@ -102,16 +106,18 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
               ) : (
                 <input 
                   type="number" 
-                  value={rule.value} 
+                  value={typeof rule.value === 'string' ? parseInt(rule.value) || 5 : rule.value || 5} 
                   onChange={(e) => updateRule(index, 'value', parseInt(e.target.value) || 0)}
                   className="w-20 px-2 py-1 border border-input rounded-md text-sm"
                   placeholder="5"
                 />
               )}
               
-              <Select value={rule.quota_type} onValueChange={(value) => updateRule(index, 'quota_type', value)}>
+              <Select value={rule.quota_type || 'time'} onValueChange={(value) => updateRule(index, 'quota_type', value)}>
                 <SelectTrigger className="w-20">
-                  <SelectValue />
+                  <SelectValue placeholder="Type">
+                    {rule.quota_type === "time" ? "time" : "bookings"}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="time">time</SelectItem>
@@ -121,9 +127,11 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
               
               <span className="text-slate-600">per</span>
               
-              <Select value={rule.period} onValueChange={(value) => updateRule(index, 'period', value)}>
+              <Select value={rule.period || 'day'} onValueChange={(value) => updateRule(index, 'period', value)}>
                 <SelectTrigger className="w-28">
-                  <SelectValue />
+                  <SelectValue placeholder="Period">
+                    {rule.period || 'day'}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="day">day</SelectItem>
@@ -137,7 +145,7 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
               
               <MultiSelect
                 options={spaceOptions}
-                selected={rule.affected_spaces}
+                selected={rule.affected_spaces || []}
                 onSelectionChange={(selected) => updateRule(index, 'affected_spaces', selected)}
                 placeholder="Select spaces"
                 className="w-40"
@@ -155,7 +163,9 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
                     }}
                   >
                     <SelectTrigger className="w-24">
-                      <SelectValue>{formatTimeDisplay(rule.time_range?.split('–')[0] || '09:00')}</SelectValue>
+                      <SelectValue placeholder="From">
+                        {formatTimeDisplay(rule.time_range?.split('–')[0] || '09:00')}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {timeOptions.map(time => (
@@ -174,7 +184,9 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
                     }}
                   >
                     <SelectTrigger className="w-24">
-                      <SelectValue>{formatTimeDisplay(rule.time_range?.split('–')[1] || '17:00')}</SelectValue>
+                      <SelectValue placeholder="To">
+                        {formatTimeDisplay(rule.time_range?.split('–')[1] || '17:00')}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {timeOptions.map(time => (
@@ -187,7 +199,7 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
                   
                   <MultiSelect
                     options={dayOptions}
-                    selected={rule.days || dayOptions}
+                    selected={rule.days || []}
                     onSelectionChange={(selected) => updateRule(index, 'days', selected)}
                     placeholder="Select days"
                     className="w-32"
@@ -198,9 +210,11 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
             
             <div className="mt-3 flex items-center gap-2 text-sm">
               <span className="text-slate-600">Consideration time:</span>
-              <Select value={rule.consideration_time} onValueChange={(value) => updateRule(index, 'consideration_time', value)}>
+              <Select value={rule.consideration_time || 'any_time'} onValueChange={(value) => updateRule(index, 'consideration_time', value)}>
                 <SelectTrigger className="w-32">
-                  <SelectValue />
+                  <SelectValue placeholder="Select time">
+                    {rule.consideration_time === "any_time" ? "Any time" : "Specific time"}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="any_time">Any time</SelectItem>

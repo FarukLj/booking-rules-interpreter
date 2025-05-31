@@ -90,7 +90,7 @@ export function BookingConditionsBlock({ initialConditions = [] }: BookingCondit
               
               <MultiSelect
                 options={spaceOptions}
-                selected={condition.space}
+                selected={condition.space || []}
                 onSelectionChange={(selected) => updateCondition(index, 'space', selected)}
                 placeholder="Select spaces"
                 className="w-40"
@@ -99,14 +99,16 @@ export function BookingConditionsBlock({ initialConditions = [] }: BookingCondit
               <span className="text-slate-600">from</span>
               
               <Select 
-                value={condition.time_range.split('–')[0]} 
+                value={condition.time_range?.split('–')[0] || '09:00'} 
                 onValueChange={(value) => {
-                  const endTime = condition.time_range.split('–')[1] || '17:00';
+                  const endTime = condition.time_range?.split('–')[1] || '17:00';
                   updateCondition(index, 'time_range', `${value}–${endTime}`);
                 }}
               >
                 <SelectTrigger className="w-24">
-                  <SelectValue>{formatTimeDisplay(condition.time_range.split('–')[0])}</SelectValue>
+                  <SelectValue placeholder="From">
+                    {formatTimeDisplay(condition.time_range?.split('–')[0] || '09:00')}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {timeOptions.map(time => (
@@ -118,14 +120,16 @@ export function BookingConditionsBlock({ initialConditions = [] }: BookingCondit
               <span className="text-slate-600">to</span>
               
               <Select 
-                value={condition.time_range.split('–')[1] || '17:00'} 
+                value={condition.time_range?.split('–')[1] || '17:00'} 
                 onValueChange={(value) => {
-                  const startTime = condition.time_range.split('–')[0] || '09:00';
+                  const startTime = condition.time_range?.split('–')[0] || '09:00';
                   updateCondition(index, 'time_range', `${startTime}–${value}`);
                 }}
               >
                 <SelectTrigger className="w-24">
-                  <SelectValue>{formatTimeDisplay(condition.time_range.split('–')[1] || '17:00')}</SelectValue>
+                  <SelectValue placeholder="To">
+                    {formatTimeDisplay(condition.time_range?.split('–')[1] || '17:00')}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {timeOptions.map(time => (
@@ -138,7 +142,7 @@ export function BookingConditionsBlock({ initialConditions = [] }: BookingCondit
               
               <MultiSelect
                 options={dayOptions}
-                selected={condition.days || dayOptions}
+                selected={condition.days || []}
                 onSelectionChange={(selected) => updateCondition(index, 'days', selected)}
                 placeholder="Select days"
                 className="w-32"
@@ -146,9 +150,11 @@ export function BookingConditionsBlock({ initialConditions = [] }: BookingCondit
               
               <span className="text-slate-600">, a booking is not allowed if</span>
               
-              <Select value={condition.condition_type} onValueChange={(value) => updateCondition(index, 'condition_type', value)}>
+              <Select value={condition.condition_type || 'duration'} onValueChange={(value) => updateCondition(index, 'condition_type', value)}>
                 <SelectTrigger className="w-40">
-                  <SelectValue />
+                  <SelectValue placeholder="Select condition">
+                    {condition.condition_type === "duration" ? "it's duration" : "the holder's set of tags"}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="duration">it's duration</SelectItem>
@@ -156,9 +162,11 @@ export function BookingConditionsBlock({ initialConditions = [] }: BookingCondit
                 </SelectContent>
               </Select>
               
-              <Select value={condition.operator} onValueChange={(value) => updateCondition(index, 'operator', value)}>
+              <Select value={condition.operator || 'is_less_than'} onValueChange={(value) => updateCondition(index, 'operator', value)}>
                 <SelectTrigger className="w-44">
-                  <SelectValue />
+                  <SelectValue placeholder="Select operator">
+                    {condition.operator?.replace(/_/g, ' ') || 'is less than'}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {(condition.condition_type === "duration" ? durationOperators : tagOperators).map(operator => (
@@ -169,11 +177,13 @@ export function BookingConditionsBlock({ initialConditions = [] }: BookingCondit
               
               {condition.condition_type === "duration" ? (
                 <Select 
-                  value={Array.isArray(condition.value) ? condition.value[0] : condition.value} 
+                  value={Array.isArray(condition.value) ? condition.value[0] : condition.value || '30min'} 
                   onValueChange={(value) => updateCondition(index, 'value', value)}
                 >
                   <SelectTrigger className="w-32">
-                    <SelectValue />
+                    <SelectValue placeholder="Select duration">
+                      {Array.isArray(condition.value) ? condition.value[0] : condition.value || '30min'}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {durationValues.map(value => (

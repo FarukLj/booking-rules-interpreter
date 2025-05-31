@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -46,9 +47,13 @@ export function BookingWindowRulesBlock({ initialRules = [] }: BookingWindowRule
         <div key={index}>
           <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
             <div className="flex flex-wrap items-center gap-2 text-sm">
-              <Select value={rule.user_scope} onValueChange={(value) => updateRule(index, 'user_scope', value)}>
+              <Select value={rule.user_scope || 'all_users'} onValueChange={(value) => updateRule(index, 'user_scope', value)}>
                 <SelectTrigger className="w-40">
-                  <SelectValue />
+                  <SelectValue placeholder="Select users">
+                    {rule.user_scope === "all_users" ? "All users" : 
+                     rule.user_scope === "users_with_tags" ? "Users with tags" : 
+                     "Users with no tags"}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all_users">All users</SelectItem>
@@ -72,9 +77,11 @@ export function BookingWindowRulesBlock({ initialRules = [] }: BookingWindowRule
               
               <span className="text-slate-600">can book</span>
               
-              <Select value={rule.constraint} onValueChange={(value) => updateRule(index, 'constraint', value)}>
+              <Select value={rule.constraint || 'less_than'} onValueChange={(value) => updateRule(index, 'constraint', value)}>
                 <SelectTrigger className="w-28">
-                  <SelectValue />
+                  <SelectValue placeholder="Constraint">
+                    {rule.constraint === "less_than" ? "less than" : "more than"}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="less_than">less than</SelectItem>
@@ -84,15 +91,17 @@ export function BookingWindowRulesBlock({ initialRules = [] }: BookingWindowRule
               
               <input 
                 type="number" 
-                value={rule.value} 
+                value={rule.value || 72} 
                 onChange={(e) => updateRule(index, 'value', parseInt(e.target.value) || 0)}
                 className="w-20 px-2 py-1 border border-input rounded-md text-sm"
                 placeholder="72"
               />
               
-              <Select value={rule.unit} onValueChange={(value) => updateRule(index, 'unit', value)}>
+              <Select value={rule.unit || 'hours'} onValueChange={(value) => updateRule(index, 'unit', value)}>
                 <SelectTrigger className="w-20">
-                  <SelectValue />
+                  <SelectValue placeholder="Unit">
+                    {rule.unit || 'hours'}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="hours">hours</SelectItem>
@@ -104,7 +113,7 @@ export function BookingWindowRulesBlock({ initialRules = [] }: BookingWindowRule
               
               <MultiSelect
                 options={spaceOptions}
-                selected={rule.spaces}
+                selected={rule.spaces || []}
                 onSelectionChange={(selected) => updateRule(index, 'spaces', selected)}
                 placeholder="Select spaces"
                 className="w-40"
