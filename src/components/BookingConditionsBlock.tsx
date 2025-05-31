@@ -98,10 +98,13 @@ export function BookingConditionsBlock({ initialConditions = [] }: BookingCondit
               
               <span className="text-slate-600">from</span>
               
-              <Select value={condition.time_range.split('–')[0]} onValueChange={(value) => {
-                const endTime = condition.time_range.split('–')[1] || '17:00';
-                updateCondition(index, 'time_range', `${value}–${endTime}`);
-              }}>
+              <Select 
+                value={condition.time_range.split('–')[0]} 
+                onValueChange={(value) => {
+                  const endTime = condition.time_range.split('–')[1] || '17:00';
+                  updateCondition(index, 'time_range', `${value}–${endTime}`);
+                }}
+              >
                 <SelectTrigger className="w-24">
                   <SelectValue>{formatTimeDisplay(condition.time_range.split('–')[0])}</SelectValue>
                 </SelectTrigger>
@@ -114,10 +117,13 @@ export function BookingConditionsBlock({ initialConditions = [] }: BookingCondit
               
               <span className="text-slate-600">to</span>
               
-              <Select value={condition.time_range.split('–')[1] || '17:00'} onValueChange={(value) => {
-                const startTime = condition.time_range.split('–')[0] || '09:00';
-                updateCondition(index, 'time_range', `${startTime}–${value}`);
-              }}>
+              <Select 
+                value={condition.time_range.split('–')[1] || '17:00'} 
+                onValueChange={(value) => {
+                  const startTime = condition.time_range.split('–')[0] || '09:00';
+                  updateCondition(index, 'time_range', `${startTime}–${value}`);
+                }}
+              >
                 <SelectTrigger className="w-24">
                   <SelectValue>{formatTimeDisplay(condition.time_range.split('–')[1] || '17:00')}</SelectValue>
                 </SelectTrigger>
@@ -167,7 +173,7 @@ export function BookingConditionsBlock({ initialConditions = [] }: BookingCondit
                   onValueChange={(value) => updateCondition(index, 'value', value)}
                 >
                   <SelectTrigger className="w-32">
-                    <SelectValue>{Array.isArray(condition.value) ? condition.value[0] : condition.value}</SelectValue>
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {durationValues.map(value => (

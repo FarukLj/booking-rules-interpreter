@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -102,10 +101,13 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
               
               <span className="text-slate-600">from</span>
               
-              <Select value={rule.time_range.split('–')[0]} onValueChange={(value) => {
-                const endTime = rule.time_range.split('–')[1] || '17:00';
-                updateRule(index, 'time_range', `${value}–${endTime}`);
-              }}>
+              <Select 
+                value={rule.time_range.split('–')[0]} 
+                onValueChange={(value) => {
+                  const endTime = rule.time_range.split('–')[1] || '17:00';
+                  updateRule(index, 'time_range', `${value}–${endTime}`);
+                }}
+              >
                 <SelectTrigger className="w-24">
                   <SelectValue>{formatTimeDisplay(rule.time_range.split('–')[0])}</SelectValue>
                 </SelectTrigger>
@@ -118,10 +120,13 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
               
               <span className="text-slate-600">to</span>
               
-              <Select value={rule.time_range.split('–')[1] || '17:00'} onValueChange={(value) => {
-                const startTime = rule.time_range.split('–')[0] || '09:00';
-                updateRule(index, 'time_range', `${startTime}–${value}`);
-              }}>
+              <Select 
+                value={rule.time_range.split('–')[1] || '17:00'} 
+                onValueChange={(value) => {
+                  const startTime = rule.time_range.split('–')[0] || '09:00';
+                  updateRule(index, 'time_range', `${startTime}–${value}`);
+                }}
+              >
                 <SelectTrigger className="w-24">
                   <SelectValue>{formatTimeDisplay(rule.time_range.split('–')[1] || '17:00')}</SelectValue>
                 </SelectTrigger>
@@ -195,7 +200,7 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
                   onValueChange={(value) => updateRule(index, 'value', value)}
                 >
                   <SelectTrigger className="w-32">
-                    <SelectValue>{Array.isArray(rule.value) ? rule.value[0] : rule.value}</SelectValue>
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {durationValues.map(value => (

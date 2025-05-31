@@ -1,8 +1,15 @@
 
 import * as React from "react";
-import { Select, SelectContent, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Check, ChevronDown, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 
 interface MultiSelectProps {
   options: string[];
@@ -20,10 +27,21 @@ export function MultiSelect({
   className
 }: MultiSelectProps) {
   const getDisplayValue = () => {
-    if (selected.length === 0) return placeholder;
-    if (selected.length === 1) return selected[0];
-    if (selected.length === 2) return selected.join(", ");
-    return `${selected.slice(0, 2).join(", ")} +${selected.length - 2}`;
+    if (selected.length === 0) {
+      return (
+        <span className="text-muted-foreground">{placeholder}</span>
+      );
+    }
+    
+    if (selected.length === 1) {
+      return selected[0];
+    }
+    
+    if (selected.length === 2) {
+      return selected.join(", ");
+    }
+    
+    return `${selected[0]} +${selected.length - 1} more`;
   };
 
   const toggleItem = (item: string) => {
@@ -33,25 +51,79 @@ export function MultiSelect({
     onSelectionChange(newSelected);
   };
 
+  const removeItem = (item: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newSelected = selected.filter(s => s !== item);
+    onSelectionChange(newSelected);
+  };
+
   return (
-    <Select>
-      <SelectTrigger className={cn("w-40", className)}>
-        <SelectValue>{getDisplayValue()}</SelectValue>
-      </SelectTrigger>
-      <SelectContent>
-        {options.map(option => (
-          <div 
-            key={option} 
-            className="flex items-center space-x-2 p-2 cursor-pointer hover:bg-slate-100" 
-            onClick={() => toggleItem(option)}
-          >
-            <Checkbox 
-              checked={selected.includes(option)}
-            />
-            <span className="text-sm">{option}</span>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          className={cn(
+            "justify-between font-normal",
+            selected.length === 0 && "text-muted-foreground",
+            className
+          )}
+        >
+          <div className="flex items-center gap-1 flex-1 min-w-0">
+            {selected.length === 0 ? (
+              <span>{placeholder}</span>
+            ) : selected.length <= 2 ? (
+              <div className="flex flex-wrap gap-1">
+                {selected.map((item) => (
+                  <Badge
+                    key={item}
+                    variant="secondary"
+                    className="text-xs px-1 py-0 h-5"
+                  >
+                    {item}
+                    <X
+                      className="ml-1 h-3 w-3 cursor-pointer hover:text-destructive"
+                      onClick={(e) => removeItem(item, e)}
+                    />
+                  </Badge>
+                ))}
+              </div>
+            ) : (
+              <div className="flex items-center gap-1">
+                <Badge variant="secondary" className="text-xs px-1 py-0 h-5">
+                  {selected[0]}
+                  <X
+                    className="ml-1 h-3 w-3 cursor-pointer hover:text-destructive"
+                    onClick={(e) => removeItem(selected[0], e)}
+                  />
+                </Badge>
+                <span className="text-xs text-muted-foreground">
+                  +{selected.length - 1} more
+                </span>
+              </div>
+            )}
           </div>
+          <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-56" align="start">
+        {options.map((option) => (
+          <DropdownMenuItem
+            key={option}
+            onClick={() => toggleItem(option)}
+            className="cursor-pointer"
+          >
+            <div className="flex items-center space-x-2 w-full">
+              <div className="flex h-4 w-4 items-center justify-center">
+                {selected.includes(option) && (
+                  <Check className="h-4 w-4 text-primary" />
+                )}
+              </div>
+              <span className="flex-1">{option}</span>
+            </div>
+          </DropdownMenuItem>
         ))}
-      </SelectContent>
-    </Select>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

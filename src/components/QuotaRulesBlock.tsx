@@ -92,19 +92,19 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
               <span className="text-slate-600">can book</span>
               
               {rule.quota_type === "time" ? (
-                <Input 
+                <input 
                   type="text" 
                   value={rule.value} 
                   onChange={(e) => updateRule(index, 'value', e.target.value)}
-                  className="w-20"
+                  className="w-20 px-2 py-1 border border-input rounded-md text-sm"
                   placeholder="2h"
                 />
               ) : (
-                <Input 
+                <input 
                   type="number" 
                   value={rule.value} 
                   onChange={(e) => updateRule(index, 'value', parseInt(e.target.value) || 0)}
-                  className="w-20"
+                  className="w-20 px-2 py-1 border border-input rounded-md text-sm"
                   placeholder="5"
                 />
               )}
@@ -147,10 +147,13 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
                 <>
                   <span className="text-slate-600">from</span>
                   
-                  <Select value={rule.time_range?.split('–')[0] || '09:00'} onValueChange={(value) => {
-                    const endTime = rule.time_range?.split('–')[1] || '17:00';
-                    updateRule(index, 'time_range', `${value}–${endTime}`);
-                  }}>
+                  <Select 
+                    value={rule.time_range?.split('–')[0] || '09:00'} 
+                    onValueChange={(value) => {
+                      const endTime = rule.time_range?.split('–')[1] || '17:00';
+                      updateRule(index, 'time_range', `${value}–${endTime}`);
+                    }}
+                  >
                     <SelectTrigger className="w-24">
                       <SelectValue>{formatTimeDisplay(rule.time_range?.split('–')[0] || '09:00')}</SelectValue>
                     </SelectTrigger>
@@ -163,10 +166,13 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
                   
                   <span className="text-slate-600">to</span>
                   
-                  <Select value={rule.time_range?.split('–')[1] || '17:00'} onValueChange={(value) => {
-                    const startTime = rule.time_range?.split('–')[0] || '09:00';
-                    updateRule(index, 'time_range', `${startTime}–${value}`);
-                  }}>
+                  <Select 
+                    value={rule.time_range?.split('–')[1] || '17:00'} 
+                    onValueChange={(value) => {
+                      const startTime = rule.time_range?.split('–')[0] || '09:00';
+                      updateRule(index, 'time_range', `${startTime}–${value}`);
+                    }}
+                  >
                     <SelectTrigger className="w-24">
                       <SelectValue>{formatTimeDisplay(rule.time_range?.split('–')[1] || '17:00')}</SelectValue>
                     </SelectTrigger>

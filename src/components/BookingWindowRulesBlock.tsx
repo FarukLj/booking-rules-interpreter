@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -83,11 +82,11 @@ export function BookingWindowRulesBlock({ initialRules = [] }: BookingWindowRule
                 </SelectContent>
               </Select>
               
-              <Input 
+              <input 
                 type="number" 
                 value={rule.value} 
                 onChange={(e) => updateRule(index, 'value', parseInt(e.target.value) || 0)}
-                className="w-20"
+                className="w-20 px-2 py-1 border border-input rounded-md text-sm"
                 placeholder="72"
               />
               
