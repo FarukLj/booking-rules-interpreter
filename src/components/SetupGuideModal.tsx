@@ -162,7 +162,7 @@ export function SetupGuideModal({ result, isOpen, onClose }: SetupGuideModalProp
                         <Circle className="h-5 w-5 text-slate-400" />
                       )}
                     </Button>
-                  </div>
+                  </CardTitle>
                 </div>
                 <CardDescription className="text-slate-600">
                   {step.instruction}
