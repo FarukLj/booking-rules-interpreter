@@ -1,7 +1,7 @@
 
 import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
+import { MultiSelect } from "@/components/ui/multi-select";
 import { Toggle } from "@/components/ui/toggle";
 import { BufferTimeRule } from "@/types/RuleResult";
 
@@ -43,20 +43,6 @@ export function BufferTimeRulesBlock({ initialRules = [] }: BufferTimeRulesBlock
     setLogicOperators(prev => prev.map((op, i) => i === index ? operator : op));
   };
 
-  const getSelectedSpaces = (spaces: string[]) => {
-    if (spaces.length === 0) return "Select spaces";
-    if (spaces.length <= 2) return spaces.join(", ");
-    return `${spaces.slice(0, 2).join(", ")} +${spaces.length - 2}`;
-  };
-
-  const toggleSpace = (ruleIndex: number, space: string) => {
-    const rule = rules[ruleIndex];
-    const newSpaces = rule.spaces.includes(space)
-      ? rule.spaces.filter(s => s !== space)
-      : [...rule.spaces, space];
-    updateRule(ruleIndex, 'spaces', newSpaces);
-  };
-
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-semibold text-slate-800">Buffer Time Rules</h3>
@@ -67,21 +53,13 @@ export function BufferTimeRulesBlock({ initialRules = [] }: BufferTimeRulesBlock
             <div className="flex flex-wrap items-center gap-2 text-sm">
               <span className="text-slate-600">For</span>
               
-              <Select value={getSelectedSpaces(rule.spaces)}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Select spaces">{getSelectedSpaces(rule.spaces)}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {spaceOptions.map(space => (
-                    <div key={space} className="flex items-center space-x-2 p-2 cursor-pointer hover:bg-slate-100" onClick={() => toggleSpace(index, space)}>
-                      <Checkbox 
-                        checked={rule.spaces.includes(space)}
-                      />
-                      <span>{space}</span>
-                    </div>
-                  ))}
-                </SelectContent>
-              </Select>
+              <MultiSelect
+                options={spaceOptions}
+                selected={rule.spaces}
+                onSelectionChange={(selected) => updateRule(index, 'spaces', selected)}
+                placeholder="Select spaces"
+                className="w-40"
+              />
               
               <span className="text-slate-600">, enforce a buffer time of</span>
               

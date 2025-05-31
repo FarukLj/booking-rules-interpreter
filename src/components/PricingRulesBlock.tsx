@@ -2,9 +2,10 @@
 import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
+import { MultiSelect } from "@/components/ui/multi-select";
 import { Toggle } from "@/components/ui/toggle";
 import { PricingRule } from "@/types/RuleResult";
+import { Info } from "lucide-react";
 
 interface PricingRulesBlockProps {
   initialRules?: PricingRule[];
@@ -63,25 +64,6 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
     setLogicOperators(prev => prev.map((op, i) => i === index ? operator : op));
   };
 
-  const getSelectedSpaces = (spaces: string[]) => {
-    if (spaces.length === 0) return "Select spaces";
-    if (spaces.length <= 2) return spaces.join(", ");
-    return `${spaces.slice(0, 2).join(", ")} +${spaces.length - 2}`;
-  };
-
-  const getSelectedDays = (days: string[]) => {
-    if (days.length === 0) return "Select days";
-    if (days.length === 7) return "All days";
-    if (days.length <= 2) return days.join(", ");
-    return `${days.slice(0, 2).join(", ")} +${days.length - 2}`;
-  };
-
-  const getSelectedTags = (tags: string[] = []) => {
-    if (tags.length === 0) return "Select tags";
-    if (tags.length <= 2) return tags.join(", ");
-    return `${tags.slice(0, 2).join(", ")} +${tags.length - 2}`;
-  };
-
   const formatTimeDisplay = (time: string) => {
     const hour = parseInt(time.split(':')[0]);
     const minute = time.split(':')[1];
@@ -90,34 +72,19 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
     return `${displayHour}:${minute} ${period}`;
   };
 
-  const toggleSpace = (ruleIndex: number, space: string) => {
-    const rule = rules[ruleIndex];
-    const newSpaces = rule.space.includes(space)
-      ? rule.space.filter(s => s !== space)
-      : [...rule.space, space];
-    updateRule(ruleIndex, 'space', newSpaces);
-  };
-
-  const toggleDay = (ruleIndex: number, day: string) => {
-    const rule = rules[ruleIndex];
-    const newDays = rule.days.includes(day)
-      ? rule.days.filter(d => d !== day)
-      : [...rule.days, day];
-    updateRule(ruleIndex, 'days', newDays);
-  };
-
-  const toggleTag = (ruleIndex: number, tag: string) => {
-    const rule = rules[ruleIndex];
-    const currentTags = Array.isArray(rule.value) ? rule.value : [];
-    const newTags = currentTags.includes(tag)
-      ? currentTags.filter(t => t !== tag)
-      : [...currentTags, tag];
-    updateRule(ruleIndex, 'value', newTags);
+  const getLogicOperatorDescription = (operator: string) => {
+    return operator === "AND" ? "All conditions must be met" : "Any condition can trigger this rate";
   };
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-slate-800">Pricing Rules</h3>
+      <div className="flex items-center gap-2">
+        <h3 className="text-lg font-semibold text-slate-800">Pricing Rules</h3>
+        <div className="flex items-center gap-1 text-xs text-slate-500 bg-green-50 px-2 py-1 rounded">
+          <Info className="w-3 h-3" />
+          <span>Define rates and conditions for charging</span>
+        </div>
+      </div>
       
       {rules.map((rule, index) => (
         <div key={index}>
@@ -125,21 +92,13 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
             <div className="flex flex-wrap items-center gap-2 text-sm">
               <span className="text-slate-600">For</span>
               
-              <Select value={getSelectedSpaces(rule.space)}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Select spaces">{getSelectedSpaces(rule.space)}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {spaceOptions.map(space => (
-                    <div key={space} className="flex items-center space-x-2 p-2 cursor-pointer hover:bg-slate-100" onClick={() => toggleSpace(index, space)}>
-                      <Checkbox 
-                        checked={rule.space.includes(space)}
-                      />
-                      <span>{space}</span>
-                    </div>
-                  ))}
-                </SelectContent>
-              </Select>
+              <MultiSelect
+                options={spaceOptions}
+                selected={rule.space}
+                onSelectionChange={(selected) => updateRule(index, 'space', selected)}
+                placeholder="Select spaces"
+                className="w-40"
+              />
               
               <span className="text-slate-600">from</span>
               
@@ -175,21 +134,13 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
               
               <span className="text-slate-600">on</span>
               
-              <Select value={getSelectedDays(rule.days)}>
-                <SelectTrigger className="w-32">
-                  <SelectValue placeholder="Select days">{getSelectedDays(rule.days)}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {dayOptions.map(day => (
-                    <div key={day} className="flex items-center space-x-2 p-2 cursor-pointer hover:bg-slate-100" onClick={() => toggleDay(index, day)}>
-                      <Checkbox 
-                        checked={rule.days.includes(day)}
-                      />
-                      <span>{day}</span>
-                    </div>
-                  ))}
-                </SelectContent>
-              </Select>
+              <MultiSelect
+                options={dayOptions}
+                selected={rule.days}
+                onSelectionChange={(selected) => updateRule(index, 'days', selected)}
+                placeholder="Select days"
+                className="w-32"
+              />
               
               <span className="text-slate-600">, charge</span>
               
@@ -253,21 +204,13 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
                   </SelectContent>
                 </Select>
               ) : (
-                <Select value={getSelectedTags(Array.isArray(rule.value) ? rule.value : [])}>
-                  <SelectTrigger className="w-32">
-                    <SelectValue placeholder="Select tags">{getSelectedTags(Array.isArray(rule.value) ? rule.value : [])}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {tagOptions.map(tag => (
-                      <div key={tag} className="flex items-center space-x-2 p-2 cursor-pointer hover:bg-slate-100" onClick={() => toggleTag(index, tag)}>
-                        <Checkbox 
-                          checked={Array.isArray(rule.value) && rule.value.includes(tag)}
-                        />
-                        <span>{tag}</span>
-                      </div>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <MultiSelect
+                  options={tagOptions}
+                  selected={Array.isArray(rule.value) ? rule.value : []}
+                  onSelectionChange={(selected) => updateRule(index, 'value', selected)}
+                  placeholder="Select tags"
+                  className="w-32"
+                />
               )}
             </div>
             
@@ -280,21 +223,24 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
           
           {index < rules.length - 1 && (
             <div className="flex justify-center my-2">
-              <div className="flex items-center space-x-2">
-                <Toggle
-                  pressed={logicOperators[index] === "AND"}
-                  onPressedChange={(pressed) => updateLogicOperator(index, pressed ? "AND" : "OR")}
-                  className="w-12 h-8"
-                >
-                  AND
-                </Toggle>
-                <Toggle
-                  pressed={logicOperators[index] === "OR"}
-                  onPressedChange={(pressed) => updateLogicOperator(index, pressed ? "OR" : "AND")}
-                  className="w-12 h-8"
-                >
-                  OR
-                </Toggle>
+              <div className="flex flex-col items-center space-y-1">
+                <div className="flex items-center space-x-2">
+                  <Toggle
+                    pressed={logicOperators[index] === "AND"}
+                    onPressedChange={(pressed) => updateLogicOperator(index, pressed ? "AND" : "OR")}
+                    className="w-12 h-8"
+                  >
+                    AND
+                  </Toggle>
+                  <Toggle
+                    pressed={logicOperators[index] === "OR"}
+                    onPressedChange={(pressed) => updateLogicOperator(index, pressed ? "OR" : "AND")}
+                    className="w-12 h-8"
+                  >
+                    OR
+                  </Toggle>
+                </div>
+                <span className="text-xs text-slate-500">{getLogicOperatorDescription(logicOperators[index])}</span>
               </div>
             </div>
           )}

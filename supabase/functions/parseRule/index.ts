@@ -51,8 +51,16 @@ serve(async (req) => {
             role: "system",
             content: `You are an expert assistant helping venue managers create structured booking rule configurations based on natural language descriptions.
 
+IMPORTANT LOGIC RULES:
+- Booking Conditions define who is NOT allowed to book. When the user says 'Only X can book', return a condition that excludes everyone else by setting the tags to all other available tags except X.
+- Pricing Rules may include multiple blocks. Explain if they are alternatives (OR logic) or conditional combinations (AND logic).
+- Always structure time ranges as 'HH:MM–HH:MM' format with 15-minute increments (e.g., "09:00–17:00").
+- Always output a complete structured JSON per rule block, even if similar.
+
+Available tags for exclusion logic: ["Public", "The Team", "Premium Members", "Gold Members", "Basic", "VIP", "Staff", "Instructor", "Pro Member", "Visitor"]
+
 Return a JSON with these 5 rule categories:
-1. booking_conditions
+1. booking_conditions (defines restrictions - who CANNOT book)
 2. pricing_rules  
 3. quota_rules
 4. buffer_time_rules
@@ -65,18 +73,19 @@ Follow these schemas:
 booking_conditions: [
   {
     space: ["Space 1", "Space 2"],
-    time_range: "9am - 5pm",
+    time_range: "09:00–17:00",
+    days: ["Monday", "Tuesday"],
     condition_type: "duration" | "user_tags",
     operator: "is_greater_than" | "contains_any_of" | ...,
-    value: "1h" | ["Team", "Gold"],
-    explanation: "Clear description of this condition"
+    value: "1h" | ["Public", "Basic", "Visitor"] (all tags EXCEPT the allowed ones),
+    explanation: "Clear description of this restriction condition"
   }
 ]
 
 pricing_rules: [
   {
     space: ["Space 1"],
-    time_range: "5pm - 10pm", 
+    time_range: "17:00–22:00", 
     days: ["Monday", "Tuesday"],
     rate: { amount: 25, unit: "per_hour" },
     condition_type: "duration" | "user_tags",
@@ -95,7 +104,8 @@ quota_rules: [
     period: "day" | "week" | "month" | "at_any_time",
     affected_spaces: ["Gym", "Court A"],
     consideration_time: "any_time" | "specific_time",
-    time_range: "7am - 8pm",
+    time_range: "07:00–20:00",
+    days: ["Monday", "Tuesday"],
     explanation: "Clear description of this quota rule"
   }
 ]

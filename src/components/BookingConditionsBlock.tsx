@@ -1,9 +1,10 @@
 
 import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
+import { MultiSelect } from "@/components/ui/multi-select";
 import { Toggle } from "@/components/ui/toggle";
 import { BookingCondition } from "@/types/RuleResult";
+import { Info } from "lucide-react";
 
 interface BookingConditionsBlockProps {
   initialConditions?: BookingCondition[];
@@ -51,25 +52,6 @@ export function BookingConditionsBlock({ initialConditions = [] }: BookingCondit
     setLogicOperators(prev => prev.map((op, i) => i === index ? operator : op));
   };
 
-  const getSelectedSpaces = (spaces: string[]) => {
-    if (spaces.length === 0) return "Select spaces";
-    if (spaces.length <= 2) return spaces.join(", ");
-    return `${spaces.slice(0, 2).join(", ")} +${spaces.length - 2}`;
-  };
-
-  const getSelectedDays = (days: string[] = dayOptions) => {
-    if (days.length === 0) return "Select days";
-    if (days.length === 7) return "All days";
-    if (days.length <= 2) return days.join(", ");
-    return `${days.slice(0, 2).join(", ")} +${days.length - 2}`;
-  };
-
-  const getSelectedTags = (tags: string[] = []) => {
-    if (tags.length === 0) return "Select tags";
-    if (tags.length <= 2) return tags.join(", ");
-    return `${tags.slice(0, 2).join(", ")} +${tags.length - 2}`;
-  };
-
   const formatTimeDisplay = (time: string) => {
     const hour = parseInt(time.split(':')[0]);
     const minute = time.split(':')[1];
@@ -78,57 +60,41 @@ export function BookingConditionsBlock({ initialConditions = [] }: BookingCondit
     return `${displayHour}:${minute} ${period}`;
   };
 
-  const toggleSpace = (conditionIndex: number, space: string) => {
-    const condition = conditions[conditionIndex];
-    const newSpaces = condition.space.includes(space)
-      ? condition.space.filter(s => s !== space)
-      : [...condition.space, space];
-    updateCondition(conditionIndex, 'space', newSpaces);
-  };
-
-  const toggleDay = (conditionIndex: number, day: string) => {
-    const condition = conditions[conditionIndex];
-    const currentDays = condition.days || dayOptions;
-    const newDays = currentDays.includes(day)
-      ? currentDays.filter(d => d !== day)
-      : [...currentDays, day];
-    updateCondition(conditionIndex, 'days', newDays);
-  };
-
-  const toggleTag = (conditionIndex: number, tag: string) => {
-    const condition = conditions[conditionIndex];
-    const currentTags = Array.isArray(condition.value) ? condition.value : [];
-    const newTags = currentTags.includes(tag)
-      ? currentTags.filter(t => t !== tag)
-      : [...currentTags, tag];
-    updateCondition(conditionIndex, 'value', newTags);
+  const getLogicDescription = (condition: BookingCondition) => {
+    const spaces = condition.space.length > 2 ? `${condition.space.slice(0, 2).join(", ")} +${condition.space.length - 2}` : condition.space.join(", ");
+    const days = condition.days && condition.days.length > 2 ? `${condition.days.slice(0, 2).join(", ")} +${condition.days.length - 2}` : condition.days?.join(", ") || "All days";
+    const tags = Array.isArray(condition.value) ? (condition.value.length > 2 ? `${condition.value.slice(0, 2).join(", ")} +${condition.value.length - 2}` : condition.value.join(", ")) : condition.value;
+    
+    if (condition.condition_type === "user_tags") {
+      return `Booking is blocked for [${tags}] during ${condition.time_range} on ${days} in ${spaces}`;
+    } else {
+      return `Booking is blocked if duration ${condition.operator.replace(/_/g, ' ')} ${condition.value} during ${condition.time_range} on ${days} in ${spaces}`;
+    }
   };
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-slate-800">Booking Conditions</h3>
+      <div className="flex items-center gap-2">
+        <h3 className="text-lg font-semibold text-slate-800">Booking Conditions</h3>
+        <div className="flex items-center gap-1 text-xs text-slate-500 bg-blue-50 px-2 py-1 rounded">
+          <Info className="w-3 h-3" />
+          <span>Defines who CANNOT book (restriction logic)</span>
+        </div>
+      </div>
       
       {conditions.map((condition, index) => (
         <div key={index}>
           <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-            <div className="flex flex-wrap items-center gap-2 text-sm">
+            <div className="flex flex-wrap items-center gap-2 text-sm mb-3">
               <span className="text-slate-600">For</span>
               
-              <Select value={getSelectedSpaces(condition.space)}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Select spaces">{getSelectedSpaces(condition.space)}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {spaceOptions.map(space => (
-                    <div key={space} className="flex items-center space-x-2 p-2 cursor-pointer hover:bg-slate-100" onClick={() => toggleSpace(index, space)}>
-                      <Checkbox 
-                        checked={condition.space.includes(space)}
-                      />
-                      <span>{space}</span>
-                    </div>
-                  ))}
-                </SelectContent>
-              </Select>
+              <MultiSelect
+                options={spaceOptions}
+                selected={condition.space}
+                onSelectionChange={(selected) => updateCondition(index, 'space', selected)}
+                placeholder="Select spaces"
+                className="w-40"
+              />
               
               <span className="text-slate-600">from</span>
               
@@ -164,21 +130,13 @@ export function BookingConditionsBlock({ initialConditions = [] }: BookingCondit
               
               <span className="text-slate-600">on</span>
               
-              <Select value={getSelectedDays(condition.days)}>
-                <SelectTrigger className="w-32">
-                  <SelectValue placeholder="Select days">{getSelectedDays(condition.days)}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {dayOptions.map(day => (
-                    <div key={day} className="flex items-center space-x-2 p-2 cursor-pointer hover:bg-slate-100" onClick={() => toggleDay(index, day)}>
-                      <Checkbox 
-                        checked={(condition.days || dayOptions).includes(day)}
-                      />
-                      <span>{day}</span>
-                    </div>
-                  ))}
-                </SelectContent>
-              </Select>
+              <MultiSelect
+                options={dayOptions}
+                selected={condition.days || dayOptions}
+                onSelectionChange={(selected) => updateCondition(index, 'days', selected)}
+                placeholder="Select days"
+                className="w-32"
+              />
               
               <span className="text-slate-600">, a booking is not allowed if</span>
               
@@ -218,26 +176,22 @@ export function BookingConditionsBlock({ initialConditions = [] }: BookingCondit
                   </SelectContent>
                 </Select>
               ) : (
-                <Select value={getSelectedTags(Array.isArray(condition.value) ? condition.value : [])}>
-                  <SelectTrigger className="w-32">
-                    <SelectValue placeholder="Select tags">{getSelectedTags(Array.isArray(condition.value) ? condition.value : [])}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {tagOptions.map(tag => (
-                      <div key={tag} className="flex items-center space-x-2 p-2 cursor-pointer hover:bg-slate-100" onClick={() => toggleTag(index, tag)}>
-                        <Checkbox 
-                          checked={Array.isArray(condition.value) && condition.value.includes(tag)}
-                        />
-                        <span>{tag}</span>
-                      </div>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <MultiSelect
+                  options={tagOptions}
+                  selected={Array.isArray(condition.value) ? condition.value : []}
+                  onSelectionChange={(selected) => updateCondition(index, 'value', selected)}
+                  placeholder="Select excluded tags"
+                  className="w-40"
+                />
               )}
             </div>
             
+            <div className="mb-3 text-xs text-blue-700 bg-blue-50 p-2 rounded border border-blue-200">
+              <strong>Logic:</strong> {getLogicDescription(condition)}
+            </div>
+            
             {condition.explanation && (
-              <div className="mt-3 text-xs text-slate-600 bg-white p-2 rounded border">
+              <div className="text-xs text-slate-600 bg-white p-2 rounded border">
                 <strong>Explanation:</strong> {condition.explanation}
               </div>
             )}
