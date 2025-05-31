@@ -76,7 +76,6 @@ export function BufferTimeRulesBlock({ initialRules = [] }: BufferTimeRulesBlock
                     <div key={space} className="flex items-center space-x-2 p-2 cursor-pointer hover:bg-slate-100" onClick={() => toggleSpace(index, space)}>
                       <Checkbox 
                         checked={rule.spaces.includes(space)}
-                        readOnly
                       />
                       <span>{space}</span>
                     </div>

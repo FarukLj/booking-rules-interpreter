@@ -14,6 +14,7 @@ export function BookingConditionsBlock({ initialConditions = [] }: BookingCondit
     initialConditions.length > 0 ? initialConditions : [{
       space: ["Space 1"],
       time_range: "09:00–17:00",
+      days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
       condition_type: "duration",
       operator: "is_less_than",
       value: "30min",
@@ -122,7 +123,6 @@ export function BookingConditionsBlock({ initialConditions = [] }: BookingCondit
                     <div key={space} className="flex items-center space-x-2 p-2 cursor-pointer hover:bg-slate-100" onClick={() => toggleSpace(index, space)}>
                       <Checkbox 
                         checked={condition.space.includes(space)}
-                        readOnly
                       />
                       <span>{space}</span>
                     </div>
@@ -173,7 +173,6 @@ export function BookingConditionsBlock({ initialConditions = [] }: BookingCondit
                     <div key={day} className="flex items-center space-x-2 p-2 cursor-pointer hover:bg-slate-100" onClick={() => toggleDay(index, day)}>
                       <Checkbox 
                         checked={(condition.days || dayOptions).includes(day)}
-                        readOnly
                       />
                       <span>{day}</span>
                     </div>
@@ -228,7 +227,6 @@ export function BookingConditionsBlock({ initialConditions = [] }: BookingCondit
                       <div key={tag} className="flex items-center space-x-2 p-2 cursor-pointer hover:bg-slate-100" onClick={() => toggleTag(index, tag)}>
                         <Checkbox 
                           checked={Array.isArray(condition.value) && condition.value.includes(tag)}
-                          readOnly
                         />
                         <span>{tag}</span>
                       </div>

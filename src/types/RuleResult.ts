@@ -2,6 +2,7 @@
 export interface BookingCondition {
   space: string[];
   time_range: string;
+  days?: string[];
   condition_type: "duration" | "user_tags";
   operator: string;
   value: string | string[];
@@ -28,6 +29,7 @@ export interface QuotaRule {
   affected_spaces: string[];
   consideration_time: "any_time" | "specific_time";
   time_range?: string;
+  days?: string[];
   explanation: string;
 }
 

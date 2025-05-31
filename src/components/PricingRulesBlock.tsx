@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -133,7 +134,6 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
                     <div key={space} className="flex items-center space-x-2 p-2 cursor-pointer hover:bg-slate-100" onClick={() => toggleSpace(index, space)}>
                       <Checkbox 
                         checked={rule.space.includes(space)}
-                        readOnly
                       />
                       <span>{space}</span>
                     </div>
@@ -184,7 +184,6 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
                     <div key={day} className="flex items-center space-x-2 p-2 cursor-pointer hover:bg-slate-100" onClick={() => toggleDay(index, day)}>
                       <Checkbox 
                         checked={rule.days.includes(day)}
-                        readOnly
                       />
                       <span>{day}</span>
                     </div>
@@ -263,7 +262,6 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
                       <div key={tag} className="flex items-center space-x-2 p-2 cursor-pointer hover:bg-slate-100" onClick={() => toggleTag(index, tag)}>
                         <Checkbox 
                           checked={Array.isArray(rule.value) && rule.value.includes(tag)}
-                          readOnly
                         />
                         <span>{tag}</span>
                       </div>
