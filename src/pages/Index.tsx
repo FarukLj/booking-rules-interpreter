@@ -1,7 +1,7 @@
-
 import { useState } from "react";
 import { BookingRuleInput } from "@/components/BookingRuleInput";
 import { RuleModal } from "@/components/RuleModal";
+import { SetupGuideModal } from "@/components/SetupGuideModal";
 import { RuleResult } from "@/types/RuleResult";
 import { toast } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -37,6 +37,9 @@ const Index = () => {
       setIsLoading(false);
     }
   };
+
+  // Determine which modal to show based on the result format
+  const hasSetupGuide = ruleResult?.setup_guide && ruleResult.setup_guide.length > 0;
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
@@ -74,8 +77,8 @@ const Index = () => {
                 <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-3">
                   <span className="text-blue-600 font-bold">3</span>
                 </div>
-                <h3 className="font-medium mb-2">Review Results</h3>
-                <p className="text-slate-500 text-sm">Get a clear breakdown of the booking rule</p>
+                <h3 className="font-medium mb-2">Setup Guide</h3>
+                <p className="text-slate-500 text-sm">Follow step-by-step instructions to implement the rules</p>
               </div>
             </div>
           </div>
@@ -97,7 +100,16 @@ const Index = () => {
         </div>
       </footer>
       
-      {showModal && ruleResult && (
+      {/* Show Setup Guide Modal for new format, fallback to Regular Modal for legacy */}
+      {showModal && ruleResult && hasSetupGuide && (
+        <SetupGuideModal 
+          result={ruleResult} 
+          isOpen={showModal} 
+          onClose={() => setShowModal(false)} 
+        />
+      )}
+      
+      {showModal && ruleResult && !hasSetupGuide && (
         <RuleModal 
           result={ruleResult} 
           isOpen={showModal} 

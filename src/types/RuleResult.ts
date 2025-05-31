@@ -49,6 +49,13 @@ export interface BookingWindowRule {
   explanation: string;
 }
 
+export interface SetupGuideStep {
+  step_key: string;
+  title: string;
+  instruction: string;
+  rule_blocks?: any[];
+}
+
 export interface RuleResult {
   // Legacy fields for backward compatibility
   spaceName?: string;
@@ -69,4 +76,14 @@ export interface RuleResult {
   buffer_time_rules?: BufferTimeRule[];
   booking_window_rules?: BookingWindowRule[];
   summary?: string;
+
+  // New setup guide structure
+  parsed_rule_blocks?: {
+    booking_conditions?: BookingCondition[];
+    pricing_rules?: PricingRule[];
+    quota_rules?: QuotaRule[];
+    buffer_time_rules?: BufferTimeRule[];
+    booking_window_rules?: BookingWindowRule[];
+  };
+  setup_guide?: SetupGuideStep[];
 }
