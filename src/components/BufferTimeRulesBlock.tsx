@@ -50,37 +50,41 @@ export function BufferTimeRulesBlock({ initialRules = [] }: BufferTimeRulesBlock
       {rules.map((rule, index) => (
         <div key={index}>
           <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-            <div className="flex flex-wrap items-center gap-2 text-sm">
-              <span className="text-slate-600">For</span>
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3 mb-3">
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-slate-600 flex-shrink-0">For</span>
+                <MultiSelect
+                  options={spaceOptions}
+                  selected={rule.spaces || []}
+                  onSelectionChange={(selected) => updateRule(index, 'spaces', selected)}
+                  placeholder="Select spaces"
+                  className="flex-1 min-w-0"
+                />
+              </div>
               
-              <MultiSelect
-                options={spaceOptions}
-                selected={rule.spaces || []}
-                onSelectionChange={(selected) => updateRule(index, 'spaces', selected)}
-                placeholder="Select spaces"
-                className="w-40"
-              />
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-slate-600 flex-shrink-0">buffer time of</span>
+                <Select value={rule.buffer_duration || '30min'} onValueChange={(value) => updateRule(index, 'buffer_duration', value)}>
+                  <SelectTrigger className="flex-1 h-10">
+                    <SelectValue>
+                      {rule.buffer_duration || '30min'}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent className="z-50">
+                    {durationOptions.map(duration => (
+                      <SelectItem key={duration} value={duration}>{duration}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               
-              <span className="text-slate-600">, enforce a buffer time of</span>
-              
-              <Select value={rule.buffer_duration || '30min'} onValueChange={(value) => updateRule(index, 'buffer_duration', value)}>
-                <SelectTrigger className="w-24">
-                  <SelectValue placeholder="Duration">
-                    {rule.buffer_duration || '30min'}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {durationOptions.map(duration => (
-                    <SelectItem key={duration} value={duration}>{duration}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              
-              <span className="text-slate-600">between bookings</span>
+              <div className="flex items-center text-sm">
+                <span className="text-slate-600">between bookings</span>
+              </div>
             </div>
             
             {rule.explanation && (
-              <div className="mt-3 text-xs text-slate-600 bg-white p-2 rounded border">
+              <div className="text-xs text-slate-600 bg-white p-2 rounded border">
                 <strong>Explanation:</strong> {rule.explanation}
               </div>
             )}

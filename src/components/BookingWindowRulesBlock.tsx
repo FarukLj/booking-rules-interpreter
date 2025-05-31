@@ -1,7 +1,6 @@
 
 import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { Toggle } from "@/components/ui/toggle";
 import { BookingWindowRule } from "@/types/RuleResult";
@@ -46,82 +45,87 @@ export function BookingWindowRulesBlock({ initialRules = [] }: BookingWindowRule
       {rules.map((rule, index) => (
         <div key={index}>
           <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-            <div className="flex flex-wrap items-center gap-2 text-sm">
-              <Select value={rule.user_scope || 'all_users'} onValueChange={(value) => updateRule(index, 'user_scope', value)}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Select users">
-                    {rule.user_scope === "all_users" ? "All users" : 
-                     rule.user_scope === "users_with_tags" ? "Users with tags" : 
-                     "Users with no tags"}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all_users">All users</SelectItem>
-                  <SelectItem value="users_with_tags">Users with tags</SelectItem>
-                  <SelectItem value="users_with_no_tags">Users with no tags</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3 mb-3">
+              <div className="flex items-center gap-2 text-sm">
+                <Select value={rule.user_scope || 'all_users'} onValueChange={(value) => updateRule(index, 'user_scope', value)}>
+                  <SelectTrigger className="flex-1 h-10">
+                    <SelectValue>
+                      {rule.user_scope === "all_users" ? "All users" : 
+                       rule.user_scope === "users_with_tags" ? "Users with tags" : 
+                       "Users with no tags"}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent className="z-50">
+                    <SelectItem value="all_users">All users</SelectItem>
+                    <SelectItem value="users_with_tags">Users with tags</SelectItem>
+                    <SelectItem value="users_with_no_tags">Users with no tags</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               
               {rule.user_scope === "users_with_tags" && (
-                <>
-                  <span className="text-slate-600">with tags</span>
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-slate-600 flex-shrink-0">with tags</span>
                   <MultiSelect
                     options={tagOptions}
                     selected={rule.tags || []}
                     onSelectionChange={(selected) => updateRule(index, 'tags', selected)}
                     placeholder="Select tags"
-                    className="w-32"
+                    className="flex-1 min-w-0"
                   />
-                </>
+                </div>
               )}
               
-              <span className="text-slate-600">can book</span>
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-slate-600 flex-shrink-0">can book</span>
+                <Select value={rule.constraint || 'less_than'} onValueChange={(value) => updateRule(index, 'constraint', value)}>
+                  <SelectTrigger className="w-32 h-10">
+                    <SelectValue>
+                      {rule.constraint === "less_than" ? "less than" : "more than"}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent className="z-50">
+                    <SelectItem value="less_than">less than</SelectItem>
+                    <SelectItem value="more_than">more than</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               
-              <Select value={rule.constraint || 'less_than'} onValueChange={(value) => updateRule(index, 'constraint', value)}>
-                <SelectTrigger className="w-28">
-                  <SelectValue placeholder="Constraint">
-                    {rule.constraint === "less_than" ? "less than" : "more than"}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="less_than">less than</SelectItem>
-                  <SelectItem value="more_than">more than</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-2 text-sm">
+                <input 
+                  type="number" 
+                  value={rule.value || 72} 
+                  onChange={(e) => updateRule(index, 'value', parseInt(e.target.value) || 0)}
+                  className="w-20 px-2 py-2 border border-input rounded-md text-sm h-10"
+                  placeholder="72"
+                />
+                <Select value={rule.unit || 'hours'} onValueChange={(value) => updateRule(index, 'unit', value)}>
+                  <SelectTrigger className="w-24 h-10">
+                    <SelectValue>
+                      {rule.unit || 'hours'}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent className="z-50">
+                    <SelectItem value="hours">hours</SelectItem>
+                    <SelectItem value="days">days</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               
-              <input 
-                type="number" 
-                value={rule.value || 72} 
-                onChange={(e) => updateRule(index, 'value', parseInt(e.target.value) || 0)}
-                className="w-20 px-2 py-1 border border-input rounded-md text-sm"
-                placeholder="72"
-              />
-              
-              <Select value={rule.unit || 'hours'} onValueChange={(value) => updateRule(index, 'unit', value)}>
-                <SelectTrigger className="w-20">
-                  <SelectValue placeholder="Unit">
-                    {rule.unit || 'hours'}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="hours">hours</SelectItem>
-                  <SelectItem value="days">days</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              <span className="text-slate-600">in advance for</span>
-              
-              <MultiSelect
-                options={spaceOptions}
-                selected={rule.spaces || []}
-                onSelectionChange={(selected) => updateRule(index, 'spaces', selected)}
-                placeholder="Select spaces"
-                className="w-40"
-              />
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-slate-600 flex-shrink-0">in advance for</span>
+                <MultiSelect
+                  options={spaceOptions}
+                  selected={rule.spaces || []}
+                  onSelectionChange={(selected) => updateRule(index, 'spaces', selected)}
+                  placeholder="Select spaces"
+                  className="flex-1 min-w-0"
+                />
+              </div>
             </div>
             
             {rule.explanation && (
-              <div className="mt-3 text-xs text-slate-600 bg-white p-2 rounded border">
+              <div className="text-xs text-slate-600 bg-white p-2 rounded border">
                 <strong>Explanation:</strong> {rule.explanation}
               </div>
             )}

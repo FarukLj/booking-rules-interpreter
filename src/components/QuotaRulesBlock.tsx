@@ -1,7 +1,6 @@
 
 import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { Toggle } from "@/components/ui/toggle";
 import { QuotaRule } from "@/types/RuleResult";
@@ -64,97 +63,107 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
       {rules.map((rule, index) => (
         <div key={index}>
           <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-            <div className="flex flex-wrap items-center gap-2 text-sm">
-              <Select value={rule.target || 'individuals'} onValueChange={(value) => updateRule(index, 'target', value)}>
-                <SelectTrigger className="w-44">
-                  <SelectValue placeholder="Select target">
-                    {rule.target === "individuals" ? "Individuals" : 
-                     rule.target === "individuals_with_tags" ? "Individuals with tags" : 
-                     "Group with tag"}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="individuals">Individuals</SelectItem>
-                  <SelectItem value="individuals_with_tags">Individuals with tags</SelectItem>
-                  <SelectItem value="group_with_tag">Group with tag</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3 mb-3">
+              <div className="flex items-center gap-2 text-sm">
+                <Select value={rule.target || 'individuals'} onValueChange={(value) => updateRule(index, 'target', value)}>
+                  <SelectTrigger className="flex-1 h-10">
+                    <SelectValue>
+                      {rule.target === "individuals" ? "Individuals" : 
+                       rule.target === "individuals_with_tags" ? "Individuals with tags" : 
+                       "Group with tag"}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent className="z-50">
+                    <SelectItem value="individuals">Individuals</SelectItem>
+                    <SelectItem value="individuals_with_tags">Individuals with tags</SelectItem>
+                    <SelectItem value="group_with_tag">Group with tag</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               
               {(rule.target === "individuals_with_tags" || rule.target === "group_with_tag") && (
-                <>
-                  <span className="text-slate-600">with tags</span>
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-slate-600 flex-shrink-0">with tags</span>
                   <MultiSelect
                     options={tagOptions}
                     selected={rule.tags || []}
                     onSelectionChange={(selected) => updateRule(index, 'tags', selected)}
                     placeholder="Select tags"
-                    className="w-32"
+                    className="flex-1 min-w-0"
                   />
-                </>
+                </div>
               )}
               
-              <span className="text-slate-600">can book</span>
-              
-              {rule.quota_type === "time" ? (
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-slate-600 flex-shrink-0">can book</span>
                 <input 
-                  type="text" 
-                  value={rule.value || '2h'} 
-                  onChange={(e) => updateRule(index, 'value', e.target.value)}
-                  className="w-20 px-2 py-1 border border-input rounded-md text-sm"
-                  placeholder="2h"
+                  type={rule.quota_type === "time" ? "text" : "number"}
+                  value={rule.quota_type === "time" ? (rule.value || '2h') : (typeof rule.value === 'string' ? parseInt(rule.value) || 5 : rule.value || 5)}
+                  onChange={(e) => updateRule(index, 'value', rule.quota_type === "time" ? e.target.value : parseInt(e.target.value) || 0)}
+                  className="w-20 px-2 py-2 border border-input rounded-md text-sm h-10"
+                  placeholder={rule.quota_type === "time" ? "2h" : "5"}
                 />
-              ) : (
-                <input 
-                  type="number" 
-                  value={typeof rule.value === 'string' ? parseInt(rule.value) || 5 : rule.value || 5} 
-                  onChange={(e) => updateRule(index, 'value', parseInt(e.target.value) || 0)}
-                  className="w-20 px-2 py-1 border border-input rounded-md text-sm"
-                  placeholder="5"
+                <Select value={rule.quota_type || 'time'} onValueChange={(value) => updateRule(index, 'quota_type', value)}>
+                  <SelectTrigger className="w-24 h-10">
+                    <SelectValue>
+                      {rule.quota_type === "time" ? "time" : "bookings"}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent className="z-50">
+                    <SelectItem value="time">time</SelectItem>
+                    <SelectItem value="count">bookings</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-slate-600 flex-shrink-0">per</span>
+                <Select value={rule.period || 'day'} onValueChange={(value) => updateRule(index, 'period', value)}>
+                  <SelectTrigger className="flex-1 h-10">
+                    <SelectValue>
+                      {rule.period || 'day'}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent className="z-50">
+                    <SelectItem value="day">day</SelectItem>
+                    <SelectItem value="week">week</SelectItem>
+                    <SelectItem value="month">month</SelectItem>
+                    <SelectItem value="at_any_time">at any time</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-slate-600 flex-shrink-0">in</span>
+                <MultiSelect
+                  options={spaceOptions}
+                  selected={rule.affected_spaces || []}
+                  onSelectionChange={(selected) => updateRule(index, 'affected_spaces', selected)}
+                  placeholder="Select spaces"
+                  className="flex-1 min-w-0"
                 />
-              )}
+              </div>
               
-              <Select value={rule.quota_type || 'time'} onValueChange={(value) => updateRule(index, 'quota_type', value)}>
-                <SelectTrigger className="w-20">
-                  <SelectValue placeholder="Type">
-                    {rule.quota_type === "time" ? "time" : "bookings"}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="time">time</SelectItem>
-                  <SelectItem value="count">bookings</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              <span className="text-slate-600">per</span>
-              
-              <Select value={rule.period || 'day'} onValueChange={(value) => updateRule(index, 'period', value)}>
-                <SelectTrigger className="w-28">
-                  <SelectValue placeholder="Period">
-                    {rule.period || 'day'}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="day">day</SelectItem>
-                  <SelectItem value="week">week</SelectItem>
-                  <SelectItem value="month">month</SelectItem>
-                  <SelectItem value="at_any_time">at any time</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              <span className="text-slate-600">in</span>
-              
-              <MultiSelect
-                options={spaceOptions}
-                selected={rule.affected_spaces || []}
-                onSelectionChange={(selected) => updateRule(index, 'affected_spaces', selected)}
-                placeholder="Select spaces"
-                className="w-40"
-              />
-              
-              {rule.consideration_time === "specific_time" && (
-                <>
-                  <span className="text-slate-600">from</span>
-                  
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-slate-600 flex-shrink-0">Time:</span>
+                <Select value={rule.consideration_time || 'any_time'} onValueChange={(value) => updateRule(index, 'consideration_time', value)}>
+                  <SelectTrigger className="flex-1 h-10">
+                    <SelectValue>
+                      {rule.consideration_time === "any_time" ? "Any time" : "Specific time"}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent className="z-50">
+                    <SelectItem value="any_time">Any time</SelectItem>
+                    <SelectItem value="specific_time">Specific time</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            {rule.consideration_time === "specific_time" && (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-3">
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-slate-600 flex-shrink-0">from</span>
                   <Select 
                     value={rule.time_range?.split('–')[0] || '09:00'} 
                     onValueChange={(value) => {
@@ -162,20 +171,21 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
                       updateRule(index, 'time_range', `${value}–${endTime}`);
                     }}
                   >
-                    <SelectTrigger className="w-24">
-                      <SelectValue placeholder="From">
+                    <SelectTrigger className="flex-1 h-10">
+                      <SelectValue>
                         {formatTimeDisplay(rule.time_range?.split('–')[0] || '09:00')}
                       </SelectValue>
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="z-50">
                       {timeOptions.map(time => (
                         <SelectItem key={time} value={time}>{formatTimeDisplay(time)}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  
-                  <span className="text-slate-600">to</span>
-                  
+                </div>
+                
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-slate-600 flex-shrink-0">to</span>
                   <Select 
                     value={rule.time_range?.split('–')[1] || '17:00'} 
                     onValueChange={(value) => {
@@ -183,48 +193,34 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
                       updateRule(index, 'time_range', `${startTime}–${value}`);
                     }}
                   >
-                    <SelectTrigger className="w-24">
-                      <SelectValue placeholder="To">
+                    <SelectTrigger className="flex-1 h-10">
+                      <SelectValue>
                         {formatTimeDisplay(rule.time_range?.split('–')[1] || '17:00')}
                       </SelectValue>
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="z-50">
                       {timeOptions.map(time => (
                         <SelectItem key={time} value={time}>{formatTimeDisplay(time)}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  
-                  <span className="text-slate-600">on</span>
-                  
+                </div>
+                
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-slate-600 flex-shrink-0">on</span>
                   <MultiSelect
                     options={dayOptions}
                     selected={rule.days || []}
                     onSelectionChange={(selected) => updateRule(index, 'days', selected)}
                     placeholder="Select days"
-                    className="w-32"
+                    className="flex-1 min-w-0"
                   />
-                </>
-              )}
-            </div>
-            
-            <div className="mt-3 flex items-center gap-2 text-sm">
-              <span className="text-slate-600">Consideration time:</span>
-              <Select value={rule.consideration_time || 'any_time'} onValueChange={(value) => updateRule(index, 'consideration_time', value)}>
-                <SelectTrigger className="w-32">
-                  <SelectValue placeholder="Select time">
-                    {rule.consideration_time === "any_time" ? "Any time" : "Specific time"}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="any_time">Any time</SelectItem>
-                  <SelectItem value="specific_time">Specific time</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+                </div>
+              </div>
+            )}
             
             {rule.explanation && (
-              <div className="mt-3 text-xs text-slate-600 bg-white p-2 rounded border">
+              <div className="text-xs text-slate-600 bg-white p-2 rounded border">
                 <strong>Explanation:</strong> {rule.explanation}
               </div>
             )}

@@ -72,10 +72,6 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
     return `${displayHour}:${minute} ${period}`;
   };
 
-  const getLogicOperatorDescription = (operator: string) => {
-    return operator === "AND" ? "All conditions must be met" : "Any condition can trigger this rate";
-  };
-
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
@@ -89,151 +85,160 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
       {rules.map((rule, index) => (
         <div key={index}>
           <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-            <div className="flex flex-wrap items-center gap-2 text-sm">
-              <span className="text-slate-600">For</span>
-              
-              <MultiSelect
-                options={spaceOptions}
-                selected={rule.space || []}
-                onSelectionChange={(selected) => updateRule(index, 'space', selected)}
-                placeholder="Select spaces"
-                className="w-40"
-              />
-              
-              <span className="text-slate-600">from</span>
-              
-              <Select 
-                value={rule.time_range?.split('–')[0] || '09:00'} 
-                onValueChange={(value) => {
-                  const endTime = rule.time_range?.split('–')[1] || '17:00';
-                  updateRule(index, 'time_range', `${value}–${endTime}`);
-                }}
-              >
-                <SelectTrigger className="w-24">
-                  <SelectValue placeholder="From">
-                    {formatTimeDisplay(rule.time_range?.split('–')[0] || '09:00')}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {timeOptions.map(time => (
-                    <SelectItem key={time} value={time}>{formatTimeDisplay(time)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              
-              <span className="text-slate-600">to</span>
-              
-              <Select 
-                value={rule.time_range?.split('–')[1] || '17:00'} 
-                onValueChange={(value) => {
-                  const startTime = rule.time_range?.split('–')[0] || '09:00';
-                  updateRule(index, 'time_range', `${startTime}–${value}`);
-                }}
-              >
-                <SelectTrigger className="w-24">
-                  <SelectValue placeholder="To">
-                    {formatTimeDisplay(rule.time_range?.split('–')[1] || '17:00')}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {timeOptions.map(time => (
-                    <SelectItem key={time} value={time}>{formatTimeDisplay(time)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              
-              <span className="text-slate-600">on</span>
-              
-              <MultiSelect
-                options={dayOptions}
-                selected={rule.days || []}
-                onSelectionChange={(selected) => updateRule(index, 'days', selected)}
-                placeholder="Select days"
-                className="w-32"
-              />
-              
-              <span className="text-slate-600">, charge</span>
-              
-              <div className="flex items-center">
-                <span className="text-lg font-semibold mr-1">$</span>
-                <Input 
-                  type="number" 
-                  value={rule.rate?.amount || 25} 
-                  onChange={(e) => updateRateField(index, 'amount', e.target.value)}
-                  className="w-20"
-                  placeholder="25"
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3 mb-3">
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-slate-600 flex-shrink-0">For</span>
+                <MultiSelect
+                  options={spaceOptions}
+                  selected={rule.space || []}
+                  onSelectionChange={(selected) => updateRule(index, 'space', selected)}
+                  placeholder="Select spaces"
+                  className="flex-1 min-w-0"
                 />
               </div>
               
-              <Select value={rule.rate?.unit || 'per_hour'} onValueChange={(value) => updateRateField(index, 'unit', value)}>
-                <SelectTrigger className="w-32">
-                  <SelectValue placeholder="Select unit">
-                    {rule.rate?.unit?.replace('_', ' ') || 'per hour'}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {rateUnitOptions.map(unit => (
-                    <SelectItem key={unit} value={unit}>{unit.replace('_', ' ')}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              
-              <span className="text-slate-600">for a booking if</span>
-              
-              <Select value={rule.condition_type || 'duration'} onValueChange={(value) => updateRule(index, 'condition_type', value)}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Select condition">
-                    {rule.condition_type === "duration" ? "it's duration" : "the holder's set of tags"}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="duration">it's duration</SelectItem>
-                  <SelectItem value="user_tags">the holder's set of tags</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              <Select value={rule.operator || 'is_greater_than'} onValueChange={(value) => updateRule(index, 'operator', value)}>
-                <SelectTrigger className="w-44">
-                  <SelectValue placeholder="Select operator">
-                    {rule.operator?.replace(/_/g, ' ') || 'is greater than'}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {(rule.condition_type === "duration" ? durationOperators : tagOperators).map(operator => (
-                    <SelectItem key={operator} value={operator}>{operator.replace(/_/g, ' ')}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              
-              {rule.condition_type === "duration" ? (
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-slate-600 flex-shrink-0">from</span>
                 <Select 
-                  value={Array.isArray(rule.value) ? rule.value[0] : rule.value || '1h'} 
-                  onValueChange={(value) => updateRule(index, 'value', value)}
+                  value={rule.time_range?.split('–')[0] || '09:00'} 
+                  onValueChange={(value) => {
+                    const endTime = rule.time_range?.split('–')[1] || '17:00';
+                    updateRule(index, 'time_range', `${value}–${endTime}`);
+                  }}
                 >
-                  <SelectTrigger className="w-32">
-                    <SelectValue placeholder="Select duration">
-                      {Array.isArray(rule.value) ? rule.value[0] : rule.value || '1h'}
+                  <SelectTrigger className="flex-1 h-10">
+                    <SelectValue>
+                      {formatTimeDisplay(rule.time_range?.split('–')[0] || '09:00')}
                     </SelectValue>
                   </SelectTrigger>
-                  <SelectContent>
-                    {durationValues.map(value => (
-                      <SelectItem key={value} value={value}>{value}</SelectItem>
+                  <SelectContent className="z-50">
+                    {timeOptions.map(time => (
+                      <SelectItem key={time} value={time}>{formatTimeDisplay(time)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              ) : (
+              </div>
+              
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-slate-600 flex-shrink-0">to</span>
+                <Select 
+                  value={rule.time_range?.split('–')[1] || '17:00'} 
+                  onValueChange={(value) => {
+                    const startTime = rule.time_range?.split('–')[0] || '09:00';
+                    updateRule(index, 'time_range', `${startTime}–${value}`);
+                  }}
+                >
+                  <SelectTrigger className="flex-1 h-10">
+                    <SelectValue>
+                      {formatTimeDisplay(rule.time_range?.split('–')[1] || '17:00')}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent className="z-50">
+                    {timeOptions.map(time => (
+                      <SelectItem key={time} value={time}>{formatTimeDisplay(time)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-slate-600 flex-shrink-0">on</span>
                 <MultiSelect
-                  options={tagOptions}
-                  selected={Array.isArray(rule.value) ? rule.value : []}
-                  onSelectionChange={(selected) => updateRule(index, 'value', selected)}
-                  placeholder="Select tags"
-                  className="w-32"
+                  options={dayOptions}
+                  selected={rule.days || []}
+                  onSelectionChange={(selected) => updateRule(index, 'days', selected)}
+                  placeholder="Select days"
+                  className="flex-1 min-w-0"
                 />
-              )}
+              </div>
+              
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-slate-600 flex-shrink-0">charge</span>
+                <div className="flex items-center gap-1 flex-1">
+                  <span className="text-lg font-semibold">$</span>
+                  <Input 
+                    type="number" 
+                    value={rule.rate?.amount || 25} 
+                    onChange={(e) => updateRateField(index, 'amount', e.target.value)}
+                    className="w-20 h-10"
+                    placeholder="25"
+                  />
+                  <Select value={rule.rate?.unit || 'per_hour'} onValueChange={(value) => updateRateField(index, 'unit', value)}>
+                    <SelectTrigger className="flex-1 h-10">
+                      <SelectValue>
+                        {rule.rate?.unit?.replace('_', ' ') || 'per hour'}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent className="z-50">
+                      {rateUnitOptions.map(unit => (
+                        <SelectItem key={unit} value={unit}>{unit.replace('_', ' ')}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-slate-600 flex-shrink-0">if</span>
+                <Select value={rule.condition_type || 'duration'} onValueChange={(value) => updateRule(index, 'condition_type', value)}>
+                  <SelectTrigger className="flex-1 h-10">
+                    <SelectValue>
+                      {rule.condition_type === "duration" ? "duration" : "user tags"}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent className="z-50">
+                    <SelectItem value="duration">duration</SelectItem>
+                    <SelectItem value="user_tags">user tags</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="flex items-center gap-2 text-sm">
+                <Select value={rule.operator || 'is_greater_than'} onValueChange={(value) => updateRule(index, 'operator', value)}>
+                  <SelectTrigger className="flex-1 h-10">
+                    <SelectValue>
+                      {rule.operator?.replace(/_/g, ' ') || 'is greater than'}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent className="z-50">
+                    {(rule.condition_type === "duration" ? durationOperators : tagOperators).map(operator => (
+                      <SelectItem key={operator} value={operator}>{operator.replace(/_/g, ' ')}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="flex items-center gap-2 text-sm">
+                {rule.condition_type === "duration" ? (
+                  <Select 
+                    value={Array.isArray(rule.value) ? rule.value[0] : rule.value || '1h'} 
+                    onValueChange={(value) => updateRule(index, 'value', value)}
+                  >
+                    <SelectTrigger className="flex-1 h-10">
+                      <SelectValue>
+                        {Array.isArray(rule.value) ? rule.value[0] : rule.value || '1h'}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent className="z-50">
+                      {durationValues.map(value => (
+                        <SelectItem key={value} value={value}>{value}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <MultiSelect
+                    options={tagOptions}
+                    selected={Array.isArray(rule.value) ? rule.value : []}
+                    onSelectionChange={(selected) => updateRule(index, 'value', selected)}
+                    placeholder="Select tags"
+                    className="flex-1 min-w-0"
+                  />
+                )}
+              </div>
             </div>
             
             {rule.explanation && (
-              <div className="mt-3 text-xs text-slate-600 bg-white p-2 rounded border">
+              <div className="text-xs text-slate-600 bg-white p-2 rounded border">
                 <strong>Explanation:</strong> {rule.explanation}
               </div>
             )}
@@ -241,24 +246,21 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
           
           {index < rules.length - 1 && (
             <div className="flex justify-center my-2">
-              <div className="flex flex-col items-center space-y-1">
-                <div className="flex items-center space-x-2">
-                  <Toggle
-                    pressed={logicOperators[index] === "AND"}
-                    onPressedChange={(pressed) => updateLogicOperator(index, pressed ? "AND" : "OR")}
-                    className="w-12 h-8"
-                  >
-                    AND
-                  </Toggle>
-                  <Toggle
-                    pressed={logicOperators[index] === "OR"}
-                    onPressedChange={(pressed) => updateLogicOperator(index, pressed ? "OR" : "AND")}
-                    className="w-12 h-8"
-                  >
-                    OR
-                  </Toggle>
-                </div>
-                <span className="text-xs text-slate-500">{getLogicOperatorDescription(logicOperators[index])}</span>
+              <div className="flex items-center space-x-2">
+                <Toggle
+                  pressed={logicOperators[index] === "AND"}
+                  onPressedChange={(pressed) => updateLogicOperator(index, pressed ? "AND" : "OR")}
+                  className="w-12 h-8"
+                >
+                  AND
+                </Toggle>
+                <Toggle
+                  pressed={logicOperators[index] === "OR"}
+                  onPressedChange={(pressed) => updateLogicOperator(index, pressed ? "OR" : "AND")}
+                  className="w-12 h-8"
+                >
+                  OR
+                </Toggle>
               </div>
             </div>
           )}
