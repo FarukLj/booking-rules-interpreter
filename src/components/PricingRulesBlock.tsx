@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { MultiSelect } from "@/components/ui/multi-select";
@@ -28,6 +28,18 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
   const [logicOperators, setLogicOperators] = useState<string[]>(
     new Array(Math.max(0, rules.length - 1)).fill("AND")
   );
+
+  // Validation for positive pricing logic
+  useEffect(() => {
+    rules.forEach((rule, index) => {
+      if (rule.condition_type === "user_tags" && 
+          rule.operator === "contains_none_of" && 
+          Array.isArray(rule.value) && 
+          rule.value.length === 1) {
+        console.warn(`PricingRule ${index}: Logic appears double-negative. "contains none of" with single tag may be incorrect for pricing.`);
+      }
+    });
+  }, [rules]);
 
   const timeOptions = Array.from({ length: 96 }, (_, i) => {
     const hour = Math.floor(i / 4);
@@ -77,6 +89,15 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
     const period = hour >= 12 ? 'PM' : 'AM';
     const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
     return `${displayHour}:${minute} ${period}`;
+  };
+
+  const getPricingLogicText = (rule: PricingRule) => {
+    if (rule.condition_type === "user_tags") {
+      const operator = rule.operator === "contains_any_of" ? "with" : "without";
+      const tags = Array.isArray(rule.value) ? rule.value.join(", ") : "";
+      return `Price applies to users ${operator} tags: ${tags}`;
+    }
+    return "";
   };
 
   return (
@@ -177,7 +198,15 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
 
             <div className="flex flex-wrap items-center gap-2 text-sm mb-3">
               <span className="text-slate-600">for a booking if</span>
-              <Select value={rule.condition_type || 'duration'} onValueChange={(value) => updateRule(index, 'condition_type', value)}>
+              <Select value={rule.condition_type || 'duration'} onValueChange={(value) => {
+                updateRule(index, 'condition_type', value);
+                // Clear tag list when switching to duration
+                if (value === 'duration') {
+                  updateRule(index, 'value', '1h');
+                } else {
+                  updateRule(index, 'value', []);
+                }
+              }}>
                 <SelectTrigger className="w-32 h-10">
                   <SelectValue>
                     {rule.condition_type === "duration" ? "it's duration" : "the holder's set of tags"}
@@ -228,6 +257,12 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
                 />
               )}
             </div>
+            
+            {rule.condition_type === "user_tags" && (
+              <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded border mb-2">
+                <strong>Logic:</strong> {getPricingLogicText(rule)}
+              </div>
+            )}
             
             {rule.explanation && (
               <div className="text-xs text-slate-600 bg-white p-2 rounded border">

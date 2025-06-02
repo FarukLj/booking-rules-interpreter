@@ -78,6 +78,23 @@ When the user provides a prompt, return the following JSON structure:
 
 **NEVER use 'contains none of' with complement tags** (all tags except the allowed ones) - this creates double-negative logic.
 
+### CRITICAL: Pricing Rules Logic - POSITIVE INCLUSION ONLY:
+
+**PRICING RULES SPECIFY WHO GETS THE PRICE** (never negative logic):
+- Phrases: "[X] pay $Y", "[X] are charged $Y", "Rate for [X] is $Y"
+- Logic: Use 'contains any of' + [X] (price applies TO users with the tag)
+- Example: "Premium Members pay $50" → operator: "contains_any_of", value: ["Premium Members"]
+
+**PRICING EXCLUSION PATTERNS** (Everyone except X pays):
+- Phrases: "Everyone except [X] pays $Y", "All but [X] are charged $Y"
+- Logic: Use 'contains none of' + [X] (price applies to users WITHOUT the tag)
+- Example: "Everyone except Basic pays $100" → operator: "contains_none_of", value: ["Basic"]
+
+**NO TAG FILTER** (All users get this price):
+- Phrases: "All users pay $Y", "$Y for everyone", "Standard rate $Y"
+- Logic: No condition_type or use 'duration' condition instead
+- Example: "Studio costs $40/hour" → condition_type: "duration", operator: "is_greater_than", value: "0min"
+
 ### Booking Conditions Logic Rules:
 - Booking conditions define when a booking is NOT ALLOWED.
 - For exclusive access ("Only X can book"), use 'contains none of' + [X] to block users without tag X.
@@ -126,8 +143,8 @@ pricing_rules: [
     days: ["Monday", "Tuesday"],
     rate: { amount: 25, unit: "per_hour" },
     condition_type: "duration" | "user_tags",
-    operator: "is_less_than" | "contains_none_of" | ...,
-    value: "1h" | ["Guest"],
+    operator: "is_less_than" | "contains_any_of" | "contains_none_of" | ...,
+    value: "1h" | ["Premium Members"] (for user_tags: who GETS this price, not who doesn't),
     explanation: "Clear description of this pricing rule"
   }
 ]
@@ -186,7 +203,7 @@ Return a **clean JSON object** in this structure:
     {
       "step_key": "create_user_tags", 
       "title": "Step 2: Add user tags",
-      "instruction": "Go to Users > Manage Tags and add: [list specific tags]. Note: For exclusive access (Only X can book), use 'contains none of' with the allowed tag. For inclusive access (All except X), use 'contains any of' with the disallowed tag."
+      "instruction": "Go to Users > Manage Tags and add: [list specific tags]. Note: For booking conditions with exclusive access (Only X can book), use 'contains none of' with the allowed tag. For pricing rules, use 'contains any of' with tags that should receive the price."
     },
     {
       "step_key": "booking_conditions",
