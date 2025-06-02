@@ -69,6 +69,10 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
     }
   };
 
+  const shouldShowTagsDropdown = (target: string) => {
+    return target === "individuals_with_tags" || target === "individuals_with_no_tags" || target === "group_with_tag";
+  };
+
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-semibold text-slate-800">Quota Rules</h3>
@@ -92,7 +96,7 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
                 </SelectContent>
               </Select>
               
-              {(rule.target === "individuals_with_tags" || rule.target === "individuals_with_no_tags" || rule.target === "group_with_tag") && (
+              {shouldShowTagsDropdown(rule.target || 'individuals') && (
                 <MultiSelect
                   options={tagOptions}
                   selected={rule.tags || []}
