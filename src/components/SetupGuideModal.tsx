@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle, Circle, Settings, Users, Clock, DollarSign, Timer, Calendar } from "lucide-react";
+import { CheckCircle, Circle, Settings, Users, Clock, DollarSign, Timer, Calendar, Building } from "lucide-react";
 import { RuleResult, SetupGuideStep } from "@/types/RuleResult";
 import { BookingConditionsBlock } from "./BookingConditionsBlock";
 import { PricingRulesBlock } from "./PricingRulesBlock";
@@ -49,6 +49,8 @@ export function SetupGuideModal({ result, isOpen, onClose }: SetupGuideModalProp
     switch (stepKey) {
       case 'create_spaces':
         return <Settings className="h-5 w-5" />;
+      case 'hours_of_availability':
+        return <Building className="h-5 w-5" />;
       case 'create_user_tags':
         return <Users className="h-5 w-5" />;
       case 'booking_conditions':
@@ -105,6 +107,13 @@ export function SetupGuideModal({ result, isOpen, onClose }: SetupGuideModalProp
     const tags = new Set<string>();
     if (result.parsed_rule_blocks?.booking_conditions) {
       result.parsed_rule_blocks.booking_conditions.forEach(rule => {
+        if (Array.isArray(rule.value)) {
+          rule.value.forEach(tag => tags.add(tag));
+        }
+      });
+    }
+    if (result.parsed_rule_blocks?.pricing_rules) {
+      result.parsed_rule_blocks.pricing_rules.forEach(rule => {
         if (Array.isArray(rule.value)) {
           rule.value.forEach(tag => tags.add(tag));
         }
@@ -170,7 +179,7 @@ export function SetupGuideModal({ result, isOpen, onClose }: SetupGuideModalProp
               </CardHeader>
               
               <CardContent>
-                {/* Special content for spaces and tags steps */}
+                {/* Special content for spaces step */}
                 {step.step_key === 'create_spaces' && (
                   <div className="space-y-2">
                     <p className="text-sm font-medium text-slate-700">Required spaces:</p>
@@ -182,6 +191,25 @@ export function SetupGuideModal({ result, isOpen, onClose }: SetupGuideModalProp
                   </div>
                 )}
                 
+                {/* Special content for hours of availability step */}
+                {step.step_key === 'hours_of_availability' && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-slate-700">Recommended availability hours:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {getUniqueSpaces().map(space => (
+                        <Badge key={space} variant="outline">{space}: 07:00 AM – 09:00 PM</Badge>
+                      ))}
+                    </div>
+                    <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                      <p className="text-sm text-blue-800">
+                        <strong>Note:</strong> These hours define when spaces are available for booking. 
+                        You can adjust them based on your venue's operating schedule.
+                      </p>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Special content for tags step */}
                 {step.step_key === 'create_user_tags' && (
                   <div className="space-y-2">
                     <p className="text-sm font-medium text-slate-700">Required user tags:</p>

@@ -1,3 +1,4 @@
+
 export interface BookingCondition {
   space: string[];
   time_range: string;
@@ -8,6 +9,13 @@ export interface BookingCondition {
   explanation: string;
 }
 
+export interface SubCondition {
+  condition_type: "duration" | "user_tags";
+  operator: string;
+  value: string | string[];
+  logic: "AND" | "OR";
+}
+
 export interface PricingRule {
   space: string[];
   time_range: string;
@@ -16,6 +24,7 @@ export interface PricingRule {
   condition_type: "duration" | "user_tags";
   operator: string;
   value: string | string[];
+  sub_conditions?: SubCondition[];
   explanation: string;
 }
 
@@ -53,6 +62,8 @@ export interface SetupGuideStep {
   title: string;
   instruction: string;
   rule_blocks?: any[];
+  spaces?: string[];
+  times?: string;
 }
 
 export interface RuleResult {

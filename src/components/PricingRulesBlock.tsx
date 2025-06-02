@@ -5,15 +5,23 @@ import { Input } from "@/components/ui/input";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { Toggle } from "@/components/ui/toggle";
 import { PricingRule } from "@/types/RuleResult";
-import { Info } from "lucide-react";
+import { Info, Plus, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface PricingRulesBlockProps {
   initialRules?: PricingRule[];
 }
 
 export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps) {
+  // Sort rules: fixed rates first, then per-period rates
+  const sortedInitialRules = initialRules.sort((a, b) => {
+    if (a.rate?.unit === "fixed" && b.rate?.unit !== "fixed") return -1;
+    if (a.rate?.unit !== "fixed" && b.rate?.unit === "fixed") return 1;
+    return 0;
+  });
+  
   const [rules, setRules] = useState<PricingRule[]>(
-    initialRules.length > 0 ? initialRules : [{
+    sortedInitialRules.length > 0 ? sortedInitialRules : [{
       space: ["Space 1"],
       time_range: "09:00–17:00",
       days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
@@ -50,7 +58,7 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
   const dayOptions = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   const spaceOptions = ["Space 1", "Space 2", "Conference Room A", "Studio 1", "Studio 2", "Studio 3", "Meeting Room B", "Court A", "Gym"];
   const rateUnitOptions = ["fixed", "per_15min", "per_30min", "per_hour", "per_2hours", "per_day"];
-  const tagOptions = ["Public", "The Team", "Premium Members", "Gold Members", "Basic", "VIP", "Staff", "Instructor", "Pro Member", "Visitor"];
+  const tagOptions = ["Public", "The Team", "Premium Members", "Gold Members", "Basic", "VIP", "Staff", "Instructor", "Pro Member", "Visitor", "Coaches"];
   
   const durationOperators = [
     "is less than",
@@ -81,6 +89,43 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
 
   const updateLogicOperator = (index: number, operator: string) => {
     setLogicOperators(prev => prev.map((op, i) => i === index ? operator : op));
+  };
+
+  const addSubCondition = (ruleIndex: number) => {
+    setRules(prev => prev.map((rule, i) => 
+      i === ruleIndex ? { 
+        ...rule, 
+        sub_conditions: [
+          ...(rule.sub_conditions || []),
+          {
+            condition_type: "duration",
+            operator: "is_greater_than",
+            value: "1h",
+            logic: "AND"
+          }
+        ]
+      } : rule
+    ));
+  };
+
+  const removeSubCondition = (ruleIndex: number, subIndex: number) => {
+    setRules(prev => prev.map((rule, i) => 
+      i === ruleIndex ? { 
+        ...rule, 
+        sub_conditions: rule.sub_conditions?.filter((_, si) => si !== subIndex)
+      } : rule
+    ));
+  };
+
+  const updateSubCondition = (ruleIndex: number, subIndex: number, field: string, value: any) => {
+    setRules(prev => prev.map((rule, i) => 
+      i === ruleIndex ? { 
+        ...rule, 
+        sub_conditions: rule.sub_conditions?.map((sub, si) => 
+          si === subIndex ? { ...sub, [field]: value } : sub
+        )
+      } : rule
+    ));
   };
 
   const formatTimeDisplay = (time: string) => {
@@ -256,7 +301,97 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
                   className="min-w-0 max-w-[200px]"
                 />
               )}
+              
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => addSubCondition(index)}
+                className="h-8 px-2"
+              >
+                <Plus className="w-3 h-3 mr-1" />
+                Add condition
+              </Button>
             </div>
+
+            {/* Sub-conditions */}
+            {rule.sub_conditions && rule.sub_conditions.map((subCondition, subIndex) => (
+              <div key={subIndex} className="flex flex-wrap items-center gap-2 text-sm mb-2 ml-4 pl-4 border-l-2 border-slate-300">
+                <Select 
+                  value={subCondition.logic} 
+                  onValueChange={(value) => updateSubCondition(index, subIndex, 'logic', value)}
+                >
+                  <SelectTrigger className="w-16 h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="z-50">
+                    <SelectItem value="AND">AND</SelectItem>
+                    <SelectItem value="OR">OR</SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                <Select 
+                  value={subCondition.condition_type} 
+                  onValueChange={(value) => updateSubCondition(index, subIndex, 'condition_type', value)}
+                >
+                  <SelectTrigger className="w-32 h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="z-50">
+                    <SelectItem value="duration">it's duration</SelectItem>
+                    <SelectItem value="user_tags">the holder's set of tags</SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                <Select 
+                  value={subCondition.operator} 
+                  onValueChange={(value) => updateSubCondition(index, subIndex, 'operator', value)}
+                >
+                  <SelectTrigger className="min-w-[150px] h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="z-50">
+                    {(subCondition.condition_type === "duration" ? durationOperators : tagOperators).map(operator => (
+                      <SelectItem key={operator} value={operator.replace(/\s/g, '_')}>{operator}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                
+                {subCondition.condition_type === "duration" ? (
+                  <Select 
+                    value={Array.isArray(subCondition.value) ? subCondition.value[0] : subCondition.value || '1h'} 
+                    onValueChange={(value) => updateSubCondition(index, subIndex, 'value', value)}
+                  >
+                    <SelectTrigger className="w-20 h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="z-50">
+                      {durationValues.map(value => (
+                        <SelectItem key={value} value={value}>{value}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <MultiSelect
+                    options={tagOptions}
+                    selected={Array.isArray(subCondition.value) ? subCondition.value : []}
+                    onSelectionChange={(selected) => updateSubCondition(index, subIndex, 'value', selected)}
+                    placeholder="Select tags"
+                    className="min-w-0 max-w-[200px]"
+                  />
+                )}
+                
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => removeSubCondition(index, subIndex)}
+                  className="h-8 w-8 p-0"
+                >
+                  <X className="w-3 h-3" />
+                </Button>
+              </div>
+            ))}
             
             {rule.condition_type === "user_tags" && (
               <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded border mb-2">
