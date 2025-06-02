@@ -37,10 +37,27 @@ export function BookingConditionsBlock({ initialConditions = [] }: BookingCondit
   const dayOptions = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   const tagOptions = ["Public", "The Team", "Premium Members", "Gold Members", "Basic", "VIP", "Staff", "Instructor", "Pro Member", "Visitor"];
   
-  const durationOperators = ["is_less_than", "is_less_than_or_equal_to", "is_greater_than", "is_greater_than_or_equal_to", "is_equal_to", "is_not_equal_to"];
-  const tagOperators = ["contains_any_of", "contains_none_of"];
+  const logicOptions = [
+    "its duration",
+    "the interval from start time to its start",
+    "the interval from its end to end time",
+    "the holder's set of tags"
+  ];
+
+  const durationOperators = [
+    "is less than",
+    "is less than or equal to", 
+    "is greater than",
+    "is greater than or equal to",
+    "is equal to",
+    "is not equal to",
+    "is not a multiple of"
+  ];
+
+  const intervalOperators = ["is not a multiple of"];
+  const tagOperators = ["contains any of", "contains none of"];
   
-  const durationValues = ["15min", "30min", "45min", "1h", "1h15min", "1h30min", "2h", "3h", "4h", "6h", "8h"];
+  const durationValues = ["15min", "30min", "45min", "1h", "1h15min", "1h30min", "2h", "3h", "4h", "6h", "8h", "12h", "24h"];
 
   const updateCondition = (index: number, field: keyof BookingCondition, value: any) => {
     setConditions(prev => prev.map((condition, i) => 
@@ -60,16 +77,27 @@ export function BookingConditionsBlock({ initialConditions = [] }: BookingCondit
     return `${displayHour}:${minute} ${period}`;
   };
 
-  const getLogicDescription = (condition: BookingCondition) => {
-    const spaces = condition.space.length > 2 ? `${condition.space.slice(0, 2).join(", ")} +${condition.space.length - 2}` : condition.space.join(", ");
-    const days = condition.days && condition.days.length > 2 ? `${condition.days.slice(0, 2).join(", ")} +${condition.days.length - 2}` : condition.days?.join(", ") || "All days";
-    const tags = Array.isArray(condition.value) ? (condition.value.length > 2 ? `${condition.value.slice(0, 2).join(", ")} +${condition.value.length - 2}` : condition.value.join(", ")) : condition.value;
+  const getLogicText = (condition: BookingCondition) => {
+    const startTime = condition.time_range?.split('–')[0] || '09:00';
+    const endTime = condition.time_range?.split('–')[1] || '17:00';
     
-    if (condition.condition_type === "user_tags") {
-      return `Booking is blocked for [${tags}] during ${condition.time_range} on ${days} in ${spaces}`;
-    } else {
-      return `Booking is blocked if duration ${condition.operator.replace(/_/g, ' ')} ${condition.value} during ${condition.time_range} on ${days} in ${spaces}`;
+    if (condition.condition_type === "interval_start") {
+      return `the interval from ${formatTimeDisplay(startTime)} to its start`;
+    } else if (condition.condition_type === "interval_end") {
+      return `the interval from its end to ${formatTimeDisplay(endTime)}`;
+    } else if (condition.condition_type === "user_tags") {
+      return "the holder's set of tags";
     }
+    return "its duration";
+  };
+
+  const getAvailableOperators = (conditionType: string) => {
+    if (conditionType === "interval_start" || conditionType === "interval_end") {
+      return intervalOperators;
+    } else if (conditionType === "user_tags") {
+      return tagOperators;
+    }
+    return durationOperators;
   };
 
   return (
@@ -78,141 +106,145 @@ export function BookingConditionsBlock({ initialConditions = [] }: BookingCondit
         <h3 className="text-lg font-semibold text-slate-800">Booking Conditions</h3>
         <div className="flex items-center gap-1 text-xs text-slate-500 bg-blue-50 px-2 py-1 rounded">
           <Info className="w-3 h-3" />
-          <span>Defines who CANNOT book (restriction logic)</span>
+          <span>Defines when bookings are NOT ALLOWED</span>
         </div>
       </div>
       
       {conditions.map((condition, index) => (
         <div key={index}>
           <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3 mb-3">
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-slate-600 flex-shrink-0">For</span>
-                <MultiSelect
-                  options={spaceOptions}
-                  selected={condition.space || []}
-                  onSelectionChange={(selected) => updateCondition(index, 'space', selected)}
-                  placeholder="Select spaces"
-                  className="flex-1 min-w-0"
-                />
-              </div>
+            <div className="flex flex-wrap items-center gap-2 text-sm mb-3">
+              <span className="text-slate-600">For</span>
+              <MultiSelect
+                options={spaceOptions}
+                selected={condition.space || []}
+                onSelectionChange={(selected) => updateCondition(index, 'space', selected)}
+                placeholder="Select spaces"
+                className="min-w-0 max-w-[200px]"
+              />
               
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-slate-600 flex-shrink-0">from</span>
-                <Select 
-                  value={condition.time_range?.split('–')[0] || '09:00'} 
-                  onValueChange={(value) => {
-                    const endTime = condition.time_range?.split('–')[1] || '17:00';
-                    updateCondition(index, 'time_range', `${value}–${endTime}`);
-                  }}
-                >
-                  <SelectTrigger className="flex-1 h-10">
-                    <SelectValue>
-                      {formatTimeDisplay(condition.time_range?.split('–')[0] || '09:00')}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent className="z-50">
-                    {timeOptions.map(time => (
-                      <SelectItem key={time} value={time}>{formatTimeDisplay(time)}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <span className="text-slate-600">between</span>
+              <Select 
+                value={condition.time_range?.split('–')[0] || '09:00'} 
+                onValueChange={(value) => {
+                  const endTime = condition.time_range?.split('–')[1] || '17:00';
+                  updateCondition(index, 'time_range', `${value}–${endTime}`);
+                }}
+              >
+                <SelectTrigger className="w-24 h-10">
+                  <SelectValue>
+                    {formatTimeDisplay(condition.time_range?.split('–')[0] || '09:00')}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent className="z-50">
+                  {timeOptions.map(time => (
+                    <SelectItem key={time} value={time}>{formatTimeDisplay(time)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-slate-600 flex-shrink-0">to</span>
-                <Select 
-                  value={condition.time_range?.split('–')[1] || '17:00'} 
-                  onValueChange={(value) => {
-                    const startTime = condition.time_range?.split('–')[0] || '09:00';
-                    updateCondition(index, 'time_range', `${startTime}–${value}`);
-                  }}
-                >
-                  <SelectTrigger className="flex-1 h-10">
-                    <SelectValue>
-                      {formatTimeDisplay(condition.time_range?.split('–')[1] || '17:00')}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent className="z-50">
-                    {timeOptions.map(time => (
-                      <SelectItem key={time} value={time}>{formatTimeDisplay(time)}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <span className="text-slate-600">and</span>
+              <Select 
+                value={condition.time_range?.split('–')[1] || '17:00'} 
+                onValueChange={(value) => {
+                  const startTime = condition.time_range?.split('–')[0] || '09:00';
+                  updateCondition(index, 'time_range', `${startTime}–${value}`);
+                }}
+              >
+                <SelectTrigger className="w-24 h-10">
+                  <SelectValue>
+                    {formatTimeDisplay(condition.time_range?.split('–')[1] || '17:00')}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent className="z-50">
+                  {timeOptions.map(time => (
+                    <SelectItem key={time} value={time}>{formatTimeDisplay(time)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-slate-600 flex-shrink-0">on</span>
-                <MultiSelect
-                  options={dayOptions}
-                  selected={condition.days || []}
-                  onSelectionChange={(selected) => updateCondition(index, 'days', selected)}
-                  placeholder="Select days"
-                  className="flex-1 min-w-0"
-                />
-              </div>
+              <span className="text-slate-600">on</span>
+              <MultiSelect
+                options={dayOptions}
+                selected={condition.days || []}
+                onSelectionChange={(selected) => updateCondition(index, 'days', selected)}
+                placeholder="Select days"
+                className="min-w-0 max-w-[200px]"
+              />
               
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-slate-600 flex-shrink-0">if</span>
-                <Select value={condition.condition_type || 'duration'} onValueChange={(value) => updateCondition(index, 'condition_type', value)}>
-                  <SelectTrigger className="flex-1 h-10">
-                    <SelectValue>
-                      {condition.condition_type === "duration" ? "duration" : "user tags"}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent className="z-50">
-                    <SelectItem value="duration">duration</SelectItem>
-                    <SelectItem value="user_tags">user tags</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="flex items-center gap-2 text-sm">
-                <Select value={condition.operator || 'is_less_than'} onValueChange={(value) => updateCondition(index, 'operator', value)}>
-                  <SelectTrigger className="flex-1 h-10">
-                    <SelectValue>
-                      {condition.operator?.replace(/_/g, ' ') || 'is less than'}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent className="z-50">
-                    {(condition.condition_type === "duration" ? durationOperators : tagOperators).map(operator => (
-                      <SelectItem key={operator} value={operator}>{operator.replace(/_/g, ' ')}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="flex items-center gap-2 text-sm">
-                {condition.condition_type === "duration" ? (
-                  <Select 
-                    value={Array.isArray(condition.value) ? condition.value[0] : condition.value || '30min'} 
-                    onValueChange={(value) => updateCondition(index, 'value', value)}
-                  >
-                    <SelectTrigger className="flex-1 h-10">
-                      <SelectValue>
-                        {Array.isArray(condition.value) ? condition.value[0] : condition.value || '30min'}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent className="z-50">
-                      {durationValues.map(value => (
-                        <SelectItem key={value} value={value}>{value}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <MultiSelect
-                    options={tagOptions}
-                    selected={Array.isArray(condition.value) ? condition.value : []}
-                    onSelectionChange={(selected) => updateCondition(index, 'value', selected)}
-                    placeholder="Select tags"
-                    className="flex-1 min-w-0"
-                  />
-                )}
-              </div>
+              <span className="text-slate-600">, a booking is not allowed if:</span>
             </div>
-            
-            <div className="mb-3 text-xs text-blue-700 bg-blue-50 p-2 rounded border border-blue-200">
-              <strong>Logic:</strong> {getLogicDescription(condition)}
+
+            <div className="flex flex-wrap items-center gap-2 text-sm mb-3">
+              <Select 
+                value={getLogicText(condition)} 
+                onValueChange={(value) => {
+                  if (value === "its duration") {
+                    updateCondition(index, 'condition_type', 'duration');
+                  } else if (value.includes("start time to its start")) {
+                    updateCondition(index, 'condition_type', 'interval_start');
+                  } else if (value.includes("its end to end time")) {
+                    updateCondition(index, 'condition_type', 'interval_end');
+                  } else if (value === "the holder's set of tags") {
+                    updateCondition(index, 'condition_type', 'user_tags');
+                  }
+                }}
+              >
+                <SelectTrigger className="min-w-[180px] h-10">
+                  <SelectValue>
+                    {getLogicText(condition)}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent className="z-50">
+                  <SelectItem value="its duration">its duration</SelectItem>
+                  <SelectItem value="the interval from start time to its start">
+                    the interval from {formatTimeDisplay(condition.time_range?.split('–')[0] || '09:00')} to its start
+                  </SelectItem>
+                  <SelectItem value="the interval from its end to end time">
+                    the interval from its end to {formatTimeDisplay(condition.time_range?.split('–')[1] || '17:00')}
+                  </SelectItem>
+                  <SelectItem value="the holder's set of tags">the holder's set of tags</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <Select value={condition.operator || 'is_less_than'} onValueChange={(value) => updateCondition(index, 'operator', value)}>
+                <SelectTrigger className="min-w-[150px] h-10">
+                  <SelectValue>
+                    {condition.operator || 'is less than'}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent className="z-50">
+                  {getAvailableOperators(condition.condition_type || 'duration').map(operator => (
+                    <SelectItem key={operator} value={operator.replace(' ', '_')}>{operator}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              {condition.condition_type === "user_tags" ? (
+                <MultiSelect
+                  options={tagOptions}
+                  selected={Array.isArray(condition.value) ? condition.value : []}
+                  onSelectionChange={(selected) => updateCondition(index, 'value', selected)}
+                  placeholder="Select tags"
+                  className="min-w-0 max-w-[200px]"
+                />
+              ) : (
+                <Select 
+                  value={Array.isArray(condition.value) ? condition.value[0] : condition.value || '30min'} 
+                  onValueChange={(value) => updateCondition(index, 'value', value)}
+                >
+                  <SelectTrigger className="w-20 h-10">
+                    <SelectValue>
+                      {Array.isArray(condition.value) ? condition.value[0] : condition.value || '30min'}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent className="z-50">
+                    {durationValues.map(value => (
+                      <SelectItem key={value} value={value}>{value}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
             
             {condition.explanation && (

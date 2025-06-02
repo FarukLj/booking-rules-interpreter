@@ -1,9 +1,8 @@
-
 export interface BookingCondition {
   space: string[];
   time_range: string;
   days?: string[];
-  condition_type: "duration" | "user_tags";
+  condition_type: "duration" | "user_tags" | "interval_start" | "interval_end";
   operator: string;
   value: string | string[];
   explanation: string;

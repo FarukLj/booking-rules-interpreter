@@ -38,6 +38,9 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
     return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
   });
 
+  const hourOptions = Array.from({ length: 101 }, (_, i) => `${i}h`);
+  const minuteOptions = ["0m", "15m", "30m", "45m"];
+
   const updateRule = (index: number, field: keyof QuotaRule, value: any) => {
     setRules(prev => prev.map((rule, i) => 
       i === index ? { ...rule, [field]: value } : rule
@@ -56,6 +59,16 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
     return `${displayHour}:${minute} ${period}`;
   };
 
+  const getUserSelectorText = (target: string) => {
+    switch (target) {
+      case "individuals": return "individuals";
+      case "individuals_with_tags": return "individuals with any of the tags";
+      case "individuals_with_no_tags": return "individuals with none of the tags";
+      case "group_with_tag": return "group of users with the tag";
+      default: return "individuals";
+    }
+  };
+
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-semibold text-slate-800">Quota Rules</h3>
@@ -63,159 +76,193 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
       {rules.map((rule, index) => (
         <div key={index}>
           <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3 mb-3">
-              <div className="flex items-center gap-2 text-sm">
-                <Select value={rule.target || 'individuals'} onValueChange={(value) => updateRule(index, 'target', value)}>
-                  <SelectTrigger className="flex-1 h-10">
-                    <SelectValue>
-                      {rule.target === "individuals" ? "Individuals" : 
-                       rule.target === "individuals_with_tags" ? "Individuals with tags" : 
-                       "Group with tag"}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent className="z-50">
-                    <SelectItem value="individuals">Individuals</SelectItem>
-                    <SelectItem value="individuals_with_tags">Individuals with tags</SelectItem>
-                    <SelectItem value="group_with_tag">Group with tag</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="flex flex-wrap items-center gap-2 text-sm mb-3">
+              <span className="text-slate-600">Limit</span>
+              <Select value={rule.target || 'individuals'} onValueChange={(value) => updateRule(index, 'target', value)}>
+                <SelectTrigger className="min-w-[180px] h-10">
+                  <SelectValue>
+                    {getUserSelectorText(rule.target || 'individuals')}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent className="z-50">
+                  <SelectItem value="individuals">individuals</SelectItem>
+                  <SelectItem value="individuals_with_tags">individuals with any of the tags</SelectItem>
+                  <SelectItem value="individuals_with_no_tags">individuals with none of the tags</SelectItem>
+                  <SelectItem value="group_with_tag">group of users with the tag</SelectItem>
+                </SelectContent>
+              </Select>
               
-              {(rule.target === "individuals_with_tags" || rule.target === "group_with_tag") && (
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-slate-600 flex-shrink-0">with tags</span>
-                  <MultiSelect
-                    options={tagOptions}
-                    selected={rule.tags || []}
-                    onSelectionChange={(selected) => updateRule(index, 'tags', selected)}
-                    placeholder="Select tags"
-                    className="flex-1 min-w-0"
-                  />
-                </div>
+              {(rule.target === "individuals_with_tags" || rule.target === "individuals_with_no_tags" || rule.target === "group_with_tag") && (
+                <MultiSelect
+                  options={tagOptions}
+                  selected={rule.tags || []}
+                  onSelectionChange={(selected) => updateRule(index, 'tags', selected)}
+                  placeholder="Select tags"
+                  className="min-w-0 max-w-[200px]"
+                />
               )}
               
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-slate-600 flex-shrink-0">can book</span>
+              <span className="text-slate-600">to a per-user</span>
+              <Select value={rule.quota_type || 'time'} onValueChange={(value) => updateRule(index, 'quota_type', value)}>
+                <SelectTrigger className="min-w-[160px] h-10">
+                  <SelectValue>
+                    {rule.quota_type === "time" ? "time-usage maximum" : "booking-count maximum"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent className="z-50">
+                  <SelectItem value="time">time-usage maximum</SelectItem>
+                  <SelectItem value="count">booking-count maximum</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 text-sm mb-3">
+              <span className="text-slate-600">of</span>
+              {rule.quota_type === "time" ? (
+                <>
+                  <Select 
+                    value={typeof rule.value === 'string' && rule.value.includes('h') ? rule.value.split('h')[0] + 'h' : '2h'} 
+                    onValueChange={(hours) => {
+                      const currentMinutes = typeof rule.value === 'string' && rule.value.includes('m') ? 
+                        rule.value.split('h')[1] || '0m' : '0m';
+                      updateRule(index, 'value', `${hours}${currentMinutes !== '0m' ? currentMinutes : ''}`);
+                    }}
+                  >
+                    <SelectTrigger className="w-16 h-10">
+                      <SelectValue>
+                        {typeof rule.value === 'string' && rule.value.includes('h') ? 
+                          rule.value.split('h')[0] + 'h' : '2h'}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent className="z-50">
+                      {hourOptions.map(hour => (
+                        <SelectItem key={hour} value={hour}>{hour}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  
+                  <Select 
+                    value={typeof rule.value === 'string' && rule.value.includes('m') ? 
+                      rule.value.split('h')[1] || '0m' : '0m'} 
+                    onValueChange={(minutes) => {
+                      const currentHours = typeof rule.value === 'string' && rule.value.includes('h') ? 
+                        rule.value.split('h')[0] + 'h' : '2h';
+                      updateRule(index, 'value', `${currentHours}${minutes !== '0m' ? minutes : ''}`);
+                    }}
+                  >
+                    <SelectTrigger className="w-16 h-10">
+                      <SelectValue>
+                        {typeof rule.value === 'string' && rule.value.includes('m') ? 
+                          rule.value.split('h')[1] || '0m' : '0m'}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent className="z-50">
+                      {minuteOptions.map(minute => (
+                        <SelectItem key={minute} value={minute}>{minute}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </>
+              ) : (
                 <input 
-                  type={rule.quota_type === "time" ? "text" : "number"}
-                  value={rule.quota_type === "time" ? (rule.value || '2h') : (typeof rule.value === 'string' ? parseInt(rule.value) || 5 : rule.value || 5)}
-                  onChange={(e) => updateRule(index, 'value', rule.quota_type === "time" ? e.target.value : parseInt(e.target.value) || 0)}
+                  type="number" 
+                  value={typeof rule.value === 'number' ? rule.value : 5} 
+                  onChange={(e) => updateRule(index, 'value', parseInt(e.target.value) || 0)}
                   className="w-20 px-2 py-2 border border-input rounded-md text-sm h-10"
-                  placeholder={rule.quota_type === "time" ? "2h" : "5"}
+                  placeholder="5"
                 />
-                <Select value={rule.quota_type || 'time'} onValueChange={(value) => updateRule(index, 'quota_type', value)}>
+              )}
+              
+              <Select value={rule.period || 'day'} onValueChange={(value) => updateRule(index, 'period', value)}>
+                <SelectTrigger className="min-w-[140px] h-10">
+                  <SelectValue>
+                    {rule.period === 'day' ? 'per day' :
+                     rule.period === 'week' ? 'per week' :
+                     rule.period === 'month' ? 'per calendar month' :
+                     'at any given moment'}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent className="z-50">
+                  <SelectItem value="day">per day</SelectItem>
+                  <SelectItem value="week">per week</SelectItem>
+                  <SelectItem value="month">per calendar month</SelectItem>
+                  <SelectItem value="at_any_time">at any given moment</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <MultiSelect
+                options={spaceOptions}
+                selected={rule.affected_spaces || []}
+                onSelectionChange={(selected) => updateRule(index, 'affected_spaces', selected)}
+                placeholder="Select spaces"
+                className="min-w-0 max-w-[200px]"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 text-sm mb-3">
+              <span className="text-slate-600">and considering bookings scheduled at</span>
+              <Select value={rule.consideration_time || 'any_time'} onValueChange={(value) => updateRule(index, 'consideration_time', value)}>
+                <SelectTrigger className="min-w-[120px] h-10">
+                  <SelectValue>
+                    {rule.consideration_time === "any_time" ? "any time of week" : "only specific time"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent className="z-50">
+                  <SelectItem value="any_time">any time of week</SelectItem>
+                  <SelectItem value="specific_time">only specific time</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {rule.consideration_time === "specific_time" && (
+              <div className="flex flex-wrap items-center gap-2 text-sm mb-3">
+                <Select 
+                  value={rule.time_range?.split('–')[0] || '09:00'} 
+                  onValueChange={(value) => {
+                    const endTime = rule.time_range?.split('–')[1] || '17:00';
+                    updateRule(index, 'time_range', `${value}–${endTime}`);
+                  }}
+                >
                   <SelectTrigger className="w-24 h-10">
                     <SelectValue>
-                      {rule.quota_type === "time" ? "time" : "bookings"}
+                      {formatTimeDisplay(rule.time_range?.split('–')[0] || '09:00')}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent className="z-50">
-                    <SelectItem value="time">time</SelectItem>
-                    <SelectItem value="count">bookings</SelectItem>
+                    {timeOptions.map(time => (
+                      <SelectItem key={time} value={time}>{formatTimeDisplay(time)}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
-              </div>
-              
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-slate-600 flex-shrink-0">per</span>
-                <Select value={rule.period || 'day'} onValueChange={(value) => updateRule(index, 'period', value)}>
-                  <SelectTrigger className="flex-1 h-10">
+                
+                <span className="text-slate-600">to</span>
+                <Select 
+                  value={rule.time_range?.split('–')[1] || '17:00'} 
+                  onValueChange={(value) => {
+                    const startTime = rule.time_range?.split('–')[0] || '09:00';
+                    updateRule(index, 'time_range', `${startTime}–${value}`);
+                  }}
+                >
+                  <SelectTrigger className="w-24 h-10">
                     <SelectValue>
-                      {rule.period || 'day'}
+                      {formatTimeDisplay(rule.time_range?.split('–')[1] || '17:00')}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent className="z-50">
-                    <SelectItem value="day">day</SelectItem>
-                    <SelectItem value="week">week</SelectItem>
-                    <SelectItem value="month">month</SelectItem>
-                    <SelectItem value="at_any_time">at any time</SelectItem>
+                    {timeOptions.map(time => (
+                      <SelectItem key={time} value={time}>{formatTimeDisplay(time)}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
-              </div>
-              
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-slate-600 flex-shrink-0">in</span>
+                
+                <span className="text-slate-600">on</span>
                 <MultiSelect
-                  options={spaceOptions}
-                  selected={rule.affected_spaces || []}
-                  onSelectionChange={(selected) => updateRule(index, 'affected_spaces', selected)}
-                  placeholder="Select spaces"
-                  className="flex-1 min-w-0"
+                  options={dayOptions}
+                  selected={rule.days || []}
+                  onSelectionChange={(selected) => updateRule(index, 'days', selected)}
+                  placeholder="Select days"
+                  className="min-w-0 max-w-[200px]"
                 />
-              </div>
-              
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-slate-600 flex-shrink-0">Time:</span>
-                <Select value={rule.consideration_time || 'any_time'} onValueChange={(value) => updateRule(index, 'consideration_time', value)}>
-                  <SelectTrigger className="flex-1 h-10">
-                    <SelectValue>
-                      {rule.consideration_time === "any_time" ? "Any time" : "Specific time"}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent className="z-50">
-                    <SelectItem value="any_time">Any time</SelectItem>
-                    <SelectItem value="specific_time">Specific time</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            
-            {rule.consideration_time === "specific_time" && (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-3">
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-slate-600 flex-shrink-0">from</span>
-                  <Select 
-                    value={rule.time_range?.split('–')[0] || '09:00'} 
-                    onValueChange={(value) => {
-                      const endTime = rule.time_range?.split('–')[1] || '17:00';
-                      updateRule(index, 'time_range', `${value}–${endTime}`);
-                    }}
-                  >
-                    <SelectTrigger className="flex-1 h-10">
-                      <SelectValue>
-                        {formatTimeDisplay(rule.time_range?.split('–')[0] || '09:00')}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent className="z-50">
-                      {timeOptions.map(time => (
-                        <SelectItem key={time} value={time}>{formatTimeDisplay(time)}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-slate-600 flex-shrink-0">to</span>
-                  <Select 
-                    value={rule.time_range?.split('–')[1] || '17:00'} 
-                    onValueChange={(value) => {
-                      const startTime = rule.time_range?.split('–')[0] || '09:00';
-                      updateRule(index, 'time_range', `${startTime}–${value}`);
-                    }}
-                  >
-                    <SelectTrigger className="flex-1 h-10">
-                      <SelectValue>
-                        {formatTimeDisplay(rule.time_range?.split('–')[1] || '17:00')}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent className="z-50">
-                      {timeOptions.map(time => (
-                        <SelectItem key={time} value={time}>{formatTimeDisplay(time)}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-slate-600 flex-shrink-0">on</span>
-                  <MultiSelect
-                    options={dayOptions}
-                    selected={rule.days || []}
-                    onSelectionChange={(selected) => updateRule(index, 'days', selected)}
-                    placeholder="Select days"
-                    className="flex-1 min-w-0"
-                  />
-                </div>
               </div>
             )}
             
