@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { Toggle } from "@/components/ui/toggle";
@@ -27,6 +27,30 @@ export function BookingConditionsBlock({ initialConditions = [] }: BookingCondit
     new Array(Math.max(0, conditions.length - 1)).fill("AND")
   );
 
+  // Validate tag logic on component mount and when conditions change
+  useEffect(() => {
+    conditions.forEach((condition, index) => {
+      if (condition.condition_type === "user_tags") {
+        const tags = Array.isArray(condition.value) ? condition.value : [];
+        const operator = condition.operator;
+        
+        // Validation: Check for double-negative logic
+        if (operator === "contains_none_of" && tags.length > 3) {
+          console.warn(`Condition ${index}: Detected potential double-negative logic. 'contains_none_of' should typically have 1-2 specific allowed tags, not a complement set.`);
+        }
+        
+        // Validation: Ensure correct exclusive access logic
+        if (operator === "contains_none_of" && tags.length === 1) {
+          console.log(`Condition ${index}: Correct exclusive access logic - blocks users without ${tags[0]}`);
+        }
+        
+        if (operator === "contains_any_of" && tags.length === 1) {
+          console.log(`Condition ${index}: Correct inclusive access logic - blocks users with ${tags[0]}`);
+        }
+      }
+    });
+  }, [conditions]);
+
   const spaceOptions = ["Space 1", "Space 2", "Conference Room A", "Studio 1", "Studio 2", "Studio 3", "Meeting Room B", "Court A", "Gym"];
   const timeOptions = Array.from({ length: 96 }, (_, i) => {
     const hour = Math.floor(i / 4);
@@ -37,13 +61,6 @@ export function BookingConditionsBlock({ initialConditions = [] }: BookingCondit
   const dayOptions = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   const tagOptions = ["Public", "The Team", "Premium Members", "Gold Members", "Basic", "VIP", "Staff", "Instructor", "Pro Member", "Visitor"];
   
-  const logicOptions = [
-    "its duration",
-    "the interval from start time to its start",
-    "the interval from its end to end time",
-    "the holder's set of tags"
-  ];
-
   const durationOperators = [
     "is less than",
     "is less than or equal to", 
@@ -98,6 +115,14 @@ export function BookingConditionsBlock({ initialConditions = [] }: BookingCondit
       return tagOperators;
     }
     return durationOperators;
+  };
+
+  const getOperatorDisplayText = (operator: string) => {
+    return operator.replace(/_/g, ' ');
+  };
+
+  const getOperatorValue = (displayText: string) => {
+    return displayText.replace(/ /g, '_');
   };
 
   return (
@@ -207,15 +232,18 @@ export function BookingConditionsBlock({ initialConditions = [] }: BookingCondit
                 </SelectContent>
               </Select>
               
-              <Select value={condition.operator || 'is_less_than'} onValueChange={(value) => updateCondition(index, 'operator', value)}>
+              <Select 
+                value={getOperatorDisplayText(condition.operator || 'is_less_than')} 
+                onValueChange={(value) => updateCondition(index, 'operator', getOperatorValue(value))}
+              >
                 <SelectTrigger className="min-w-[150px] h-10">
                   <SelectValue>
-                    {condition.operator || 'is less than'}
+                    {getOperatorDisplayText(condition.operator || 'is_less_than')}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent className="z-50">
                   {getAvailableOperators(condition.condition_type || 'duration').map(operator => (
-                    <SelectItem key={operator} value={operator.replace(' ', '_')}>{operator}</SelectItem>
+                    <SelectItem key={operator} value={operator}>{operator}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -250,6 +278,17 @@ export function BookingConditionsBlock({ initialConditions = [] }: BookingCondit
             {condition.explanation && (
               <div className="text-xs text-slate-600 bg-white p-2 rounded border">
                 <strong>Explanation:</strong> {condition.explanation}
+              </div>
+            )}
+
+            {/* Logic validation display */}
+            {condition.condition_type === "user_tags" && (
+              <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded border mt-2">
+                <strong>Logic:</strong> {
+                  condition.operator === "contains_none_of" 
+                    ? `Blocks users whose tag set contains none of: ${Array.isArray(condition.value) ? condition.value.join(', ') : condition.value} (i.e., only those users CAN book)`
+                    : `Blocks users whose tag set contains any of: ${Array.isArray(condition.value) ? condition.value.join(', ') : condition.value} (i.e., those users CANNOT book)`
+                }
               </div>
             )}
           </div>

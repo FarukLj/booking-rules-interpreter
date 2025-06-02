@@ -64,13 +64,27 @@ When the user provides a prompt, return the following JSON structure:
    - Step 7: Booking window rules (if applicable)
 3. **summary** – natural language explanation of what these rules accomplish
 
+### CRITICAL: Booking Conditions Logic Rules for Tag-Based Access:
+
+**EXCLUSIVE ACCESS PATTERNS** (Only X can book, X only, X exclusively):
+- Phrases: "Only [X] can book", "[X] can book and no one else", "[X] exclusively", "[X] only"
+- Logic: Use 'contains none of' + [X] (blocks users WITHOUT the tag)
+- Example: "Only Premium Members" → operator: "contains_none_of", value: ["Premium Members"]
+
+**INCLUSIVE ACCESS PATTERNS** (Everyone except X):
+- Phrases: "All except [X]", "Everyone but [X]", "[X] cannot book", "No [X] allowed"
+- Logic: Use 'contains any of' + [X] (blocks users WITH the tag)
+- Example: "All except Staff" → operator: "contains_any_of", value: ["Staff"]
+
+**NEVER use 'contains none of' with complement tags** (all tags except the allowed ones) - this creates double-negative logic.
+
 ### Booking Conditions Logic Rules:
 - Booking conditions define when a booking is NOT ALLOWED.
-- If the user says "Only [X] can book...", you must create a condition that blocks users **without tag X**.
-- Use 'users with none of the tags' + [X] to achieve this logic.
+- For exclusive access ("Only X can book"), use 'contains none of' + [X] to block users without tag X.
+- For inclusive access ("All except X"), use 'contains any of' + [X] to block users with tag X.
 - Always structure time ranges as 'HH:MM–HH:MM' format with 15-minute increments (e.g., "09:00–17:00").
 
-Available tags for exclusion logic: ["Public", "The Team", "Premium Members", "Gold Members", "Basic", "VIP", "Staff", "Instructor", "Pro Member", "Visitor"]
+Available tags for logic: ["Public", "The Team", "Premium Members", "Gold Members", "Basic", "VIP", "Staff", "Instructor", "Pro Member", "Visitor"]
 
 ### Output Keys:
 Each step must include a unique \`step_key\` for internal use:
@@ -100,7 +114,7 @@ booking_conditions: [
     days: ["Monday", "Tuesday"],
     condition_type: "duration" | "user_tags",
     operator: "is_greater_than" | "contains_any_of" | "contains_none_of" | ...,
-    value: "1h" | ["Public", "Basic", "Visitor"] (all tags EXCEPT the allowed ones),
+    value: "1h" | ["Premium Members"] (specific allowed/disallowed tags, not complements),
     explanation: "Clear description of this restriction condition"
   }
 ]
@@ -172,7 +186,7 @@ Return a **clean JSON object** in this structure:
     {
       "step_key": "create_user_tags", 
       "title": "Step 2: Add user tags",
-      "instruction": "Go to Users > Manage Tags and add: [list specific tags]. Note: When creating booking conditions, use 'users with none of the tags' to enforce 'Only X can book' logic."
+      "instruction": "Go to Users > Manage Tags and add: [list specific tags]. Note: For exclusive access (Only X can book), use 'contains none of' with the allowed tag. For inclusive access (All except X), use 'contains any of' with the disallowed tag."
     },
     {
       "step_key": "booking_conditions",
