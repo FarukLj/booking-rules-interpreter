@@ -17,6 +17,7 @@ import { PricingRulesBlock } from "./PricingRulesBlock";
 import { QuotaRulesBlock } from "./QuotaRulesBlock";
 import { BufferTimeRulesBlock } from "./BufferTimeRulesBlock";
 import { BookingWindowRulesBlock } from "./BookingWindowRulesBlock";
+import { SpaceSharingRulesBlock } from "./SpaceSharingRulesBlock";
 import { useState } from "react";
 
 interface SetupGuideModalProps {
@@ -63,13 +64,21 @@ export function SetupGuideModal({ result, isOpen, onClose }: SetupGuideModalProp
         return <Timer className="h-5 w-5" />;
       case 'booking_window_rules':
         return <Calendar className="h-5 w-5" />;
+      case 'space_sharing':
+        return <Building className="h-5 w-5" />;
       default:
         return <Circle className="h-5 w-5" />;
     }
   };
 
   const renderRuleBlocks = (step: SetupGuideStep) => {
-    if (!step.rule_blocks || step.rule_blocks.length === 0) return null;
+    if (!step.rule_blocks || step.rule_blocks.length === 0) {
+      // Handle space-sharing connections
+      if (step.step_key === 'space_sharing' && step.connections) {
+        return <SpaceSharingRulesBlock initialRules={step.connections} />;
+      }
+      return null;
+    }
 
     switch (step.step_key) {
       case 'booking_conditions':
@@ -98,6 +107,12 @@ export function SetupGuideModal({ result, isOpen, onClose }: SetupGuideModalProp
       result.parsed_rule_blocks.pricing_rules.forEach(rule => 
         rule.space.forEach(space => spaces.add(space))
       );
+    }
+    if (result.parsed_rule_blocks?.space_sharing) {
+      result.parsed_rule_blocks.space_sharing.forEach(rule => {
+        spaces.add(rule.from);
+        spaces.add(rule.to);
+      });
     }
     // Add other rule types...
     return Array.from(spaces);

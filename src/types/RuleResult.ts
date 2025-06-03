@@ -1,4 +1,3 @@
-
 export interface BookingCondition {
   space: string[];
   time_range: string;
@@ -58,6 +57,11 @@ export interface BookingWindowRule {
   explanation: string;
 }
 
+export interface SpaceSharingRule {
+  from: string;
+  to: string;
+}
+
 export interface SetupGuideStep {
   step_key: string;
   title: string;
@@ -65,6 +69,7 @@ export interface SetupGuideStep {
   rule_blocks?: any[];
   spaces?: string[];
   times?: string;
+  connections?: SpaceSharingRule[];
 }
 
 export interface RuleResult {
@@ -86,6 +91,7 @@ export interface RuleResult {
   quota_rules?: QuotaRule[];
   buffer_time_rules?: BufferTimeRule[];
   booking_window_rules?: BookingWindowRule[];
+  space_sharing?: SpaceSharingRule[];
   summary?: string;
 
   // New setup guide structure
@@ -95,6 +101,7 @@ export interface RuleResult {
     quota_rules?: QuotaRule[];
     buffer_time_rules?: BufferTimeRule[];
     booking_window_rules?: BookingWindowRule[];
+    space_sharing?: SpaceSharingRule[];
   };
   setup_guide?: SetupGuideStep[];
 }

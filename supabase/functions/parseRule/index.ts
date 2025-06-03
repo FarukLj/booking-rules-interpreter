@@ -69,6 +69,85 @@ function parsePricingType(text: string): 'fixed' | 'per_hour' {
   return 'per_hour';
 }
 
+// Space-sharing phrase detection
+function parseSpaceSharing(text: string): Array<{from: string, to: string}> {
+  const connections: Array<{from: string, to: string}> = [];
+  
+  const spaceSharingPatterns = [
+    // "If X is booked, block Y" patterns
+    { regex: /if\s+(?:the\s+)?([^,\s]+(?:\s+[^,\s]+)*)\s+is\s+booked,?\s+(?:block|prevent|disable)\s+([^.]+)/gi },
+    // "Booking X should prevent Y" patterns  
+    { regex: /booking\s+(?:the\s+)?([^,\s]+(?:\s+[^,\s]+)*)\s+should\s+(?:prevent|block|disable)\s+([^.]+)/gi },
+    // "X and Y are mutually exclusive" patterns
+    { regex: /([^,\s]+(?:\s+[^,\s]+)*)\s+and\s+([^,\s]+(?:\s+[^,\s]+)*)\s+are\s+mutually\s+exclusive/gi },
+    // "Whole venue" patterns
+    { regex: /\bwhole\s+venue\b|\bentire\s+venue\b|\bfull\s+venue\b/gi },
+  ];
+
+  for (const pattern of spaceSharingPatterns) {
+    let match;
+    while ((match = pattern.regex.exec(text)) !== null) {
+      if (pattern.regex.source.includes('mutually')) {
+        // Bidirectional for mutually exclusive
+        const space1 = match[1].trim();
+        const space2 = match[2].trim();
+        connections.push({from: space1, to: space2});
+        connections.push({from: space2, to: space1});
+      } else {
+        const fromSpace = match[1].trim();
+        const toSpaces = match[2].split(/\s+(?:and|&)\s+|\s*,\s*/);
+        
+        for (const toSpace of toSpaces) {
+          const cleanToSpace = toSpace.trim().replace(/^['"]|['"]$/g, '');
+          if (cleanToSpace) {
+            connections.push({from: fromSpace, to: cleanToSpace});
+          }
+        }
+      }
+    }
+  }
+
+  return connections;
+}
+
+// Resolve chained dependencies for "WHAT IT ALL MEANS"
+function resolveChainedDependencies(connections: Array<{from: string, to: string}>): Array<{from: string, to: string}> {
+  const resolved = new Set<string>();
+  const result: Array<{from: string, to: string}> = [];
+  
+  // Add direct connections
+  for (const conn of connections) {
+    const key = `${conn.from}->${conn.to}`;
+    if (!resolved.has(key)) {
+      resolved.add(key);
+      result.push(conn);
+    }
+  }
+
+  // Add implied connections (A->B, B->C implies A->C)
+  let changed = true;
+  let iterations = 0;
+  while (changed && iterations < 30) { // Prevent infinite loops
+    changed = false;
+    iterations++;
+    
+    for (const conn1 of result) {
+      for (const conn2 of result) {
+        if (conn1.to === conn2.from && conn1.from !== conn2.to) {
+          const impliedKey = `${conn1.from}->${conn2.to}`;
+          if (!resolved.has(impliedKey)) {
+            resolved.add(impliedKey);
+            result.push({from: conn1.from, to: conn2.to});
+            changed = true;
+          }
+        }
+      }
+    }
+  }
+
+  return result;
+}
+
 serve(async (req) => {
   // Handle CORS
   if (req.method === "OPTIONS") {
@@ -130,7 +209,20 @@ When the user provides a prompt, return the following JSON structure:
    - Step 6: Quota rules (if applicable)
    - Step 7: Buffer times (if applicable)
    - Step 8: Booking window rules (if applicable)
+   - Step 9: Space-sharing rules (if applicable) - NEW
 3. **summary** – natural language explanation of what these rules accomplish
+
+### CRITICAL: Space-Sharing Rules Detection and Logic:
+
+**SPACE-SHARING PATTERNS** (Mutual exclusivity between spaces):
+- Phrases: "If [X] is booked, block [Y]", "Booking [X] should prevent [Y]", "[X] and [Y] are mutually exclusive", "whole venue", "entire venue", "full venue"
+- Logic: Create bidirectional connections for mutual exclusivity
+- Example: "If Basketball Court is booked, block Badminton 1 and Badminton 2" → 
+  space_sharing: [{"from":"Basketball Court","to":"Badminton 1"}, {"from":"Basketball Court","to":"Badminton 2"}]
+
+**CHAINED DEPENDENCIES**:
+- Auto-detect chains (A→B, B→C) and include implied pairs (A→C) in explanations
+- Limit to 30 pairs maximum to prevent circular loops
 
 ### CRITICAL: Booking Conditions Logic Rules for Tag-Based Access:
 
@@ -226,6 +318,7 @@ Each step must include a unique \`step_key\` for internal use:
 - quota_rules
 - buffer_time_rules
 - booking_window_rules
+- space_sharing (NEW)
 
 ### Setup Guide Steps:
 Generate steps dynamically based on the rule blocks needed. Always include create_spaces, hours_of_availability, and create_user_tags if any user tags are referenced.
@@ -307,6 +400,13 @@ booking_window_rules: [
   }
 ]
 
+space_sharing: [
+  {
+    from: "Basketball Court",
+    to: "Badminton 1"
+  }
+]
+
 ### Output Format (Required)
 Return a **clean JSON object** in this structure:
 {
@@ -315,7 +415,8 @@ Return a **clean JSON object** in this structure:
     "pricing_rules": [...],
     "quota_rules": [...],
     "buffer_time_rules": [...], 
-    "booking_window_rules": [...]
+    "booking_window_rules": [...],
+    "space_sharing": [...]
   },
   "setup_guide": [
     {
@@ -341,6 +442,12 @@ Return a **clean JSON object** in this structure:
       "title": "Step 4: Create booking conditions", 
       "instruction": "Go to Settings > Conditions and create the following restriction rules:",
       "rule_blocks": [...]
+    },
+    {
+      "step_key": "space_sharing",
+      "title": "Step 9: Set space-sharing rules",
+      "instruction": "Go to Settings › Space Sharing and add the following connections:",
+      "connections": [{"from":"Basketball Court","to":"Badminton 1"}, {"from":"Basketball Court","to":"Badminton 2"}]
     }
   ],
   "summary": "This setup ensures that..."
