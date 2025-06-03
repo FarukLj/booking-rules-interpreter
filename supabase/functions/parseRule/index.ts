@@ -295,7 +295,38 @@ Your JSON should never be wrapped in markdown backticks or contain extra notes. 
     }
 
     const openAiData = await openAiResponse.json();
-    const parsedResult = JSON.parse(openAiData.choices[0].message.content);
+    let responseContent = openAiData.choices[0].message.content;
+
+    // Clean up markdown code blocks if present
+    if (responseContent.includes('```json')) {
+      responseContent = responseContent.replace(/```json\s*/g, '').replace(/```\s*$/g, '');
+    }
+    
+    // Also handle cases where it might just have backticks
+    if (responseContent.startsWith('```') && responseContent.endsWith('```')) {
+      responseContent = responseContent.slice(3, -3).trim();
+    }
+
+    console.log("Cleaned response content:", responseContent);
+
+    let parsedResult;
+    try {
+      parsedResult = JSON.parse(responseContent);
+    } catch (parseError) {
+      console.error("JSON parsing error:", parseError);
+      console.error("Response content that failed to parse:", responseContent);
+      
+      return new Response(
+        JSON.stringify({ 
+          error: "Failed to parse AI response", 
+          details: "The AI returned an invalid JSON format" 
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
 
     return new Response(JSON.stringify(parsedResult), {
       status: 200,
