@@ -46,11 +46,15 @@ export function MultiSelect({
       );
     }
 
-    // Always show first item + count for consistency
+    // Calculate how many chips can fit based on trigger width
+    // At 240px width, we can show ~2-3 chips before "+X more"
+    // At 280px width, we can show ~3-4 chips before "+X more"
+    const maxVisibleChips = 3; // Conservative estimate for 240px+ width
+
     if (selected.length === 1) {
       return (
         <div className="flex items-center gap-1 min-w-0 flex-1">
-          <Badge variant="secondary" className="text-xs px-2 py-0.5 h-5 max-w-[120px] truncate">
+          <Badge variant="secondary" className="text-xs px-2 py-0.5 h-5 max-w-[160px] truncate">
             <span className="truncate">{selected[0]}</span>
             <X
               className="ml-1 h-3 w-3 cursor-pointer hover:text-destructive flex-shrink-0"
@@ -61,18 +65,36 @@ export function MultiSelect({
       );
     }
 
-    // For multiple items, show first item + count
+    if (selected.length <= maxVisibleChips) {
+      return (
+        <div className="flex items-center gap-1 min-w-0 flex-1 flex-wrap">
+          {selected.slice(0, maxVisibleChips).map((item, index) => (
+            <Badge key={item} variant="secondary" className="text-xs px-2 py-0.5 h-5 max-w-[120px] truncate">
+              <span className="truncate">{item}</span>
+              <X
+                className="ml-1 h-3 w-3 cursor-pointer hover:text-destructive flex-shrink-0"
+                onClick={(e) => removeItem(item, e)}
+              />
+            </Badge>
+          ))}
+        </div>
+      );
+    }
+
+    // For many items, show first 2 chips + count
     return (
       <div className="flex items-center gap-1 min-w-0 flex-1">
-        <Badge variant="secondary" className="text-xs px-2 py-0.5 h-5 max-w-[100px] truncate">
-          <span className="truncate">{selected[0]}</span>
-          <X
-            className="ml-1 h-3 w-3 cursor-pointer hover:text-destructive flex-shrink-0"
-            onClick={(e) => removeItem(selected[0], e)}
-          />
-        </Badge>
+        {selected.slice(0, 2).map((item) => (
+          <Badge key={item} variant="secondary" className="text-xs px-2 py-0.5 h-5 max-w-[100px] truncate">
+            <span className="truncate">{item}</span>
+            <X
+              className="ml-1 h-3 w-3 cursor-pointer hover:text-destructive flex-shrink-0"
+              onClick={(e) => removeItem(item, e)}
+            />
+          </Badge>
+        ))}
         <span className="text-xs text-slate-600 font-medium flex-shrink-0">
-          +{selected.length - 1} more
+          +{selected.length - 2} more
         </span>
       </div>
     );
@@ -86,11 +108,12 @@ export function MultiSelect({
           role="combobox"
           className={cn(
             "justify-between font-normal h-10 min-h-[2.5rem] max-h-[2.5rem]",
+            "min-w-[240px] max-w-[280px] md:max-w-[280px] sm:min-w-[180px]",
             selected.length === 0 && "text-muted-foreground",
             className
           )}
         >
-          <div className="flex items-center gap-1 flex-1 min-w-0 overflow-hidden">
+          <div className="flex items-center gap-1 flex-1 min-w-0 overflow-hidden max-w-[calc(100%-32px)]">
             {renderDisplayValue()}
           </div>
           <ChevronDown className="h-4 w-4 opacity-50 shrink-0 ml-2" />

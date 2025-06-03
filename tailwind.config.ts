@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -18,6 +19,21 @@ export default {
 			}
 		},
 		extend: {
+			width: {
+				'180': '180px',
+				'240': '240px',
+				'280': '280px'
+			},
+			minWidth: {
+				'180': '180px',
+				'240': '240px',
+				'280': '280px'
+			},
+			maxWidth: {
+				'180': '180px',
+				'240': '240px',
+				'280': '280px'
+			},
 			colors: {
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
