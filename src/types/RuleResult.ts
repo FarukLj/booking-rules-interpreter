@@ -53,6 +53,7 @@ export interface BookingWindowRule {
   constraint: "less_than" | "more_than";
   value: number;
   unit: "hours" | "days";
+  display?: string;
   spaces: string[];
   explanation: string;
 }

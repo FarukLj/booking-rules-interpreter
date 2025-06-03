@@ -57,6 +57,17 @@ export function BookingWindowRulesBlock({ initialRules = [] }: BookingWindowRule
     }
   };
 
+  const getTimeDisplayHelper = (hours: number) => {
+    if (hours >= 168) {
+      const weeks = Math.floor(hours / 168);
+      return `= ${weeks} week${weeks !== 1 ? 's' : ''}`;
+    } else if (hours >= 24) {
+      const days = Math.floor(hours / 24);
+      return `= ${days} day${days !== 1 ? 's' : ''}`;
+    }
+    return null;
+  };
+
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-semibold text-slate-800">Booking Window Rules</h3>
@@ -125,13 +136,32 @@ export function BookingWindowRulesBlock({ initialRules = [] }: BookingWindowRule
                 </TooltipProvider>
               </div>
               
-              <input 
-                type="number" 
-                value={rule.value || 72} 
-                onChange={(e) => updateRule(index, 'value', parseInt(e.target.value) || 0)}
-                className="w-20 px-2 py-2 border border-input rounded-md text-sm h-10"
-                placeholder="72"
-              />
+              <div className="flex items-center gap-1">
+                <input 
+                  type="number" 
+                  value={rule.value || 72} 
+                  onChange={(e) => updateRule(index, 'value', parseInt(e.target.value) || 0)}
+                  className="w-20 px-2 py-2 border border-input rounded-md text-sm h-10"
+                  placeholder="72"
+                />
+                
+                {getTimeDisplayHelper(rule.value || 72) && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="text-xs text-slate-500 cursor-help">
+                          {getTimeDisplayHelper(rule.value || 72)}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        <div className="text-xs">
+                          Time conversion helper
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+              </div>
               
               <Select value="hours_in_advance" disabled>
                 <SelectTrigger className="min-w-[120px] h-10">

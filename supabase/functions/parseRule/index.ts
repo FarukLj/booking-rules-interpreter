@@ -2,6 +2,73 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 
+// Unit normalization utility
+function toHours(value: number, unit: 'hours' | 'days' | 'weeks'): number {
+  if (unit === 'days') return value * 24;
+  if (unit === 'weeks') return value * 24 * 7;
+  return value;
+}
+
+// Extract time value and unit from text
+function extractTimeUnit(text: string): { value: number; unit: 'hours' | 'days' | 'weeks'; display: string } {
+  const timePatterns = [
+    { regex: /(\d+)\s*(week|weeks|wk)/i, unit: 'weeks' as const },
+    { regex: /(\d+)\s*(day|days|d)\b/i, unit: 'days' as const },
+    { regex: /(\d+)\s*(hour|hours|hr|h)\b/i, unit: 'hours' as const },
+    { regex: /(one|1)\s*(week|weeks)/i, value: 1, unit: 'weeks' as const },
+    { regex: /(two|2)\s*(week|weeks)/i, value: 2, unit: 'weeks' as const },
+    { regex: /(three|3)\s*(week|weeks)/i, value: 3, unit: 'weeks' as const },
+    { regex: /(one|1)\s*(day|days)/i, value: 1, unit: 'days' as const },
+    { regex: /(two|2)\s*(day|days)/i, value: 2, unit: 'days' as const },
+    { regex: /(three|3)\s*(day|days)/i, value: 3, unit: 'days' as const },
+  ];
+
+  for (const pattern of timePatterns) {
+    const match = text.match(pattern.regex);
+    if (match) {
+      const value = pattern.value || parseInt(match[1]) || 1;
+      const unit = pattern.unit;
+      const display = `${value} ${unit === 'weeks' ? (value === 1 ? 'week' : 'weeks') : 
+                                   unit === 'days' ? (value === 1 ? 'day' : 'days') : 
+                                   (value === 1 ? 'hour' : 'hours')}`;
+      return { value, unit, display };
+    }
+  }
+
+  // Default fallback
+  return { value: 72, unit: 'hours', display: '72 hours' };
+}
+
+// Booking window phrase mapping
+function parseBookingWindowOperator(text: string): 'more_than' | 'less_than' {
+  const advanceWindowMap = [
+    { regex: /\b(no |not |stop .* from )?(?:reserve|booking|book|schedule)[^\n]*\bmore than\b/i, op: 'more_than' },
+    { regex: /\b(at least|minimum of)\b/i, op: 'more_than' },
+    { regex: /\b(within|inside|up to|no more than)\b/i, op: 'less_than' },
+    { regex: /\b(less than|under)\b/i, op: 'less_than' },
+    { regex: /\b(reserve ahead of time|in advance)\b.*\b(\d+|one|two|three|four|five|six|seven)\b/i, op: 'more_than' },
+    { regex: /\bover\b/i, op: 'more_than' },
+    { regex: /\bbeyond\b/i, op: 'more_than' },
+  ];
+
+  for (const mapping of advanceWindowMap) {
+    if (mapping.regex.test(text)) {
+      return mapping.op as 'more_than' | 'less_than';
+    }
+  }
+
+  // Default fallback
+  return 'less_than';
+}
+
+// Pricing rule type detection
+function parsePricingType(text: string): 'fixed' | 'per_hour' {
+  if (/flat (rate|fee)|fixed (rate|fee)|flat\s*\$|\$\d+\s*flat/i.test(text)) {
+    return 'fixed';
+  }
+  return 'per_hour';
+}
+
 serve(async (req) => {
   // Handle CORS
   if (req.method === "OPTIONS") {
@@ -89,6 +156,10 @@ When the user provides a prompt, return the following JSON structure:
 - Logic: Use 'contains none of' + [X] (price applies to users WITHOUT the tag)
 - Example: "Everyone except Basic pays $100" → operator: "contains_none_of", value: ["Basic"]
 
+**PRICING TYPE DETECTION**:
+- Fixed rate phrases: "flat rate", "flat fee", "fixed rate", "fixed fee", "$200 flat"
+- Per-hour phrases: "$40 per hour", "$25/hour", "hourly rate"
+
 **FIXED-RATE PRICING PRIORITY**:
 - When a prompt includes fixed pricing ("$200 flat", "fixed rate"), the fixed-rate rule MUST be listed first in pricing_rules[] for that space/time.
 - Sort order: pricing_type "fixed" before "per_hour" or other per-period rates.
@@ -111,21 +182,31 @@ When the user provides a prompt, return the following JSON structure:
 - Logic: No condition_type or use 'duration' condition instead
 - Example: "Studio costs $40/hour" → condition_type: "duration", operator: "is_greater_than", value: "0min"
 
-### CRITICAL: Booking Window Rules Comparison Logic:
+### CRITICAL: Booking Window Rules Comparison Logic and Unit Normalization:
 
 **COMPARISON OPERATOR MAPPING** (Critical for correct booking window logic):
-- Phrases with "more than", "no more than", "not more than", "stop from booking more than", "over", "beyond":
+- Phrases with "more than", "no more than", "not more than", "stop from booking more than", "over", "beyond", "at least", "minimum of":
   - Logic: Use 'more_than' constraint (blocks if booking is BEYOND X hours)
   - Example: "Stop Public from booking more than 36 hours in advance" → constraint: "more_than", value: 36
 
-- Phrases with "less than", "within", "inside", "no less than", "at least":
+- Phrases with "less than", "within", "inside", "up to", "no less than":
   - Logic: Use 'less_than' constraint (blocks if booking is INSIDE X hours)
   - Example: "Public cannot book less than 6 hours ahead" → constraint: "less_than", value: 6
 
-- Time conversion for booking windows:
-  - Convert days to hours: "3 days" → 72 hours
-  - Convert weeks to hours: "1 week" → 168 hours
+**UNIT NORMALIZATION FOR BOOKING WINDOWS**:
+- Always convert time values to hours for internal processing:
+  - Days to hours: "3 days" → 72 hours
+  - Weeks to hours: "1 week" → 168 hours
   - Keep hours as-is: "36 hours" → 36 hours
+- Store both converted value and display text:
+  - value: 168 (hours)
+  - display: "1 week"
+- The UI will show "hours in advance" but explanations use original units
+
+**NATURAL LANGUAGE TIME PHRASES**:
+- "reserve ahead of time", "in advance", "notice" → booking window context
+- "one week", "two days", "three hours" → convert number words
+- "48 hours", "3 days", "1 week" → extract and normalize
 
 ### Booking Conditions Logic Rules:
 - Booking conditions define when a booking is NOT ALLOWED.
@@ -220,6 +301,7 @@ booking_window_rules: [
     constraint: "less_than" | "more_than", 
     value: 72,
     unit: "hours",
+    display: "3 days",
     spaces: ["Court 1", "Studio"],
     explanation: "Clear description of this booking window rule"
   }
