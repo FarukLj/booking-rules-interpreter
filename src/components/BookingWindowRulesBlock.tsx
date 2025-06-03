@@ -3,7 +3,9 @@ import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { Toggle } from "@/components/ui/toggle";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { BookingWindowRule } from "@/types/RuleResult";
+import { HelpCircle } from "lucide-react";
 
 interface BookingWindowRulesBlockProps {
   initialRules?: BookingWindowRule[];
@@ -47,6 +49,14 @@ export function BookingWindowRulesBlock({ initialRules = [] }: BookingWindowRule
     }
   };
 
+  const getConstraintText = (constraint: string) => {
+    switch (constraint) {
+      case "less_than": return "less than";
+      case "more_than": return "more than";
+      default: return "less than";
+    }
+  };
+
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-semibold text-slate-800">Booking Window Rules</h3>
@@ -87,17 +97,33 @@ export function BookingWindowRulesBlock({ initialRules = [] }: BookingWindowRule
                 className="min-w-0 max-w-[200px]"
               />
               
-              <Select value={rule.constraint || 'less_than'} onValueChange={(value) => updateRule(index, 'constraint', value)}>
-                <SelectTrigger className="w-24 h-10">
-                  <SelectValue>
-                    {rule.constraint === "less_than" ? "less than" : "more than"}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent className="z-50">
-                  <SelectItem value="less_than">less than</SelectItem>
-                  <SelectItem value="more_than">more than</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-1">
+                <Select value={rule.constraint || 'less_than'} onValueChange={(value) => updateRule(index, 'constraint', value)}>
+                  <SelectTrigger className="w-24 h-10">
+                    <SelectValue>
+                      {getConstraintText(rule.constraint || 'less_than')}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent className="z-50">
+                    <SelectItem value="less_than">less than</SelectItem>
+                    <SelectItem value="more_than">more than</SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <HelpCircle className="h-4 w-4 text-slate-400 hover:text-slate-600" />
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[300px]">
+                      <div className="text-xs space-y-1">
+                        <div><strong>less than:</strong> blocks if the booking is inside X hours</div>
+                        <div><strong>more than:</strong> blocks if the booking is beyond X hours</div>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
               
               <input 
                 type="number" 

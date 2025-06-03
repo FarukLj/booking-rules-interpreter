@@ -111,6 +111,22 @@ When the user provides a prompt, return the following JSON structure:
 - Logic: No condition_type or use 'duration' condition instead
 - Example: "Studio costs $40/hour" → condition_type: "duration", operator: "is_greater_than", value: "0min"
 
+### CRITICAL: Booking Window Rules Comparison Logic:
+
+**COMPARISON OPERATOR MAPPING** (Critical for correct booking window logic):
+- Phrases with "more than", "no more than", "not more than", "stop from booking more than", "over", "beyond":
+  - Logic: Use 'more_than' constraint (blocks if booking is BEYOND X hours)
+  - Example: "Stop Public from booking more than 36 hours in advance" → constraint: "more_than", value: 36
+
+- Phrases with "less than", "within", "inside", "no less than", "at least":
+  - Logic: Use 'less_than' constraint (blocks if booking is INSIDE X hours)
+  - Example: "Public cannot book less than 6 hours ahead" → constraint: "less_than", value: 6
+
+- Time conversion for booking windows:
+  - Convert days to hours: "3 days" → 72 hours
+  - Convert weeks to hours: "1 week" → 168 hours
+  - Keep hours as-is: "36 hours" → 36 hours
+
 ### Booking Conditions Logic Rules:
 - Booking conditions define when a booking is NOT ALLOWED.
 - For exclusive access ("Only X can book"), use 'contains none of' + [X] to block users without tag X.
