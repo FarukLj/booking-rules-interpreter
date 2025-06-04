@@ -18,7 +18,8 @@ import { QuotaRulesBlock } from "./QuotaRulesBlock";
 import { BufferTimeRulesBlock } from "./BufferTimeRulesBlock";
 import { BookingWindowRulesBlock } from "./BookingWindowRulesBlock";
 import { SpaceSharingRulesBlock } from "./SpaceSharingRulesBlock";
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useLocation } from "react-router-dom";
 
 interface SetupGuideModalProps {
   result: RuleResult;
@@ -28,12 +29,108 @@ interface SetupGuideModalProps {
 
 export function SetupGuideModal({ result, isOpen, onClose }: SetupGuideModalProps) {
   const [completedSteps, setCompletedSteps] = useState<Set<string>>(new Set());
+  const location = useLocation();
   
-  // Check if we have the new setup guide format
-  const hasSetupGuide = result.setup_guide && result.setup_guide.length > 0;
+  // Detect if opened from template library
+  const isLibrary = location.pathname.startsWith('/templates/');
+  
+  // Build dynamic setup guide based on mode and available data
+  const dynamicSetupGuide = useMemo(() => {
+    const steps: SetupGuideStep[] = [];
+    
+    // Only add initial setup steps if NOT in library mode
+    if (!isLibrary) {
+      // Step 1: Create spaces
+      steps.push({
+        step_key: 'create_spaces',
+        title: 'Step 1: Create the required spaces',
+        instruction: 'Go to Settings > Spaces and click \'Add Space\'. Create these spaces.',
+        spaces: getUniqueSpaces()
+      });
+      
+      // Step 2: Hours of availability
+      steps.push({
+        step_key: 'hours_of_availability',
+        title: 'Step 2: Add hours of availability',
+        instruction: 'Go to Settings › Hours of availability and set each space to recommended hours.',
+        spaces: getUniqueSpaces(),
+        times: '09:00 AM – 09:00 PM'
+      });
+      
+      // Step 3: Create user tags
+      steps.push({
+        step_key: 'create_user_tags',
+        title: 'Step 3: Add user tags',
+        instruction: 'Go to Users > Manage Tags and add the required user tags.'
+      });
+    }
+    
+    // Add rule configuration steps based on available data
+    if (result.booking_conditions && result.booking_conditions.length > 0) {
+      steps.push({
+        step_key: 'booking_conditions',
+        title: `Step ${steps.length + 1}: Create booking conditions`,
+        instruction: 'Go to Settings > Conditions and create the following restriction rules:',
+        rule_blocks: result.booking_conditions
+      });
+    }
+    
+    if (result.pricing_rules && result.pricing_rules.length > 0) {
+      steps.push({
+        step_key: 'pricing_rules',
+        title: `Step ${steps.length + 1}: Create pricing rules`,
+        instruction: 'Go to Settings > Pricing and create the following pricing rules:',
+        rule_blocks: result.pricing_rules
+      });
+    }
+    
+    if (result.quota_rules && result.quota_rules.length > 0) {
+      steps.push({
+        step_key: 'quota_rules',
+        title: `Step ${steps.length + 1}: Create quota rules`,
+        instruction: 'Go to Settings > Quotas and create the following quota rules:',
+        rule_blocks: result.quota_rules
+      });
+    }
+    
+    if (result.buffer_time_rules && result.buffer_time_rules.length > 0) {
+      steps.push({
+        step_key: 'buffer_time_rules',
+        title: `Step ${steps.length + 1}: Add buffer times`,
+        instruction: 'Go to Settings > Buffer Times and add the following buffer rules:',
+        rule_blocks: result.buffer_time_rules
+      });
+    }
+    
+    if (result.booking_window_rules && result.booking_window_rules.length > 0) {
+      steps.push({
+        step_key: 'booking_window_rules',
+        title: `Step ${steps.length + 1}: Create booking window rules`,
+        instruction: 'Go to Settings > Booking Windows and create the following rules:',
+        rule_blocks: result.booking_window_rules
+      });
+    }
+    
+    if (result.space_sharing && result.space_sharing.length > 0) {
+      steps.push({
+        step_key: 'space_sharing',
+        title: `Step ${steps.length + 1}: Set space-sharing rules`,
+        instruction: 'Go to Settings › Space Sharing and add the following connections:',
+        connections: result.space_sharing
+      });
+    }
+    
+    return steps;
+  }, [result, isLibrary]);
+  
+  // Use dynamic guide or fallback to original setup_guide
+  const setupGuide = dynamicSetupGuide.length > 0 ? dynamicSetupGuide : result.setup_guide;
+  
+  // Check if we have any setup guide data
+  const hasSetupGuide = setupGuide && setupGuide.length > 0;
   
   if (!hasSetupGuide) {
-    return null; // Fallback to regular modal if no setup guide
+    return null;
   }
 
   const toggleStepCompletion = (stepKey: string) => {
@@ -98,18 +195,18 @@ export function SetupGuideModal({ result, isOpen, onClose }: SetupGuideModalProp
 
   const getUniqueSpaces = () => {
     const spaces = new Set<string>();
-    if (result.parsed_rule_blocks?.booking_conditions) {
-      result.parsed_rule_blocks.booking_conditions.forEach(rule => 
+    if (result.booking_conditions) {
+      result.booking_conditions.forEach(rule => 
         rule.space.forEach(space => spaces.add(space))
       );
     }
-    if (result.parsed_rule_blocks?.pricing_rules) {
-      result.parsed_rule_blocks.pricing_rules.forEach(rule => 
+    if (result.pricing_rules) {
+      result.pricing_rules.forEach(rule => 
         rule.space.forEach(space => spaces.add(space))
       );
     }
-    if (result.parsed_rule_blocks?.space_sharing) {
-      result.parsed_rule_blocks.space_sharing.forEach(rule => {
+    if (result.space_sharing) {
+      result.space_sharing.forEach(rule => {
         spaces.add(rule.from);
         spaces.add(rule.to);
       });
@@ -120,15 +217,15 @@ export function SetupGuideModal({ result, isOpen, onClose }: SetupGuideModalProp
 
   const getUniqueTags = () => {
     const tags = new Set<string>();
-    if (result.parsed_rule_blocks?.booking_conditions) {
-      result.parsed_rule_blocks.booking_conditions.forEach(rule => {
+    if (result.booking_conditions) {
+      result.booking_conditions.forEach(rule => {
         if (Array.isArray(rule.value)) {
           rule.value.forEach(tag => tags.add(tag));
         }
       });
     }
-    if (result.parsed_rule_blocks?.pricing_rules) {
-      result.parsed_rule_blocks.pricing_rules.forEach(rule => {
+    if (result.pricing_rules) {
+      result.pricing_rules.forEach(rule => {
         if (Array.isArray(rule.value)) {
           rule.value.forEach(tag => tags.add(tag));
         }
@@ -144,10 +241,13 @@ export function SetupGuideModal({ result, isOpen, onClose }: SetupGuideModalProp
         <DialogHeader>
           <DialogTitle className="text-2xl flex items-center gap-2">
             <Settings className="h-6 w-6" />
-            Booking Rules Setup Assistant
+            {isLibrary ? "Template Configuration Guide" : "Booking Rules Setup Assistant"}
           </DialogTitle>
           <DialogDescription>
-            Follow these steps to configure your booking system according to your requirements
+            {isLibrary 
+              ? "Configure your booking system using this pre-built template"
+              : "Follow these steps to configure your booking system according to your requirements"
+            }
           </DialogDescription>
         </DialogHeader>
         
@@ -165,7 +265,7 @@ export function SetupGuideModal({ result, isOpen, onClose }: SetupGuideModalProp
           )}
 
           {/* Step-by-step guide */}
-          {result.setup_guide?.map((step, index) => (
+          {setupGuide?.map((step, index) => (
             <Card key={step.step_key} className="border-l-4 border-l-blue-500">
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -195,11 +295,11 @@ export function SetupGuideModal({ result, isOpen, onClose }: SetupGuideModalProp
               
               <CardContent>
                 {/* Special content for spaces step */}
-                {step.step_key === 'create_spaces' && (
+                {step.step_key === 'create_spaces' && step.spaces && (
                   <div className="space-y-2">
                     <p className="text-sm font-medium text-slate-700">Required spaces:</p>
                     <div className="flex flex-wrap gap-2">
-                      {getUniqueSpaces().map(space => (
+                      {step.spaces.map(space => (
                         <Badge key={space} variant="secondary">{space}</Badge>
                       ))}
                     </div>
@@ -212,7 +312,7 @@ export function SetupGuideModal({ result, isOpen, onClose }: SetupGuideModalProp
                     <p className="text-sm font-medium text-slate-700">Recommended availability hours:</p>
                     <div className="flex flex-wrap gap-2">
                       {getUniqueSpaces().map(space => (
-                        <Badge key={space} variant="outline">{space}: 07:00 AM – 09:00 PM</Badge>
+                        <Badge key={space} variant="outline">{space}: {step.times || "07:00 AM – 09:00 PM"}</Badge>
                       ))}
                     </div>
                     <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
@@ -251,7 +351,7 @@ export function SetupGuideModal({ result, isOpen, onClose }: SetupGuideModalProp
         
         <DialogFooter className="flex justify-between">
           <div className="text-sm text-slate-500">
-            {completedSteps.size} of {result.setup_guide?.length || 0} steps completed
+            {completedSteps.size} of {setupGuide?.length || 0} steps completed
           </div>
           <Button onClick={onClose}>Close Guide</Button>
         </DialogFooter>
