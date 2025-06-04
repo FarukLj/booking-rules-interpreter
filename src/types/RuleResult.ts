@@ -1,3 +1,4 @@
+
 export interface BookingCondition {
   space: string[];
   time_range: string;
@@ -15,9 +16,16 @@ export interface SubCondition {
   logic: "AND" | "OR";
 }
 
+export interface TimeObject {
+  hour: number;
+  minute: number;
+}
+
 export interface PricingRule {
   space: string[];
   time_range: string;
+  from_time?: TimeObject;
+  to_time?: TimeObject;
   days: string[];
   rate: { amount: number; unit: string };
   condition_type: "duration" | "user_tags";
