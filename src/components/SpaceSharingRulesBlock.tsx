@@ -1,60 +1,109 @@
 
 import { useState } from "react";
-import { ArrowLeftRight } from "lucide-react";
+import { ArrowLeftRight, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 import { SpaceSharingRule } from "@/types/RuleResult";
 
 interface SpaceSharingRulesBlockProps {
   initialRules?: SpaceSharingRule[];
 }
 
+interface TableRow {
+  whenBooked: string;
+  blocked: string[];
+}
+
 export function SpaceSharingRulesBlock({ initialRules = [] }: SpaceSharingRulesBlockProps) {
   const [connections] = useState<SpaceSharingRule[]>(initialRules);
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
-  // Resolve chained dependencies for "WHAT IT ALL MEANS"
-  const resolveChainedDependencies = (connections: SpaceSharingRule[]): SpaceSharingRule[] => {
-    const resolved = new Set<string>();
-    const result: SpaceSharingRule[] = [];
+  // Build complete adjacency map for bidirectional impacts
+  const buildAdjacencyMap = (connections: SpaceSharingRule[]): Record<string, string[]> => {
+    const map: Record<string, string[]> = {};
     
-    // Add direct connections
-    for (const conn of connections) {
-      const key = `${conn.from}->${conn.to}`;
-      if (!resolved.has(key)) {
-        resolved.add(key);
-        result.push(conn);
+    connections.forEach(({ from, to }) => {
+      // Add forward connection
+      if (!map[from]) map[from] = [];
+      if (!map[from].includes(to)) {
+        map[from].push(to);
       }
-    }
-
-    // Add implied connections (A->B, B->C implies A->C)
-    let changed = true;
-    let iterations = 0;
-    while (changed && iterations < 30) { // Prevent infinite loops
-      changed = false;
-      iterations++;
       
-      for (const conn1 of result) {
-        for (const conn2 of result) {
-          if (conn1.to === conn2.from && conn1.from !== conn2.to) {
-            const impliedKey = `${conn1.from}->${conn2.to}`;
-            if (!resolved.has(impliedKey)) {
-              resolved.add(impliedKey);
-              result.push({from: conn1.from, to: conn2.to});
-              changed = true;
-            }
-          }
-        }
+      // Add reverse connection for bidirectional impact
+      if (!map[to]) map[to] = [];
+      if (!map[to].includes(from)) {
+        map[to].push(from);
       }
-    }
+    });
 
-    return result;
+    return map;
   };
 
-  const resolvedPairs = resolveChainedDependencies(connections);
+  // Convert adjacency map to table rows
+  const buildTableRows = (map: Record<string, string[]>): TableRow[] => {
+    return Object.entries(map)
+      .map(([whenBooked, blocked]) => ({
+        whenBooked,
+        blocked: blocked.sort() // Sort for consistent display
+      }))
+      .sort((a, b) => a.whenBooked.localeCompare(b.whenBooked)); // Sort rows by space name
+  };
+
+  const toggleRowExpansion = (spaceName: string) => {
+    const newExpanded = new Set(expandedRows);
+    if (newExpanded.has(spaceName)) {
+      newExpanded.delete(spaceName);
+    } else {
+      newExpanded.add(spaceName);
+    }
+    setExpandedRows(newExpanded);
+  };
+
+  const renderBlockedSpaces = (blocked: string[], whenBooked: string) => {
+    const maxVisible = 4;
+    const isExpanded = expandedRows.has(whenBooked);
+    const visibleSpaces = isExpanded ? blocked : blocked.slice(0, maxVisible);
+    const remainingCount = blocked.length - maxVisible;
+
+    return (
+      <div className="flex flex-wrap gap-1">
+        {visibleSpaces.map(space => (
+          <Badge key={space} variant="destructive" className="bg-red-500 text-white text-xs">
+            {space}
+          </Badge>
+        ))}
+        {!isExpanded && remainingCount > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => toggleRowExpansion(whenBooked)}
+            className="h-5 px-2 text-xs bg-red-100 text-red-700 hover:bg-red-200"
+          >
+            <Plus className="w-3 h-3 mr-1" />
+            {remainingCount} more
+          </Button>
+        )}
+        {isExpanded && blocked.length > maxVisible && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => toggleRowExpansion(whenBooked)}
+            className="h-5 px-2 text-xs bg-gray-100 text-gray-700 hover:bg-gray-200"
+          >
+            Show less
+          </Button>
+        )}
+      </div>
+    );
+  };
 
   if (connections.length === 0) {
     return null;
   }
+
+  const adjacencyMap = buildAdjacencyMap(connections);
+  const tableRows = buildTableRows(adjacencyMap);
 
   return (
     <div className="space-y-4 max-w-[650px]">
@@ -78,8 +127,8 @@ export function SpaceSharingRulesBlock({ initialRules = [] }: SpaceSharingRulesB
         ))}
       </div>
 
-      {/* Explanation table */}
-      {resolvedPairs.length > 0 && (
+      {/* Enhanced explanation table */}
+      {tableRows.length > 0 && (
         <div className="mt-6">
           <h4 className="font-semibold text-slate-800 mb-3">WHAT IT ALL MEANS</h4>
           
@@ -97,13 +146,15 @@ export function SpaceSharingRulesBlock({ initialRules = [] }: SpaceSharingRulesB
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {resolvedPairs.map((pair, index) => (
-                  <TableRow key={`${pair.from}-${pair.to}-${index}`} className="border-b border-slate-200">
-                    <TableCell className="border-r border-slate-200 font-medium">
-                      {pair.from}
+                {tableRows.map((row) => (
+                  <TableRow key={row.whenBooked} className="border-b border-slate-200">
+                    <TableCell className="border-r border-slate-200">
+                      <Badge variant="secondary" className="bg-gray-500 text-white">
+                        {row.whenBooked}
+                      </Badge>
                     </TableCell>
                     <TableCell>
-                      {pair.to}
+                      {renderBlockedSpaces(row.blocked, row.whenBooked)}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -113,17 +164,23 @@ export function SpaceSharingRulesBlock({ initialRules = [] }: SpaceSharingRulesB
 
           {/* Mobile stacked list */}
           <div className="sm:hidden space-y-3">
-            {resolvedPairs.map((pair, index) => (
-              <div key={`${pair.from}-${pair.to}-${index}`} className="p-3 border border-slate-200 rounded-lg bg-slate-50">
-                <div className="text-sm font-semibold text-slate-800">WHEN BOOKED:</div>
-                <div className="text-sm text-slate-700 mb-2">{pair.from}</div>
-                <div className="text-sm font-semibold text-slate-800">WILL NOT BE BOOKABLE:</div>
-                <div className="text-sm text-slate-700">{pair.to}</div>
+            {tableRows.map((row) => (
+              <div key={row.whenBooked} className="p-3 border border-slate-200 rounded-lg bg-slate-50">
+                <div className="text-sm font-semibold text-slate-800 mb-2">WHEN BOOKED:</div>
+                <div className="mb-3">
+                  <Badge variant="secondary" className="bg-gray-500 text-white">
+                    {row.whenBooked}
+                  </Badge>
+                </div>
+                <div className="text-sm font-semibold text-slate-800 mb-2">WILL NOT BE BOOKABLE:</div>
+                <div>
+                  {renderBlockedSpaces(row.blocked, row.whenBooked)}
+                </div>
               </div>
             ))}
           </div>
 
-          {resolvedPairs.length > 30 && (
+          {tableRows.length > 30 && (
             <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-md">
               <p className="text-sm text-amber-800">
                 <strong>Warning:</strong> Large mesh detected; consider simplifying sharing rules.
