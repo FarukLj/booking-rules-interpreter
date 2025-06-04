@@ -7,6 +7,7 @@ import { Toggle } from "@/components/ui/toggle";
 import { PricingRule } from "@/types/RuleResult";
 import { Info, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { timeObjectToTimeString, formatTimeDisplay } from "@/utils/timeRange";
 
 interface PricingRulesBlockProps {
   initialRules?: PricingRule[];
@@ -145,6 +146,39 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
     return "";
   };
 
+  // Helper function to get time value for dropdown, using from_time/to_time if available
+  const getTimeValue = (rule: PricingRule, position: 'start' | 'end'): string => {
+    if (position === 'start') {
+      if (rule.from_time) {
+        return timeObjectToTimeString(rule.from_time);
+      }
+      return rule.time_range?.split('–')[0] || '09:00';
+    } else {
+      if (rule.to_time) {
+        return timeObjectToTimeString(rule.to_time);
+      }
+      return rule.time_range?.split('–')[1] || '17:00';
+    }
+  };
+
+  const updateTimeRange = (index: number, position: 'start' | 'end', newTime: string) => {
+    const rule = rules[index];
+    const startTime = position === 'start' ? newTime : getTimeValue(rule, 'start');
+    const endTime = position === 'end' ? newTime : getTimeValue(rule, 'end');
+    
+    updateRule(index, 'time_range', `${startTime}–${endTime}`);
+    
+    // Also update the time objects if they exist
+    if (position === 'start' && rule.from_time) {
+      const [hour, minute] = newTime.split(':').map(Number);
+      updateRule(index, 'from_time', { hour, minute });
+    }
+    if (position === 'end' && rule.to_time) {
+      const [hour, minute] = newTime.split(':').map(Number);
+      updateRule(index, 'to_time', { hour, minute });
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
@@ -161,15 +195,12 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
             <div className="flex flex-wrap items-center gap-2 text-sm mb-3">
               <span className="text-slate-600">Between</span>
               <Select 
-                value={rule.time_range?.split('–')[0] || '09:00'} 
-                onValueChange={(value) => {
-                  const endTime = rule.time_range?.split('–')[1] || '17:00';
-                  updateRule(index, 'time_range', `${value}–${endTime}`);
-                }}
+                value={getTimeValue(rule, 'start')} 
+                onValueChange={(value) => updateTimeRange(index, 'start', value)}
               >
                 <SelectTrigger className="w-24 h-10">
                   <SelectValue>
-                    {formatTimeDisplay(rule.time_range?.split('–')[0] || '09:00')}
+                    {formatTimeDisplay(getTimeValue(rule, 'start'))}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent className="z-50">
@@ -181,15 +212,12 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
               
               <span className="text-slate-600">and</span>
               <Select 
-                value={rule.time_range?.split('–')[1] || '17:00'} 
-                onValueChange={(value) => {
-                  const startTime = rule.time_range?.split('–')[0] || '09:00';
-                  updateRule(index, 'time_range', `${startTime}–${value}`);
-                }}
+                value={getTimeValue(rule, 'end')} 
+                onValueChange={(value) => updateTimeRange(index, 'end', value)}
               >
                 <SelectTrigger className="w-24 h-10">
                   <SelectValue>
-                    {formatTimeDisplay(rule.time_range?.split('–')[1] || '17:00')}
+                    {formatTimeDisplay(getTimeValue(rule, 'end'))}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent className="z-50">

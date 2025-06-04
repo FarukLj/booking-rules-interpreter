@@ -2,6 +2,47 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 
+// Time range conversion utility for templates
+function splitTimeRange(str: string): [any, any] {
+  if (!str) return [null, null];
+  
+  const normalized = str.trim()
+    .replace(/—|–|\s+to\s+/gi, '-')
+    .replace(/\s+/g, '');
+  
+  const parts = normalized.split('-');
+  if (parts.length !== 2) return [null, null];
+  
+  const [rawStart, rawEnd] = parts;
+  return [parseTime(rawStart), parseTime(rawEnd)];
+}
+
+function parseTime(timeStr: string): any {
+  if (!timeStr) return null;
+  
+  const match = timeStr.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i);
+  if (!match) return null;
+  
+  const [, hourStr, minuteStr = '00', ampm] = match;
+  let hour = parseInt(hourStr, 10);
+  const minute = parseInt(minuteStr, 10);
+  
+  if (ampm) {
+    const isPM = /pm/i.test(ampm);
+    if (isPM && hour !== 12) {
+      hour += 12;
+    } else if (!isPM && hour === 12) {
+      hour = 0;
+    }
+  }
+  
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+    return null;
+  }
+  
+  return { hour, minute };
+}
+
 // Unit normalization utility
 function toHours(value: number, unit: 'hours' | 'days' | 'weeks'): number {
   if (unit === 'days') return value * 24;
@@ -146,6 +187,48 @@ function resolveChainedDependencies(connections: Array<{from: string, to: string
   }
 
   return result;
+}
+
+// Convert time_range to from_time/to_time for template rule blocks
+function ensureRuleBlocks(parsedResult: any) {
+  if (parsedResult.parsed_rule_blocks?.pricing_rules) {
+    parsedResult.parsed_rule_blocks.pricing_rules.forEach((rule: any) => {
+      if (rule.time_range && !rule.from_time && !rule.to_time) {
+        const [fromTime, toTime] = splitTimeRange(rule.time_range);
+        if (fromTime && toTime) {
+          rule.from_time = fromTime;
+          rule.to_time = toTime;
+        }
+      }
+    });
+  }
+
+  if (parsedResult.parsed_rule_blocks?.booking_conditions) {
+    parsedResult.parsed_rule_blocks.booking_conditions.forEach((rule: any) => {
+      if (rule.time_range && !rule.from_time && !rule.to_time) {
+        const [fromTime, toTime] = splitTimeRange(rule.time_range);
+        if (fromTime && toTime) {
+          rule.from_time = fromTime;
+          rule.to_time = toTime;
+        }
+      }
+    });
+  }
+
+  // Apply to other rule types as needed
+  ['quota_rules', 'buffer_time_rules', 'booking_window_rules'].forEach(ruleType => {
+    if (parsedResult.parsed_rule_blocks?.[ruleType]) {
+      parsedResult.parsed_rule_blocks[ruleType].forEach((rule: any) => {
+        if (rule.time_range && !rule.from_time && !rule.to_time) {
+          const [fromTime, toTime] = splitTimeRange(rule.time_range);
+          if (fromTime && toTime) {
+            rule.from_time = fromTime;
+            rule.to_time = toTime;
+          }
+        }
+      });
+    }
+  });
 }
 
 serve(async (req) => {
@@ -516,6 +599,9 @@ Your JSON should never be wrapped in markdown backticks or contain extra notes. 
         }
       );
     }
+
+    // Convert time_range to from_time/to_time for template compatibility
+    ensureRuleBlocks(parsedResult);
 
     return new Response(JSON.stringify(parsedResult), {
       status: 200,
