@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -37,6 +36,15 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
   const [logicOperators, setLogicOperators] = useState<string[]>(
     new Array(Math.max(0, rules.length - 1)).fill("AND")
   );
+
+  // Debug logging for time parsing
+  useEffect(() => {
+    rules.forEach((rule, index) => {
+      if (rule.from_time && rule.to_time) {
+        console.log(`[TimeParse] Rule ${index}: from_time={h:${rule.from_time.hour}, m:${rule.from_time.minute}} to_time={h:${rule.to_time.hour}, m:${rule.to_time.minute}}`);
+      }
+    });
+  }, [rules]);
 
   // Validation for positive pricing logic
   useEffect(() => {
@@ -168,14 +176,14 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
     
     updateRule(index, 'time_range', `${startTime}–${endTime}`);
     
-    // Also update the time objects if they exist
-    if (position === 'start' && rule.from_time) {
-      const [hour, minute] = newTime.split(':').map(Number);
-      updateRule(index, 'from_time', { hour, minute });
-    }
-    if (position === 'end' && rule.to_time) {
-      const [hour, minute] = newTime.split(':').map(Number);
-      updateRule(index, 'to_time', { hour, minute });
+    // Update the time objects
+    const [hour, minute] = newTime.split(':').map(Number);
+    const timeObj = { hour, minute };
+    
+    if (position === 'start') {
+      updateRule(index, 'from_time', timeObj);
+    } else {
+      updateRule(index, 'to_time', timeObj);
     }
   };
 

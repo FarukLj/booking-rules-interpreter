@@ -193,7 +193,7 @@ function resolveChainedDependencies(connections: Array<{from: string, to: string
 function ensureRuleBlocks(parsedResult: any) {
   if (parsedResult.parsed_rule_blocks?.pricing_rules) {
     parsedResult.parsed_rule_blocks.pricing_rules.forEach((rule: any) => {
-      if (rule.time_range && !rule.from_time && !rule.to_time) {
+      if (rule.time_range && (!rule.from_time || !rule.to_time)) {
         const [fromTime, toTime] = splitTimeRange(rule.time_range);
         if (fromTime && toTime) {
           rule.from_time = fromTime;
@@ -205,7 +205,7 @@ function ensureRuleBlocks(parsedResult: any) {
 
   if (parsedResult.parsed_rule_blocks?.booking_conditions) {
     parsedResult.parsed_rule_blocks.booking_conditions.forEach((rule: any) => {
-      if (rule.time_range && !rule.from_time && !rule.to_time) {
+      if (rule.time_range && (!rule.from_time || !rule.to_time)) {
         const [fromTime, toTime] = splitTimeRange(rule.time_range);
         if (fromTime && toTime) {
           rule.from_time = fromTime;
@@ -219,7 +219,7 @@ function ensureRuleBlocks(parsedResult: any) {
   ['quota_rules', 'buffer_time_rules', 'booking_window_rules'].forEach(ruleType => {
     if (parsedResult.parsed_rule_blocks?.[ruleType]) {
       parsedResult.parsed_rule_blocks[ruleType].forEach((rule: any) => {
-        if (rule.time_range && !rule.from_time && !rule.to_time) {
+        if (rule.time_range && (!rule.from_time || !rule.to_time)) {
           const [fromTime, toTime] = splitTimeRange(rule.time_range);
           if (fromTime && toTime) {
             rule.from_time = fromTime;
