@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MultiSelect } from "@/components/ui/multi-select";
@@ -53,11 +52,11 @@ export function BufferTimeRulesBlock({ initialRules = [] }: BufferTimeRulesBlock
             <div className="flex flex-wrap items-center gap-2 text-sm mb-3">
               <span className="text-slate-600">For</span>
               <MultiSelect
+                triggerVariant="link"
                 options={spaceOptions}
                 selected={rule.spaces || []}
                 onSelectionChange={(selected) => updateRule(index, 'spaces', selected)}
                 placeholder="Select spaces"
-                className="min-w-0 max-w-[200px]"
               />
               
               <span className="text-slate-600">buffer time of</span>

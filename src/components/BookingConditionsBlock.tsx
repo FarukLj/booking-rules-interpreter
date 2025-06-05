@@ -141,11 +141,11 @@ export function BookingConditionsBlock({ initialConditions = [] }: BookingCondit
             <div className="flex flex-wrap items-center gap-2 text-sm mb-3">
               <span className="text-slate-600">For</span>
               <MultiSelect
+                triggerVariant="link"
                 options={spaceOptions}
                 selected={condition.space || []}
                 onSelectionChange={(selected) => updateCondition(index, 'space', selected)}
                 placeholder="Select spaces"
-                className="min-w-0 max-w-[200px]"
               />
               
               <span className="text-slate-600">between</span>
@@ -176,11 +176,11 @@ export function BookingConditionsBlock({ initialConditions = [] }: BookingCondit
               
               <span className="text-slate-600">on</span>
               <MultiSelect
+                triggerVariant="link"
                 options={dayOptions}
                 selected={condition.days || []}
                 onSelectionChange={(selected) => updateCondition(index, 'days', selected)}
                 placeholder="Select days"
-                className="min-w-0 max-w-[200px]"
               />
               
               <span className="text-slate-600">, a booking is not allowed if:</span>
