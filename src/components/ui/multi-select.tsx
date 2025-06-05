@@ -33,7 +33,8 @@ export function MultiSelect({
   selected, 
   onSelectionChange, 
   placeholder = "Select items",
-  className
+  className,
+  triggerVariant = "input"
 }: MultiSelectProps) {
   const toggleItem = (item: string) => {
     const newSelected = selected.includes(item)
@@ -112,39 +113,36 @@ export function MultiSelect({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        {/* ▼ Trigger --------------------------------------------------------- */}
-{triggerVariant === "link" ? (
-  <Button
-    type="button"
-    role="combobox"
-    variant="ghost"
-    className={cn(triggerStyles.link, className)}
-  >
-    <div className="flex items-center gap-1 flex-1 min-w-0 overflow-hidden">
-      {renderDisplayValue()}
-    </div>
-    <ChevronDown className="h-3 w-3 shrink-0 ml-1" />
-  </Button>
-) : (
-  <Button
-    type="button"
-    role="combobox"
-    variant="outline"
-    className={cn(
-      triggerStyles.input,
-      selected.length === 0 && "text-muted-foreground",
-      "min-w-[240px] max-w-[280px] md:max-w-[280px] sm:min-w-[180px]",
-      className
-    )}
-  >
-    <div className="flex items-center gap-1 flex-1 min-w-0 overflow-hidden max-w-[calc(100%-32px)]">
-      {renderDisplayValue()}
-    </div>
-    <ChevronDown className="h-4 w-4 opacity-50 shrink-0 ml-2" />
-  </Button>
-)}
-{/* ▲ Trigger --------------------------------------------------------- */}
-
+        {triggerVariant === "link" ? (
+          <Button
+            type="button"
+            role="combobox"
+            variant="ghost"
+            className={cn(triggerStyles.link, className)}
+          >
+            <div className="flex items-center gap-1 flex-1 min-w-0 overflow-hidden">
+              {renderDisplayValue()}
+            </div>
+            <ChevronDown className="h-3 w-3 shrink-0 ml-1" />
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            role="combobox"
+            variant="outline"
+            className={cn(
+              triggerStyles.input,
+              selected.length === 0 && "text-muted-foreground",
+              "min-w-[240px] max-w-[280px] md:max-w-[280px] sm:min-w-[180px]",
+              className
+            )}
+          >
+            <div className="flex items-center gap-1 flex-1 min-w-0 overflow-hidden max-w-[calc(100%-32px)]">
+              {renderDisplayValue()}
+            </div>
+            <ChevronDown className="h-4 w-4 opacity-50 shrink-0 ml-2" />
+          </Button>
+        )}
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56 max-h-64 overflow-y-auto z-50" align="start">
         {options.map((option) => (
