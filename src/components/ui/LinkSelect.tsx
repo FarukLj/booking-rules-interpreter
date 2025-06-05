@@ -38,4 +38,26 @@ export function LinkSelect({
       </SelectContent>
     </Select>
   );
+
+  // ─── NEW: stand-alone trigger for blue-link style ──────────────────────────────
+import { SelectTrigger, SelectTriggerProps } from "@/components/ui/select";
+import { cn } from "@/lib/utils";       //  you already use this helper elsewhere
+
+export function LinkSelectTrigger(props: SelectTriggerProps) {
+  return (
+    <SelectTrigger
+      {...props}
+      className={cn(
+        "h-auto px-0 py-0 border-none bg-transparent text-blue-700 font-semibold",
+        "hover:text-blue-600 focus:ring-0 focus:outline-none",
+        props.className
+      )}
+    >
+      {props.children}
+      <ChevronDown className="ml-1 w-3 h-3 shrink-0" />
+    </SelectTrigger>
+  );
+}
+// ───────────────────────────────────────────────────────────────────────────────
+
 }
