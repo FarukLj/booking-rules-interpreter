@@ -11,12 +11,21 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 
+/** Tailwind classes for each trigger style */
+const triggerStyles = {
+  input:
+    "justify-between font-normal h-10 min-h-[2.5rem] max-h-[2.5rem] border border-slate-300 rounded px-2",
+  link:
+    "inline-flex items-center gap-1 h-auto px-0 py-0 border-none bg-transparent font-semibold text-blue-700 hover:text-blue-600 focus:outline-none",
+} as const;
+
 interface MultiSelectProps {
   options: string[];
   selected: string[];
   onSelectionChange: (selected: string[]) => void;
   placeholder?: string;
   className?: string;
+  triggerVariant?: "input" | "link";
 }
 
 export function MultiSelect({ 
@@ -103,21 +112,39 @@ export function MultiSelect({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          className={cn(
-            "justify-between font-normal h-10 min-h-[2.5rem] max-h-[2.5rem]",
-            "min-w-[240px] max-w-[280px] md:max-w-[280px] sm:min-w-[180px]",
-            selected.length === 0 && "text-muted-foreground",
-            className
-          )}
-        >
-          <div className="flex items-center gap-1 flex-1 min-w-0 overflow-hidden max-w-[calc(100%-32px)]">
-            {renderDisplayValue()}
-          </div>
-          <ChevronDown className="h-4 w-4 opacity-50 shrink-0 ml-2" />
-        </Button>
+        {/* ▼ Trigger --------------------------------------------------------- */}
+{triggerVariant === "link" ? (
+  <Button
+    type="button"
+    role="combobox"
+    variant="ghost"
+    className={cn(triggerStyles.link, className)}
+  >
+    <div className="flex items-center gap-1 flex-1 min-w-0 overflow-hidden">
+      {renderDisplayValue()}
+    </div>
+    <ChevronDown className="h-3 w-3 shrink-0 ml-1" />
+  </Button>
+) : (
+  <Button
+    type="button"
+    role="combobox"
+    variant="outline"
+    className={cn(
+      triggerStyles.input,
+      selected.length === 0 && "text-muted-foreground",
+      "min-w-[240px] max-w-[280px] md:max-w-[280px] sm:min-w-[180px]",
+      className
+    )}
+  >
+    <div className="flex items-center gap-1 flex-1 min-w-0 overflow-hidden max-w-[calc(100%-32px)]">
+      {renderDisplayValue()}
+    </div>
+    <ChevronDown className="h-4 w-4 opacity-50 shrink-0 ml-2" />
+  </Button>
+)}
+{/* ▲ Trigger --------------------------------------------------------- */}
+
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56 max-h-64 overflow-y-auto z-50" align="start">
         {options.map((option) => (
