@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -7,6 +6,7 @@ import { Toggle } from "@/components/ui/toggle";
 import { PricingRule } from "@/types/RuleResult";
 import { Info, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface PricingRulesBlockProps {
   initialRules?: PricingRule[];
