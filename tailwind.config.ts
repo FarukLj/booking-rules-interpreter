@@ -40,6 +40,11 @@ export default {
 				ring: 'hsl(var(--ring))',
 				background: 'hsl(var(--background))',
 				foreground: 'hsl(var(--foreground))',
+				
+				/* ——— new production-UI tokens ——— */
+				g150: '#f5f7fa',   // light grey card background
+				link: '#0070f3',   // blue text links / dropdown triggers
+    
 				primary: {
 					DEFAULT: 'hsl(var(--primary))',
 					foreground: 'hsl(var(--primary-foreground))'
