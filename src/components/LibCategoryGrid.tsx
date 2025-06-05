@@ -1,15 +1,32 @@
 
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useLibCategories } from '@/hooks/useLibrary';
+import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Database } from 'lucide-react';
 
 interface LibCategoryGridProps {
-  onCategorySelect: (categoryId: string, categoryName: string) => void;
+  onCategorySelect?: (categoryId: string, categoryName: string) => void;
 }
 
 export function LibCategoryGrid({ onCategorySelect }: LibCategoryGridProps) {
   const { data: categories, isLoading, error } = useLibCategories();
+  const navigate = useNavigate();
+
+  const getPublicUrl = (path: string) => {
+    if (!path) return null;
+    const { data } = supabase.storage.from('template-screenshots').getPublicUrl(path);
+    return data.publicUrl;
+  };
+
+  const handleCategoryClick = (categoryId: string, categoryName: string) => {
+    if (onCategorySelect) {
+      onCategorySelect(categoryId, categoryName);
+    } else {
+      navigate(`/category/${categoryId}`);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -41,29 +58,44 @@ export function LibCategoryGrid({ onCategorySelect }: LibCategoryGridProps) {
     <div className="mt-8">
       <h2 className="text-2xl font-semibold text-slate-800 mb-6">Template Library</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {categories.map((category) => (
-          <Card 
-            key={category.id} 
-            className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-blue-300"
-            onClick={() => onCategorySelect(category.id, category.name)}
-          >
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <span className="text-blue-600 font-semibold text-sm">
-                    {category.name.charAt(0)}
-                  </span>
+        {categories.map((category) => {
+          const imageUrl = category.image_path ? getPublicUrl(category.image_path) : null;
+          
+          return (
+            <Card 
+              key={category.id} 
+              className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-blue-300 overflow-hidden"
+              onClick={() => handleCategoryClick(category.id, category.name)}
+            >
+              {imageUrl ? (
+                <div className="w-full h-48 overflow-hidden">
+                  <img 
+                    src={imageUrl}
+                    alt={category.name}
+                    className="w-full h-full object-cover"
+                  />
                 </div>
-                <span className="text-lg">{category.name}</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-slate-600">
-                Browse booking rule templates for {category.name.toLowerCase()}
-              </p>
-            </CardContent>
-          </Card>
-        ))}
+              ) : (
+                <div className="w-full h-48 bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center">
+                  <div className="w-16 h-16 bg-blue-500 rounded-lg flex items-center justify-center">
+                    <span className="text-white font-bold text-xl">
+                      {category.name.charAt(0)}
+                    </span>
+                  </div>
+                </div>
+              )}
+              
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg">{category.name}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-slate-600">
+                  Browse booking rule templates for {category.name.toLowerCase()}
+                </p>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
     </div>
   );

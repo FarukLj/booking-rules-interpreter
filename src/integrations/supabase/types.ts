@@ -13,16 +13,19 @@ export type Database = {
         Row: {
           created_at: string | null
           id: string
+          image_path: string | null
           name: string
         }
         Insert: {
           created_at?: string | null
           id?: string
+          image_path?: string | null
           name: string
         }
         Update: {
           created_at?: string | null
           id?: string
+          image_path?: string | null
           name?: string
         }
         Relationships: []
@@ -31,27 +34,33 @@ export type Database = {
         Row: {
           category_id: string | null
           created_at: string | null
+          desktop_image_paths: string[] | null
           id: string
           image_paths: string[] | null
           long_desc: string | null
+          mobile_image_paths: string[] | null
           short_desc: string | null
           title: string
         }
         Insert: {
           category_id?: string | null
           created_at?: string | null
+          desktop_image_paths?: string[] | null
           id?: string
           image_paths?: string[] | null
           long_desc?: string | null
+          mobile_image_paths?: string[] | null
           short_desc?: string | null
           title: string
         }
         Update: {
           category_id?: string | null
           created_at?: string | null
+          desktop_image_paths?: string[] | null
           id?: string
           image_paths?: string[] | null
           long_desc?: string | null
+          mobile_image_paths?: string[] | null
           short_desc?: string | null
           title?: string
         }

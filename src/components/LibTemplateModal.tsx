@@ -3,6 +3,7 @@ import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useLibTemplate } from '@/hooks/useLibrary';
+import { useDeviceType } from '@/hooks/useDeviceType';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2 } from 'lucide-react';
 
@@ -14,6 +15,7 @@ interface LibTemplateModalProps {
 
 export function LibTemplateModal({ templateId, isOpen, onClose }: LibTemplateModalProps) {
   const { data: template, isLoading, error } = useLibTemplate(templateId || '');
+  const { isMobile } = useDeviceType();
 
   if (!templateId) return null;
 
@@ -22,10 +24,24 @@ export function LibTemplateModal({ templateId, isOpen, onClose }: LibTemplateMod
     return data.publicUrl;
   };
 
+  const getImagePaths = () => {
+    if (!template) return [];
+    
+    // Use responsive images based on device type
+    const responsiveImages = isMobile ? template.mobile_image_paths : template.desktop_image_paths;
+    
+    // Fallback to legacy image_paths if responsive images are not available
+    if (responsiveImages && responsiveImages.length > 0) {
+      return responsiveImages;
+    }
+    
+    return template.image_paths || [];
+  };
+
   if (isLoading) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+        <DialogContent className="max-h-[90vh] overflow-hidden">
           <DialogHeader>
             <DialogTitle>Loading Template...</DialogTitle>
           </DialogHeader>
@@ -40,7 +56,7 @@ export function LibTemplateModal({ templateId, isOpen, onClose }: LibTemplateMod
   if (error || !template) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-4xl">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Error</DialogTitle>
           </DialogHeader>
@@ -52,9 +68,11 @@ export function LibTemplateModal({ templateId, isOpen, onClose }: LibTemplateMod
     );
   }
 
+  const imagePaths = getImagePaths();
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+      <DialogContent className="max-h-[90vh] overflow-hidden">
         <DialogHeader>
           <DialogTitle>{template.title}</DialogTitle>
         </DialogHeader>
@@ -65,8 +83,8 @@ export function LibTemplateModal({ templateId, isOpen, onClose }: LibTemplateMod
               {template.long_desc}
             </p>
             
-            {template.image_paths && template.image_paths.length > 0 ? (
-              template.image_paths.map((path, index) => (
+            {imagePaths && imagePaths.length > 0 ? (
+              imagePaths.map((path, index) => (
                 <img 
                   key={index} 
                   src={getPublicUrl(path)} 
