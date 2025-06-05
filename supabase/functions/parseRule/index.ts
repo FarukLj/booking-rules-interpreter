@@ -1,196 +1,151 @@
+
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 
-// Time range conversion utility for templates
-function splitTimeRange(str: string): [any, any] {
-  if (!str) return [null, null];
-  
-  const normalized = str.trim()
-    .replace(/—|–|\s+to\s+/gi, '-')
-    .replace(/\s+/g, '');
-  
-  const parts = normalized.split('-');
-  if (parts.length !== 2) return [null, null];
-  
-  const [rawStart, rawEnd] = parts;
-  return [parseTime(rawStart), parseTime(rawEnd)];
+// Unit normalization utility
+function toHours(value: number, unit: 'hours' | 'days' | 'weeks'): number {
+  if (unit === 'days') return value * 24;
+  if (unit === 'weeks') return value * 24 * 7;
+  return value;
 }
 
-function parseTime(timeStr: string): any {
-  if (!timeStr) return null;
-  
-  const match = timeStr.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i);
-  if (!match) return null;
-  
-  const [, hourStr, minuteStr = '00', ampm] = match;
-  let hour = parseInt(hourStr, 10);
-  const minute = parseInt(minuteStr, 10);
-  
-  if (ampm) {
-    const isPM = /pm/i.test(ampm);
-    if (isPM && hour !== 12) {
-      hour += 12;
-    } else if (!isPM && hour === 12) {
-      hour = 0;
+// Extract time value and unit from text
+function extractTimeUnit(text: string): { value: number; unit: 'hours' | 'days' | 'weeks'; display: string } {
+  const timePatterns = [
+    { regex: /(\d+)\s*(week|weeks|wk)/i, unit: 'weeks' as const },
+    { regex: /(\d+)\s*(day|days|d)\b/i, unit: 'days' as const },
+    { regex: /(\d+)\s*(hour|hours|hr|h)\b/i, unit: 'hours' as const },
+    { regex: /(one|1)\s*(week|weeks)/i, value: 1, unit: 'weeks' as const },
+    { regex: /(two|2)\s*(week|weeks)/i, value: 2, unit: 'weeks' as const },
+    { regex: /(three|3)\s*(week|weeks)/i, value: 3, unit: 'weeks' as const },
+    { regex: /(one|1)\s*(day|days)/i, value: 1, unit: 'days' as const },
+    { regex: /(two|2)\s*(day|days)/i, value: 2, unit: 'days' as const },
+    { regex: /(three|3)\s*(day|days)/i, value: 3, unit: 'days' as const },
+  ];
+
+  for (const pattern of timePatterns) {
+    const match = text.match(pattern.regex);
+    if (match) {
+      const value = pattern.value || parseInt(match[1]) || 1;
+      const unit = pattern.unit;
+      const display = `${value} ${unit === 'weeks' ? (value === 1 ? 'week' : 'weeks') : 
+                                   unit === 'days' ? (value === 1 ? 'day' : 'days') : 
+                                   (value === 1 ? 'hour' : 'hours')}`;
+      return { value, unit, display };
     }
   }
-  
-  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
-    return null;
-  }
-  
-  return { hour, minute };
+
+  // Default fallback
+  return { value: 72, unit: 'hours', display: '72 hours' };
 }
 
-// Template normalization utility - injects from_time / to_time for template compatibility
-function normalizeTemplateRules(json: any): any {
-  if (!json) return json;
+// Booking window phrase mapping
+function parseBookingWindowOperator(text: string): 'more_than' | 'less_than' {
+  const advanceWindowMap = [
+    { regex: /\b(no |not |stop .* from )?(?:reserve|booking|book|schedule)[^\n]*\bmore than\b/i, op: 'more_than' },
+    { regex: /\b(at least|minimum of)\b/i, op: 'more_than' },
+    { regex: /\b(within|inside|up to|no more than)\b/i, op: 'less_than' },
+    { regex: /\b(less than|under)\b/i, op: 'less_than' },
+    { regex: /\b(reserve ahead of time|in advance)\b.*\b(\d+|one|two|three|four|five|six|seven)\b/i, op: 'more_than' },
+    { regex: /\bover\b/i, op: 'more_than' },
+    { regex: /\bbeyond\b/i, op: 'more_than' },
+  ];
 
-  console.log('normalizeTemplateRules: Processing template JSON');
-
-  // Helper to process any array that might hold time_range
-  const injectTimes = (arr: any[] = []) => {
-    return arr.map((rule: any) => {
-      if (rule.time_range && (!rule.from_time || !rule.to_time)) {
-        console.log(`normalizeTemplateRules: Processing time_range "${rule.time_range}"`);
-        const [from, to] = splitTimeRange(rule.time_range);
-        if (from && to) {
-          console.log(`normalizeTemplateRules: Injected from_time={h:${from.hour}, m:${from.minute}} to_time={h:${to.hour}, m:${to.minute}}`);
-          return { ...rule, from_time: from, to_time: to };
-        } else {
-          console.warn(`normalizeTemplateRules: Failed to parse time_range "${rule.time_range}"`);
-        }
-      }
-      return rule;
-    });
-  };
-
-  // Process all rule types that support time ranges
-  const normalizedJson = {
-    ...json,
-    parsed_rule_blocks: {
-      ...json.parsed_rule_blocks,
-      pricing_rules: injectTimes(json.parsed_rule_blocks?.pricing_rules),
-      booking_conditions: injectTimes(json.parsed_rule_blocks?.booking_conditions),
-      buffer_time_rules: injectTimes(json.parsed_rule_blocks?.buffer_time_rules),
-      quota_rules: injectTimes(json.parsed_rule_blocks?.quota_rules),
-      booking_window_rules: injectTimes(json.parsed_rule_blocks?.booking_window_rules),
-      space_sharing: json.parsed_rule_blocks?.space_sharing || []
+  for (const mapping of advanceWindowMap) {
+    if (mapping.regex.test(text)) {
+      return mapping.op as 'more_than' | 'less_than';
     }
-  };
-
-  // Ensure rule_blocks exist in setup_guide steps and include derived times
-  if (normalizedJson.setup_guide) {
-    normalizedJson.setup_guide = normalizedJson.setup_guide.map((step: any) => {
-      switch (step.step_key) {
-        case 'pricing_rules':
-          return { ...step, rule_blocks: normalizedJson.parsed_rule_blocks.pricing_rules };
-        case 'booking_conditions':
-          return { ...step, rule_blocks: normalizedJson.parsed_rule_blocks.booking_conditions };
-        case 'buffer_time_rules':
-          return { ...step, rule_blocks: normalizedJson.parsed_rule_blocks.buffer_time_rules };
-        case 'quota_rules':
-          return { ...step, rule_blocks: normalizedJson.parsed_rule_blocks.quota_rules };
-        case 'booking_window_rules':
-          return { ...step, rule_blocks: normalizedJson.parsed_rule_blocks.booking_window_rules };
-        case 'space_sharing':
-          return { ...step, connections: normalizedJson.parsed_rule_blocks.space_sharing };
-        default:
-          return step;
-      }
-    });
   }
 
-  console.log('normalizeTemplateRules: Template normalization complete');
-  return normalizedJson;
+  // Default fallback
+  return 'less_than';
 }
 
-// Convert time_range to from_time/to_time for template rule blocks
-function ensureRuleBlocks(parsedResult: any) {
-  console.log('ensureRuleBlocks: Processing parsed result');
+// Pricing rule type detection
+function parsePricingType(text: string): 'fixed' | 'per_hour' {
+  if (/flat (rate|fee)|fixed (rate|fee)|flat\s*\$|\$\d+\s*flat/i.test(text)) {
+    return 'fixed';
+  }
+  return 'per_hour';
+}
+
+// Space-sharing phrase detection
+function parseSpaceSharing(text: string): Array<{from: string, to: string}> {
+  const connections: Array<{from: string, to: string}> = [];
   
-  if (parsedResult.parsed_rule_blocks?.pricing_rules) {
-    console.log(`ensureRuleBlocks: Processing ${parsedResult.parsed_rule_blocks.pricing_rules.length} pricing rules`);
-    parsedResult.parsed_rule_blocks.pricing_rules.forEach((rule: any, index: number) => {
-      if (rule.time_range && (!rule.from_time || !rule.to_time)) {
-        console.log(`ensureRuleBlocks: Converting time_range "${rule.time_range}" for pricing rule ${index}`);
-        const [fromTime, toTime] = splitTimeRange(rule.time_range);
-        if (fromTime && toTime) {
-          // Assign BEFORE any object spreading to prevent overwriting
-          rule.from_time = fromTime;
-          rule.to_time = toTime;
-          console.log(`ensureRuleBlocks: Set pricing rule ${index} from_time={h:${fromTime.hour}, m:${fromTime.minute}} to_time={h:${toTime.hour}, m:${toTime.minute}}`);
-        } else {
-          console.warn(`ensureRuleBlocks: Failed to parse time_range "${rule.time_range}" for pricing rule ${index}`);
-        }
-      }
-    });
-  }
+  const spaceSharingPatterns = [
+    // "If X is booked, block Y" patterns
+    { regex: /if\s+(?:the\s+)?([^,\s]+(?:\s+[^,\s]+)*)\s+is\s+booked,?\s+(?:block|prevent|disable)\s+([^.]+)/gi },
+    // "Booking X should prevent Y" patterns  
+    { regex: /booking\s+(?:the\s+)?([^,\s]+(?:\s+[^,\s]+)*)\s+should\s+(?:prevent|block|disable)\s+([^.]+)/gi },
+    // "X and Y are mutually exclusive" patterns
+    { regex: /([^,\s]+(?:\s+[^,\s]+)*)\s+and\s+([^,\s]+(?:\s+[^,\s]+)*)\s+are\s+mutually\s+exclusive/gi },
+    // "Whole venue" patterns
+    { regex: /\bwhole\s+venue\b|\bentire\s+venue\b|\bfull\s+venue\b/gi },
+  ];
 
-  if (parsedResult.parsed_rule_blocks?.booking_conditions) {
-    console.log(`ensureRuleBlocks: Processing ${parsedResult.parsed_rule_blocks.booking_conditions.length} booking conditions`);
-    parsedResult.parsed_rule_blocks.booking_conditions.forEach((rule: any, index: number) => {
-      if (rule.time_range && (!rule.from_time || !rule.to_time)) {
-        console.log(`ensureRuleBlocks: Converting time_range "${rule.time_range}" for booking condition ${index}`);
-        const [fromTime, toTime] = splitTimeRange(rule.time_range);
-        if (fromTime && toTime) {
-          rule.from_time = fromTime;
-          rule.to_time = toTime;
-          console.log(`ensureRuleBlocks: Set booking condition ${index} from_time={h:${fromTime.hour}, m:${fromTime.minute}} to_time={h:${toTime.hour}, m:${toTime.minute}}`);
-        }
-      }
-    });
-  }
-
-  // Apply to other rule types as needed
-  ['quota_rules', 'buffer_time_rules', 'booking_window_rules'].forEach(ruleType => {
-    if (parsedResult.parsed_rule_blocks?.[ruleType]) {
-      console.log(`ensureRuleBlocks: Processing ${parsedResult.parsed_rule_blocks[ruleType].length} ${ruleType}`);
-      parsedResult.parsed_rule_blocks[ruleType].forEach((rule: any, index: number) => {
-        if (rule.time_range && (!rule.from_time || !rule.to_time)) {
-          console.log(`ensureRuleBlocks: Converting time_range "${rule.time_range}" for ${ruleType} ${index}`);
-          const [fromTime, toTime] = splitTimeRange(rule.time_range);
-          if (fromTime && toTime) {
-            rule.from_time = fromTime;
-            rule.to_time = toTime;
-            console.log(`ensureRuleBlocks: Set ${ruleType} ${index} from_time={h:${fromTime.hour}, m:${fromTime.minute}} to_time={h:${toTime.hour}, m:${toTime.minute}}`);
+  for (const pattern of spaceSharingPatterns) {
+    let match;
+    while ((match = pattern.regex.exec(text)) !== null) {
+      if (pattern.regex.source.includes('mutually')) {
+        // Bidirectional for mutually exclusive
+        const space1 = match[1].trim();
+        const space2 = match[2].trim();
+        connections.push({from: space1, to: space2});
+        connections.push({from: space2, to: space1});
+      } else {
+        const fromSpace = match[1].trim();
+        const toSpaces = match[2].split(/\s+(?:and|&)\s+|\s*,\s*/);
+        
+        for (const toSpace of toSpaces) {
+          const cleanToSpace = toSpace.trim().replace(/^['"]|['"]$/g, '');
+          if (cleanToSpace) {
+            connections.push({from: fromSpace, to: cleanToSpace});
           }
         }
-      });
-    }
-  });
-}
-
-// Force guide generation - ensures setup_guide steps exist for any populated rule arrays
-function forceGuide(json: any): any {
-  const ruleMap = {
-    pricing_rules: 'pricing_rules',
-    booking_conditions: 'booking_conditions',
-    quota_rules: 'quota_rules',
-    buffer_time_rules: 'buffer_time_rules',
-    booking_window_rules: 'booking_window_rules',
-    space_sharing: 'space_sharing'
-  };
-
-  if (!Array.isArray(json.setup_guide)) json.setup_guide = [];
-
-  Object.entries(ruleMap).forEach(([key, stepKey]) => {
-    if (Array.isArray(json[key]) && json[key].length) {
-      const exists = json.setup_guide.some((s: any) => s.step_key === stepKey);
-      if (!exists) {
-        console.log(`[forceGuide] Auto-injecting missing step: ${stepKey} with ${json[key].length} rules`);
-        json.setup_guide.push({
-          title: `Step: ${stepKey.replace(/_/g, ' ')}`,
-          step_key: stepKey,
-          instruction: `Auto-injected by forceGuide - Go to Settings and create the following ${stepKey.replace(/_/g, ' ')}:`,
-          rule_blocks: json[key]
-        });
       }
     }
-  });
+  }
 
-  console.log(`[forceGuide] Final setup_guide has ${json.setup_guide.length} steps: ${json.setup_guide.map((s: any) => s.step_key).join(', ')}`);
-  return json;
+  return connections;
+}
+
+// Resolve chained dependencies for "WHAT IT ALL MEANS"
+function resolveChainedDependencies(connections: Array<{from: string, to: string}>): Array<{from: string, to: string}> {
+  const resolved = new Set<string>();
+  const result: Array<{from: string, to: string}> = [];
+  
+  // Add direct connections
+  for (const conn of connections) {
+    const key = `${conn.from}->${conn.to}`;
+    if (!resolved.has(key)) {
+      resolved.add(key);
+      result.push(conn);
+    }
+  }
+
+  // Add implied connections (A->B, B->C implies A->C)
+  let changed = true;
+  let iterations = 0;
+  while (changed && iterations < 30) { // Prevent infinite loops
+    changed = false;
+    iterations++;
+    
+    for (const conn1 of result) {
+      for (const conn2 of result) {
+        if (conn1.to === conn2.from && conn1.from !== conn2.to) {
+          const impliedKey = `${conn1.from}->${conn2.to}`;
+          if (!resolved.has(impliedKey)) {
+            resolved.add(impliedKey);
+            result.push({from: conn1.from, to: conn2.to});
+            changed = true;
+          }
+        }
+      }
+    }
+  }
+
+  return result;
 }
 
 serve(async (req) => {
@@ -200,30 +155,6 @@ serve(async (req) => {
   }
 
   try {
-    // Check if this is a template fetch request
-    const url = new URL(req.url);
-    const templateId = url.searchParams.get('template_id');
-    
-    if (templateId && req.method === "GET") {
-      // This is a template fetch request - apply normalization
-      console.log(`Fetching template ${templateId} with normalization`);
-      
-      // Here you would normally fetch from Supabase, but since we don't have direct DB access
-      // in this edge function context for templates, we'll return a placeholder response
-      // The actual template fetching would happen in the frontend and then use normalizeTemplateRules
-      
-      return new Response(
-        JSON.stringify({ 
-          error: "Template fetching should be handled by frontend with normalization",
-          suggestion: "Use normalizeTemplateRules utility after fetching template data"
-        }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
     // Get the OpenAI API key from environment variables
     const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
     if (!openaiApiKey) {
@@ -252,8 +183,6 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Processing rule: "${rule}"`);
-
     // Call OpenAI API
     const openAiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -267,8 +196,6 @@ serve(async (req) => {
           {
             role: "system",
             content: `You are a venue automation assistant helping admins configure complex booking logic using natural language prompts.
-
-CRITICAL: When the user provides a prompt, you MUST return a complete JSON structure with ALL relevant rule types. If the user mentions hourly and daily pricing, always output a pricing_rules array with at least two objects: one per_hour and one fixed. If the user mentions a tag restriction ("only X"), output a booking_conditions array with operator "contains_none_of" and value = [tag].
 
 When the user provides a prompt, return the following JSON structure:
 
@@ -517,12 +444,6 @@ Return a **clean JSON object** in this structure:
       "rule_blocks": [...]
     },
     {
-      "step_key": "pricing_rules",
-      "title": "Step 5: Create pricing rules", 
-      "instruction": "Go to Settings > Pricing and create the following pricing rules:",
-      "rule_blocks": [...]
-    },
-    {
       "step_key": "space_sharing",
       "title": "Step 9: Set space-sharing rules",
       "instruction": "Go to Settings › Space Sharing and add the following connections:",
@@ -563,8 +484,6 @@ Your JSON should never be wrapped in markdown backticks or contain extra notes. 
     }
 
     const openAiData = await openAiResponse.json();
-    console.log('[GPT raw response]', JSON.stringify(openAiData, null, 2));
-    
     let responseContent = openAiData.choices[0].message.content;
 
     // Clean up markdown code blocks if present
@@ -598,29 +517,7 @@ Your JSON should never be wrapped in markdown backticks or contain extra notes. 
       );
     }
 
-    // Debug: Log the parsed result structure
-    console.log('[Parsed result structure]', {
-      pricing_rules_count: parsedResult.parsed_rule_blocks?.pricing_rules?.length || 0,
-      booking_conditions_count: parsedResult.parsed_rule_blocks?.booking_conditions?.length || 0,
-      setup_guide_count: parsedResult.setup_guide?.length || 0,
-      setup_guide_keys: parsedResult.setup_guide?.map((s: any) => s.step_key) || []
-    });
-
-    // Convert time_range to from_time/to_time for template compatibility
-    ensureRuleBlocks(parsedResult);
-
-    // Apply forceGuide to ensure setup_guide completeness
-    const finalResult = forceGuide(parsedResult);
-
-    // Final debug: Log the final result structure
-    console.log('[Final result structure after forceGuide]', {
-      pricing_rules_count: finalResult.parsed_rule_blocks?.pricing_rules?.length || 0,
-      booking_conditions_count: finalResult.parsed_rule_blocks?.booking_conditions?.length || 0,
-      setup_guide_count: finalResult.setup_guide?.length || 0,
-      setup_guide_keys: finalResult.setup_guide?.map((s: any) => s.step_key) || []
-    });
-
-    return new Response(JSON.stringify(finalResult), {
+    return new Response(JSON.stringify(parsedResult), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

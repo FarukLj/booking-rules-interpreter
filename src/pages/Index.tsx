@@ -1,9 +1,7 @@
-
 import { useState } from "react";
 import { BookingRuleInput } from "@/components/BookingRuleInput";
 import { RuleModal } from "@/components/RuleModal";
 import { SetupGuideModal } from "@/components/SetupGuideModal";
-import { TemplateLibrary } from "@/components/TemplateLibrary";
 import { RuleResult } from "@/types/RuleResult";
 import { toast } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -57,9 +55,6 @@ const Index = () => {
       <main className="container mx-auto px-4 py-12 flex-grow">
         <div className="max-w-3xl mx-auto">
           <BookingRuleInput onSubmit={handleRuleSubmit} isLoading={isLoading} />
-          
-          {/* Template Library */}
-          <TemplateLibrary />
           
           <div className="mt-12 bg-white p-6 rounded-lg shadow-sm border border-slate-200">
             <h2 className="text-xl font-semibold text-slate-800 mb-4">How it works</h2>

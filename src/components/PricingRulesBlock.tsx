@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -6,20 +7,14 @@ import { Toggle } from "@/components/ui/toggle";
 import { PricingRule } from "@/types/RuleResult";
 import { Info, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { timeObjectToTimeString, formatTimeDisplay, normalizeTemplateRules } from "@/utils/timeRange";
 
 interface PricingRulesBlockProps {
   initialRules?: PricingRule[];
 }
 
 export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps) {
-  // Apply template normalization if needed
-  const normalizedRules = initialRules.length > 0 ? 
-    normalizeTemplateRules({ parsed_rule_blocks: { pricing_rules: initialRules } }).parsed_rule_blocks.pricing_rules :
-    initialRules;
-
   // Sort rules: fixed rates first, then per-period rates
-  const sortedInitialRules = normalizedRules.sort((a, b) => {
+  const sortedInitialRules = initialRules.sort((a, b) => {
     if (a.rate?.unit === "fixed" && b.rate?.unit !== "fixed") return -1;
     if (a.rate?.unit !== "fixed" && b.rate?.unit === "fixed") return 1;
     return 0;
@@ -41,19 +36,6 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
   const [logicOperators, setLogicOperators] = useState<string[]>(
     new Array(Math.max(0, rules.length - 1)).fill("AND")
   );
-
-  // Debug logging for time parsing
-  useEffect(() => {
-    console.debug('PricingRulesBlock: rules updated', rules.length);
-    rules.forEach((rule, index) => {
-      if (rule.from_time && rule.to_time) {
-        console.debug(`[TimeParse] Rule ${index}: from_time={h:${rule.from_time.hour}, m:${rule.from_time.minute}} to_time={h:${rule.to_time.hour}, m:${rule.to_time.minute}}`);
-        console.debug(`[TimeParse] Rule ${index}: Time objects are distinct:`, rule.from_time !== rule.to_time);
-      } else if (rule.time_range) {
-        console.debug(`[TimeParse] Rule ${index}: time_range="${rule.time_range}" but missing from_time/to_time objects`);
-      }
-    });
-  }, [rules]);
 
   // Validation for positive pricing logic
   useEffect(() => {
@@ -146,7 +128,7 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
     ));
   };
 
-  const formatTimeDisplayLocal = (time: string) => {
+  const formatTimeDisplay = (time: string) => {
     const hour = parseInt(time.split(':')[0]);
     const minute = time.split(':')[1];
     const period = hour >= 12 ? 'PM' : 'AM';
@@ -161,51 +143,6 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
       return `Price applies to users ${operator} tags: ${tags}`;
     }
     return "";
-  };
-
-  // Helper function to get time value for dropdown, using from_time/to_time if available
-  const getTimeValue = (rule: PricingRule, position: 'start' | 'end'): string => {
-    if (position === 'start') {
-      if (rule.from_time) {
-        const timeString = timeObjectToTimeString(rule.from_time);
-        console.debug(`[TimeParse] getTimeValue start: using from_time ${timeString}`);
-        return timeString;
-      }
-      const fallback = rule.time_range?.split('–')[0] || '09:00';
-      console.debug(`[TimeParse] getTimeValue start: fallback to time_range ${fallback}`);
-      return fallback;
-    } else {
-      if (rule.to_time) {
-        const timeString = timeObjectToTimeString(rule.to_time);
-        console.debug(`[TimeParse] getTimeValue end: using to_time ${timeString}`);
-        return timeString;
-      }
-      const fallback = rule.time_range?.split('–')[1] || '17:00';
-      console.debug(`[TimeParse] getTimeValue end: fallback to time_range ${fallback}`);
-      return fallback;
-    }
-  };
-
-  const updateTimeRange = (index: number, position: 'start' | 'end', newTime: string) => {
-    const rule = rules[index];
-    const startTime = position === 'start' ? newTime : getTimeValue(rule, 'start');
-    const endTime = position === 'end' ? newTime : getTimeValue(rule, 'end');
-    
-    console.debug(`[TimeRange] Updating rule ${index} ${position} to ${newTime}, startTime: ${startTime}, endTime: ${endTime}`);
-    
-    updateRule(index, 'time_range', `${startTime}–${endTime}`);
-    
-    // Update the time objects
-    const [hour, minute] = newTime.split(':').map(Number);
-    const timeObj = { hour, minute };
-    
-    if (position === 'start') {
-      console.debug(`[TimeRange] Setting from_time to`, timeObj);
-      updateRule(index, 'from_time', timeObj);
-    } else {
-      console.debug(`[TimeRange] Setting to_time to`, timeObj);
-      updateRule(index, 'to_time', timeObj);
-    }
   };
 
   return (
@@ -224,34 +161,40 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
             <div className="flex flex-wrap items-center gap-2 text-sm mb-3">
               <span className="text-slate-600">Between</span>
               <Select 
-                value={getTimeValue(rule, 'start')} 
-                onValueChange={(value) => updateTimeRange(index, 'start', value)}
+                value={rule.time_range?.split('–')[0] || '09:00'} 
+                onValueChange={(value) => {
+                  const endTime = rule.time_range?.split('–')[1] || '17:00';
+                  updateRule(index, 'time_range', `${value}–${endTime}`);
+                }}
               >
                 <SelectTrigger className="w-24 h-10">
                   <SelectValue>
-                    {formatTimeDisplayLocal(getTimeValue(rule, 'start'))}
+                    {formatTimeDisplay(rule.time_range?.split('–')[0] || '09:00')}
                   </SelectValue>
                 </SelectTrigger>
-                <SelectContent className="z-50 bg-white">
+                <SelectContent className="z-50">
                   {timeOptions.map(time => (
-                    <SelectItem key={time} value={time}>{formatTimeDisplayLocal(time)}</SelectItem>
+                    <SelectItem key={time} value={time}>{formatTimeDisplay(time)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               
               <span className="text-slate-600">and</span>
               <Select 
-                value={getTimeValue(rule, 'end')} 
-                onValueChange={(value) => updateTimeRange(index, 'end', value)}
+                value={rule.time_range?.split('–')[1] || '17:00'} 
+                onValueChange={(value) => {
+                  const startTime = rule.time_range?.split('–')[0] || '09:00';
+                  updateRule(index, 'time_range', `${startTime}–${value}`);
+                }}
               >
                 <SelectTrigger className="w-24 h-10">
                   <SelectValue>
-                    {formatTimeDisplayLocal(getTimeValue(rule, 'end'))}
+                    {formatTimeDisplay(rule.time_range?.split('–')[1] || '17:00')}
                   </SelectValue>
                 </SelectTrigger>
-                <SelectContent className="z-50 bg-white">
+                <SelectContent className="z-50">
                   {timeOptions.map(time => (
-                    <SelectItem key={time} value={time}>{formatTimeDisplayLocal(time)}</SelectItem>
+                    <SelectItem key={time} value={time}>{formatTimeDisplay(time)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
