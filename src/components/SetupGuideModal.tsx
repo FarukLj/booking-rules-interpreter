@@ -91,7 +91,7 @@ export const SetupGuideModal = ({
       }
     }
 
-    // Add rule-specific steps for both modes
+    // Add rule-specific steps for both modes - only if rules exist
     const ruleStepMap = [
       { key: 'booking_conditions', title: 'Create booking conditions', instruction: 'Go to Settings > Conditions and create the following restriction rules:' },
       { key: 'pricing_rules', title: 'Create pricing rules', instruction: 'Go to Settings > Pricing and create the following pricing rules:' },
@@ -120,17 +120,18 @@ export const SetupGuideModal = ({
 
   const setupGuide = result.setup_guide?.length > 0 ? result.setup_guide : buildSetupGuide(result, mode);
 
-  // Dev mode guard rail
+  // Dev mode guard rail - only check if we have rule blocks that should contain data
   if (process.env.NODE_ENV === 'development') {
     const ruleStepKeys = ['pricing_rules', 'booking_conditions', 'quota_rules', 'buffer_time_rules', 'booking_window_rules', 'space_sharing'];
-    const emptySteps = setupGuide.filter(step => 
+    const stepsWithEmptyRuleBlocks = setupGuide.filter(step => 
       ruleStepKeys.includes(step.step_key) && 
+      step.rule_blocks !== undefined && // Only check if rule_blocks property exists
       (!step.rule_blocks || step.rule_blocks.length === 0)
     );
     
-    if (emptySteps.length > 0) {
-      console.error('[SetupGuideModal] Empty rule_blocks detected:', emptySteps.map(s => s.step_key));
-      throw new Error(`[ModalGuard] Empty rule_blocks for steps: ${emptySteps.map(s => s.step_key).join(', ')}`);
+    if (stepsWithEmptyRuleBlocks.length > 0) {
+      console.error('[SetupGuideModal] Empty rule_blocks detected:', stepsWithEmptyRuleBlocks.map(s => s.step_key));
+      throw new Error(`[ModalGuard] Empty rule_blocks for steps: ${stepsWithEmptyRuleBlocks.map(s => s.step_key).join(', ')}`);
     }
 
     // Dev echo for debugging
