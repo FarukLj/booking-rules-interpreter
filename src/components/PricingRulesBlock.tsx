@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -7,7 +8,7 @@ import { PricingRule } from "@/types/RuleResult";
 import { Info, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { LinkSelectTrigger } from "@/components/ui/LinkSelect";  // ← add this
+import { LinkSelect } from "@/components/ui/LinkSelect";
 
 interface PricingRulesBlockProps {
   initialRules?: PricingRule[];
@@ -160,67 +161,69 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
         <div key={index}>
           <div className="bg-g150 border border-[#dee2e6] rounded p-3 sm:p-5">
             <div className="flex flex-wrap items-center gap-1 text-base font-medium mb-3 leading-6">
-  <span>Between</span>
+              <span>Between</span>
 
-  {/* FROM time */}
-  <Select value={rule.time_range?.split('–')[0] || '09:00'}
-          onValueChange={(v)=>updateRule(index,'time_range',`${v}–${rule.time_range?.split('–')[1]}`)}>
-    <LinkSelectTrigger className="w-fit" />
-    <SelectContent position="popper" className="z-[100]">
-      {timeOptions.map(t=> <SelectItem key={t} value={t}>{formatTimeDisplay(t)}</SelectItem>)}
-    </SelectContent>
-  </Select>
+              {/* FROM time */}
+              <LinkSelect 
+                value={rule.time_range?.split('–')[0] || '09:00'}
+                onValueChange={(v) => updateRule(index, 'time_range', `${v}–${rule.time_range?.split('–')[1]}`)}
+              >
+                {timeOptions.map(t => 
+                  <SelectItem key={t} value={t}>{formatTimeDisplay(t)}</SelectItem>
+                )}
+              </LinkSelect>
 
-  <span>and</span>
+              <span>and</span>
 
-  {/* TO time */}
-  <Select value={rule.time_range?.split('–')[1] || '17:00'}
-          onValueChange={(v)=>updateRule(index,'time_range',`${rule.time_range?.split('–')[0]}–${v}`)}>
-    <LinkSelectTrigger className="w-fit" />
-    <SelectContent position="popper" className="z-[100]">
-      {timeOptions.map(t=> <SelectItem key={t} value={t}>{formatTimeDisplay(t)}</SelectItem>)}
-    </SelectContent>
-  </Select>
+              {/* TO time */}
+              <LinkSelect 
+                value={rule.time_range?.split('–')[1] || '17:00'}
+                onValueChange={(v) => updateRule(index, 'time_range', `${rule.time_range?.split('–')[0]}–${v}`)}
+              >
+                {timeOptions.map(t => 
+                  <SelectItem key={t} value={t}>{formatTimeDisplay(t)}</SelectItem>
+                )}
+              </LinkSelect>
 
-  <span>on</span>
+              <span>on</span>
 
-  {/* DAYS */}
-  <MultiSelect
-    triggerVariant="link"
-    options={dayOptions}
-    selected={rule.days || []}
-    onSelectionChange={sel=>updateRule(index,'days',sel)}
-    className="w-fit"
-  />
-  ,
+              {/* DAYS */}
+              <MultiSelect
+                triggerVariant="link"
+                options={dayOptions}
+                selected={rule.days || []}
+                onSelectionChange={sel => updateRule(index, 'days', sel)}
+              />
+              ,
 
-  {/* SPACES */}
-  <MultiSelect
-    triggerVariant="link"
-    options={spaceOptions}
-    selected={rule.space || []}
-    onSelectionChange={sel=>updateRule(index,'space',sel)}
-    className="w-fit"
-  />
+              {/* SPACES */}
+              <MultiSelect
+                triggerVariant="link"
+                options={spaceOptions}
+                selected={rule.space || []}
+                onSelectionChange={sel => updateRule(index, 'space', sel)}
+              />
 
-  <span>is priced</span>
-</div>
-<div className="flex items-center gap-2 flex-wrap mb-3">
-  <span className="text-2xl font-semibold">$</span>
-  <Input
-    type="number"
-    value={rule.rate?.amount || 25}
-    onChange={e=>updateRateField(index,'amount',e.target.value)}
-    className="w-20 h-9 border-0 border-b border-slate-300 rounded-none px-0 text-right"
-  />
-  <Select value={rule.rate?.unit || 'per_hour'}
-          onValueChange={v=>updateRateField(index,'unit',v)}>
-    <LinkSelectTrigger className="ml-1" />
-    <SelectContent position="popper" className="z-[100]">
-      {rateUnitOptions.map(u=> <SelectItem key={u} value={u}>{u.replace('_',' ')}</SelectItem>)}
-    </SelectContent>
-  </Select>
-</div>
+              <span>is priced</span>
+            </div>
+            
+            <div className="flex items-center gap-2 flex-wrap mb-3">
+              <span className="text-2xl font-semibold">$</span>
+              <Input
+                type="number"
+                value={rule.rate?.amount || 25}
+                onChange={e => updateRateField(index, 'amount', e.target.value)}
+                className="w-20 h-9 border-0 border-b border-slate-300 rounded-none px-0 text-right"
+              />
+              <LinkSelect 
+                value={rule.rate?.unit || 'per_hour'}
+                onValueChange={v => updateRateField(index, 'unit', v)}
+              >
+                {rateUnitOptions.map(u => 
+                  <SelectItem key={u} value={u}>{u.replace('_', ' ')}</SelectItem>
+                )}
+              </LinkSelect>
+            </div>
 
             <div className="grid grid-cols-[1fr_auto] gap-2 text-sm mb-3">
               <span className="text-slate-600">for a booking if</span>
@@ -279,7 +282,6 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
                   selected={Array.isArray(rule.value) ? rule.value : []}
                   onSelectionChange={(selected) => updateRule(index, 'value', selected)}
                   placeholder="Select tags"
-                  className="min-w-0 max-w-[200px] flex-grow"
                 />
               )}
               
@@ -358,7 +360,6 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
                     selected={Array.isArray(subCondition.value) ? subCondition.value : []}
                     onSelectionChange={(selected) => updateSubCondition(index, subIndex, 'value', selected)}
                     placeholder="Select tags"
-                    className="min-w-0 max-w-[200px]"
                   />
                 )}
                 
@@ -388,27 +389,26 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
           </div>
           
           {index < rules.length - 1 && (
-  <div className="flex gap-2 mt-4">
-    <Button
-      type="button"
-      size="sm"
-      className="rounded-full bg-g400 text-white px-3 py-1.5 text-sm"
-      onClick={()=>updateLogicOperator(index,'AND')}
-    >
-      <Plus className="h-3 w-3 mr-1" /> and
-    </Button>
+            <div className="flex gap-2 mt-4">
+              <Button
+                type="button"
+                size="sm"
+                className="rounded-full bg-g400 text-white px-3 py-1.5 text-sm"
+                onClick={() => updateLogicOperator(index, 'AND')}
+              >
+                <Plus className="h-3 w-3 mr-1" /> and
+              </Button>
 
-    <Button
-      type="button"
-      size="sm"
-      className="rounded-full bg-g400 text-white px-3 py-1.5 text-sm"
-      onClick={()=>updateLogicOperator(index,'OR')}
-    >
-      <Plus className="h-3 w-3 mr-1" /> or
-    </Button>
-  </div>
-)}
-
+              <Button
+                type="button"
+                size="sm"
+                className="rounded-full bg-g400 text-white px-3 py-1.5 text-sm"
+                onClick={() => updateLogicOperator(index, 'OR')}
+              >
+                <Plus className="h-3 w-3 mr-1" /> or
+              </Button>
+            </div>
+          )}
         </div>
       ))}
     </div>

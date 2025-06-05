@@ -29,11 +29,14 @@ export function LinkSelect({
   return (
     <Select value={value} onValueChange={onValueChange}>
       <SelectTrigger
-        className={`${width} h-auto px-0 py-0 border-none bg-transparent text-blue-700 font-semibold hover:text-blue-600 focus:ring-0 focus:outline-none`}
+        className={cn(
+          width,
+          "h-auto px-0 py-0 border-none bg-transparent text-blue-700 font-semibold",
+          "hover:text-blue-600 focus:ring-0 focus:outline-none",
+          "data-[state=open]:text-blue-600"
+        )}
       >
-        <SelectValue placeholder={placeholder} className="flex items-center">
-          {value}
-        </SelectValue>
+        <SelectValue placeholder={placeholder} />
         <ChevronDown className="ml-1 w-3 h-3 shrink-0" />
       </SelectTrigger>
       <SelectContent className="z-[100]" position="popper">
