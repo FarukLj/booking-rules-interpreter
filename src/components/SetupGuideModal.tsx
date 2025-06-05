@@ -1,4 +1,3 @@
-
 import {
   Dialog,
   DialogContent,
@@ -33,14 +32,26 @@ export function SetupGuideModal({ result, isOpen, onClose }: SetupGuideModalProp
   
   // Detect if opened from template library
   const isLibrary = location.pathname.startsWith('/templates/');
+  const mode = isLibrary ? 'library' : 'ai';
   
   console.debug('[SetupGuideModal] Received result:', {
     pricing_rules_count: result.pricing_rules?.length || 0,
     booking_conditions_count: result.booking_conditions?.length || 0,
     setup_guide_count: result.setup_guide?.length || 0,
     setup_guide_keys: result.setup_guide?.map((s: any) => s.step_key) || [],
-    isLibrary
+    mode
   });
+
+  // Dev-mode guard rail - hard fail if rule blocks are missing
+  if (process.env.NODE_ENV === 'development') {
+    const emptySteps = result.setup_guide?.filter(
+      (s: any) => ['pricing_rules', 'booking_conditions', 'quota_rules', 'buffer_time_rules', 'booking_window_rules'].includes(s.step_key) && (!s.rule_blocks || !s.rule_blocks.length)
+    ) || [];
+    
+    if (emptySteps.length) {
+      throw new Error(`[ModalGuard] Empty rule_blocks for steps: ${emptySteps.map((s: any) => s.step_key).join(', ')}`);
+    }
+  }
   
   // Helper functions defined before useMemo to avoid reference errors
   const getUniqueSpaces = () => {
@@ -89,10 +100,10 @@ export function SetupGuideModal({ result, isOpen, onClose }: SetupGuideModalProp
   const dynamicSetupGuide = useMemo(() => {
     const steps: SetupGuideStep[] = [];
     
-    console.debug('[SetupGuideModal] Building dynamic setup guide, isLibrary:', isLibrary);
+    console.debug('[SetupGuideModal] Building dynamic setup guide, mode:', mode);
     
-    // Only add initial setup steps if NOT in library mode
-    if (!isLibrary) {
+    // Only add initial setup steps if in AI mode (not library mode)
+    if (mode === 'ai') {
       // Step 1: Create spaces
       steps.push({
         step_key: 'create_spaces',
@@ -190,7 +201,7 @@ export function SetupGuideModal({ result, isOpen, onClose }: SetupGuideModalProp
     
     console.debug('[SetupGuideModal] Final dynamic steps:', steps.map(s => s.step_key));
     return steps;
-  }, [result, isLibrary]);
+  }, [result, mode, getUniqueSpaces, getUniqueTags]);
   
   // Use dynamic guide or fallback to original setup_guide
   const setupGuide = dynamicSetupGuide.length > 0 ? dynamicSetupGuide : result.setup_guide;
@@ -277,6 +288,11 @@ export function SetupGuideModal({ result, isOpen, onClose }: SetupGuideModalProp
           <DialogTitle className="text-2xl flex items-center gap-2">
             <Settings className="h-6 w-6" />
             {isLibrary ? "Template Configuration Guide" : "Booking Rules Setup Assistant"}
+            {process.env.NODE_ENV === 'development' && (
+              <code className="text-xs text-gray-400 ml-2">
+                PR:{result.pricing_rules?.length || 0} BC:{result.booking_conditions?.length || 0} QR:{result.quota_rules?.length || 0} BT:{result.buffer_time_rules?.length || 0} BW:{result.booking_window_rules?.length || 0}
+              </code>
+            )}
           </DialogTitle>
           <DialogDescription>
             {isLibrary 

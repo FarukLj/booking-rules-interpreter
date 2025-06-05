@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 
@@ -160,6 +159,38 @@ function ensureRuleBlocks(parsedResult: any) {
       });
     }
   });
+}
+
+// Force guide generation - ensures setup_guide steps exist for any populated rule arrays
+function forceGuide(json: any): any {
+  const ruleMap = {
+    pricing_rules: 'pricing_rules',
+    booking_conditions: 'booking_conditions',
+    quota_rules: 'quota_rules',
+    buffer_time_rules: 'buffer_time_rules',
+    booking_window_rules: 'booking_window_rules',
+    space_sharing: 'space_sharing'
+  };
+
+  if (!Array.isArray(json.setup_guide)) json.setup_guide = [];
+
+  Object.entries(ruleMap).forEach(([key, stepKey]) => {
+    if (Array.isArray(json[key]) && json[key].length) {
+      const exists = json.setup_guide.some((s: any) => s.step_key === stepKey);
+      if (!exists) {
+        console.log(`[forceGuide] Auto-injecting missing step: ${stepKey} with ${json[key].length} rules`);
+        json.setup_guide.push({
+          title: `Step: ${stepKey.replace(/_/g, ' ')}`,
+          step_key: stepKey,
+          instruction: `Auto-injected by forceGuide - Go to Settings and create the following ${stepKey.replace(/_/g, ' ')}:`,
+          rule_blocks: json[key]
+        });
+      }
+    }
+  });
+
+  console.log(`[forceGuide] Final setup_guide has ${json.setup_guide.length} steps: ${json.setup_guide.map((s: any) => s.step_key).join(', ')}`);
+  return json;
 }
 
 serve(async (req) => {
@@ -578,15 +609,18 @@ Your JSON should never be wrapped in markdown backticks or contain extra notes. 
     // Convert time_range to from_time/to_time for template compatibility
     ensureRuleBlocks(parsedResult);
 
+    // Apply forceGuide to ensure setup_guide completeness
+    const finalResult = forceGuide(parsedResult);
+
     // Final debug: Log the final result structure
-    console.log('[Final result structure]', {
-      pricing_rules_count: parsedResult.parsed_rule_blocks?.pricing_rules?.length || 0,
-      booking_conditions_count: parsedResult.parsed_rule_blocks?.booking_conditions?.length || 0,
-      setup_guide_count: parsedResult.setup_guide?.length || 0,
-      setup_guide_keys: parsedResult.setup_guide?.map((s: any) => s.step_key) || []
+    console.log('[Final result structure after forceGuide]', {
+      pricing_rules_count: finalResult.parsed_rule_blocks?.pricing_rules?.length || 0,
+      booking_conditions_count: finalResult.parsed_rule_blocks?.booking_conditions?.length || 0,
+      setup_guide_count: finalResult.setup_guide?.length || 0,
+      setup_guide_keys: finalResult.setup_guide?.map((s: any) => s.step_key) || []
     });
 
-    return new Response(JSON.stringify(parsedResult), {
+    return new Response(JSON.stringify(finalResult), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

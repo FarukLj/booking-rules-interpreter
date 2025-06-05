@@ -1,4 +1,3 @@
-
 import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
 
 // Mock the edge function response for testing
@@ -108,6 +107,36 @@ const mockParseRuleResponse = {
   summary: "This setup ensures that only users tagged as 'The Team' can book Space 1 from 9am to 10pm. They have the option to book at $25 per hour or a full day at a fixed rate of $150."
 };
 
+// Test utility for forceGuide function (simulated)
+function forceGuide(json: any): any {
+  const ruleMap = {
+    pricing_rules: 'pricing_rules',
+    booking_conditions: 'booking_conditions',
+    quota_rules: 'quota_rules',
+    buffer_time_rules: 'buffer_time_rules',
+    booking_window_rules: 'booking_window_rules',
+    space_sharing: 'space_sharing'
+  };
+
+  if (!Array.isArray(json.setup_guide)) json.setup_guide = [];
+
+  Object.entries(ruleMap).forEach(([key, stepKey]) => {
+    if (Array.isArray(json[key]) && json[key].length) {
+      const exists = json.setup_guide.some((s: any) => s.step_key === stepKey);
+      if (!exists) {
+        json.setup_guide.push({
+          title: `Step: ${stepKey.replace(/_/g, ' ')}`,
+          step_key: stepKey,
+          instruction: `Auto-injected by forceGuide - Go to Settings and create the following ${stepKey.replace(/_/g, ' ')}:`,
+          rule_blocks: json[key]
+        });
+      }
+    }
+  });
+
+  return json;
+}
+
 describe('AI Prompt Processing', () => {
   it('should build complete setup guide with all rule types', () => {
     const result = mockParseRuleResponse;
@@ -166,5 +195,53 @@ describe('AI Prompt Processing', () => {
       expect(rule.operator).toBe('contains_any_of');
       expect(rule.value).toEqual(['The Team']);
     });
+  });
+
+  it('should auto-inject missing setup guide steps with forceGuide', () => {
+    const incompleteJson = {
+      pricing_rules: [{ space: ["Test"], rate: { amount: 50, unit: "per_hour" } }],
+      booking_conditions: [{ space: ["Test"], operator: "contains_any_of", value: ["Test"] }],
+      setup_guide: [] // Empty setup guide
+    };
+
+    const result = forceGuide(incompleteJson);
+    
+    // Should have auto-injected steps for existing rule arrays
+    expect(result.setup_guide.length).toBeGreaterThan(0);
+    expect(result.setup_guide.some((s: any) => s.step_key === 'pricing_rules')).toBe(true);
+    expect(result.setup_guide.some((s: any) => s.step_key === 'booking_conditions')).toBe(true);
+    
+    // Check that rule_blocks are properly attached
+    const pricingStep = result.setup_guide.find((s: any) => s.step_key === 'pricing_rules');
+    expect(pricingStep.rule_blocks).toEqual(incompleteJson.pricing_rules);
+  });
+
+  it('should not duplicate existing setup guide steps', () => {
+    const jsonWithExistingSteps = {
+      pricing_rules: [{ space: ["Test"], rate: { amount: 50, unit: "per_hour" } }],
+      setup_guide: [
+        { step_key: 'pricing_rules', title: 'Existing Step', rule_blocks: [] }
+      ]
+    };
+
+    const result = forceGuide(jsonWithExistingSteps);
+    
+    // Should not add duplicate steps
+    const pricingSteps = result.setup_guide.filter((s: any) => s.step_key === 'pricing_rules');
+    expect(pricingSteps.length).toBe(1);
+    expect(pricingSteps[0].title).toBe('Existing Step'); // Original title preserved
+  });
+
+  it('should handle empty rule arrays gracefully', () => {
+    const emptyJson = {
+      pricing_rules: [],
+      booking_conditions: [],
+      setup_guide: []
+    };
+
+    const result = forceGuide(emptyJson);
+    
+    // Should not inject steps for empty arrays
+    expect(result.setup_guide.length).toBe(0);
   });
 });
