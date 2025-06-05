@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import { abbreviateDays } from "@/utils/dayAbbreviation";
 
 /** Tailwind classes for each trigger style */
 const triggerStyles = {
@@ -26,6 +27,7 @@ interface MultiSelectProps {
   placeholder?: string;
   className?: string;
   triggerVariant?: "input" | "link";
+  abbreviateDays?: boolean;
 }
 
 export function MultiSelect({ 
@@ -34,7 +36,8 @@ export function MultiSelect({
   onSelectionChange, 
   placeholder = "Select items",
   className,
-  triggerVariant = "input"
+  triggerVariant = "input",
+  abbreviateDays: shouldAbbreviateDays = false
 }: MultiSelectProps) {
   const toggleItem = (item: string) => {
     const newSelected = selected.includes(item)
@@ -49,6 +52,10 @@ export function MultiSelect({
     onSelectionChange(newSelected);
   };
 
+  const getDisplayItems = (items: string[]) => {
+    return shouldAbbreviateDays ? abbreviateDays(items) : items;
+  };
+
   const renderDisplayValue = () => {
     if (!selected || selected.length === 0) {
       return (
@@ -58,10 +65,11 @@ export function MultiSelect({
 
     // For link variant, display as clean text like LinkSelect
     if (triggerVariant === "link") {
+      const displayItems = getDisplayItems(selected);
       if (selected.length === 1) {
-        return <span className="text-blue-700 font-semibold">{selected[0]}</span>;
+        return <span className="text-blue-700 font-semibold">{displayItems[0]}</span>;
       }
-      return <span className="text-blue-700 font-semibold">{selected.join(", ")}</span>;
+      return <span className="text-blue-700 font-semibold">{displayItems.join(", ")}</span>;
     }
 
     // For input variant, use the existing chip display logic

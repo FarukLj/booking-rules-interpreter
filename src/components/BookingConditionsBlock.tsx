@@ -63,16 +63,18 @@ export function BookingConditionsBlock({ initialConditions = [] }: BookingCondit
       
       {conditions.map((condition, index) => (
         <div key={index}>
-          <BookingConditionRow
-            condition={condition}
-            index={index}
-            spaceOptions={spaceOptions}
-            timeOptions={timeOptions}
-            dayOptions={dayOptions}
-            tagOptions={tagOptions}
-            durationValues={durationValues}
-            onConditionChange={updateCondition}
-          />
+          <div className="bg-[#F1F3F5] p-6 sm:p-3 rounded-lg">
+            <BookingConditionRow
+              condition={condition}
+              index={index}
+              spaceOptions={spaceOptions}
+              timeOptions={timeOptions}
+              dayOptions={dayOptions}
+              tagOptions={tagOptions}
+              durationValues={durationValues}
+              onConditionChange={updateCondition}
+            />
+          </div>
           
           {index < conditions.length - 1 && (
             <div className="flex justify-center my-2">

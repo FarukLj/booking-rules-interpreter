@@ -33,7 +33,7 @@ export function BookingConditionRow({
   };
 
   return (
-    <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+    <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2 text-sm mb-3">
         <span className="text-slate-600">For</span>
         <MultiSelect
@@ -77,6 +77,7 @@ export function BookingConditionRow({
           selected={condition.days || []}
           onSelectionChange={(selected) => updateCondition('days', selected)}
           placeholder="Select days"
+          abbreviateDays={true}
         />
         
         <span className="text-slate-600">, a booking is not allowed if:</span>

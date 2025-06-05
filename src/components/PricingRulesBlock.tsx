@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -159,7 +158,7 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
       
       {rules.map((rule, index) => (
         <div key={index}>
-          <div className="bg-g150 border border-[#dee2e6] rounded p-3 sm:p-5">
+          <div className="bg-[#F1F3F5] p-6 sm:p-3 rounded">
             <div className="flex flex-wrap items-center gap-1 text-base font-medium mb-3 leading-6">
               <span>Between</span>
 
@@ -193,6 +192,7 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
                 options={dayOptions}
                 selected={rule.days || []}
                 onSelectionChange={sel => updateRule(index, 'days', sel)}
+                abbreviateDays={true}
               />
               ,
 

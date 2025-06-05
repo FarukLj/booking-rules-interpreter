@@ -1,8 +1,10 @@
+
 import { useState } from "react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { Toggle } from "@/components/ui/toggle";
 import { BufferTimeRule } from "@/types/RuleResult";
+import { LinkSelect } from "@/components/ui/LinkSelect";
+import { SelectItem } from "@/components/ui/select";
 
 interface BufferTimeRulesBlockProps {
   initialRules?: BufferTimeRule[];
@@ -48,7 +50,7 @@ export function BufferTimeRulesBlock({ initialRules = [] }: BufferTimeRulesBlock
       
       {rules.map((rule, index) => (
         <div key={index}>
-          <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+          <div className="bg-[#F1F3F5] p-6 sm:p-3 rounded-lg">
             <div className="flex flex-wrap items-center gap-2 text-sm mb-3">
               <span className="text-slate-600">For</span>
               <MultiSelect
@@ -60,18 +62,14 @@ export function BufferTimeRulesBlock({ initialRules = [] }: BufferTimeRulesBlock
               />
               
               <span className="text-slate-600">buffer time of</span>
-              <Select value={rule.buffer_duration || '30min'} onValueChange={(value) => updateRule(index, 'buffer_duration', value)}>
-                <SelectTrigger className="w-20 h-10">
-                  <SelectValue>
-                    {rule.buffer_duration || '30min'}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent className="z-50">
-                  {durationOptions.map(duration => (
-                    <SelectItem key={duration} value={duration}>{duration}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <LinkSelect 
+                value={rule.buffer_duration || '30min'} 
+                onValueChange={(value) => updateRule(index, 'buffer_duration', value)}
+              >
+                {durationOptions.map(duration => (
+                  <SelectItem key={duration} value={duration}>{duration}</SelectItem>
+                ))}
+              </LinkSelect>
               
               <span className="text-slate-600">between bookings</span>
             </div>

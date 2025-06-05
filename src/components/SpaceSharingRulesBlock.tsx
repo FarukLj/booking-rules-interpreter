@@ -16,10 +16,31 @@ interface TableRow {
 }
 
 export function SpaceSharingRulesBlock({ initialRules = [] }: SpaceSharingRulesBlockProps) {
-  const [connections] = useState<SpaceSharingRule[]>(initialRules);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
-  // Build complete adjacency map for bidirectional impacts
+  // Filter out redundant reverse connections - show only parent-to-child relationships
+  const getFilteredConnections = (connections: SpaceSharingRule[]): SpaceSharingRule[] => {
+    const filtered: SpaceSharingRule[] = [];
+    const seen = new Set<string>();
+
+    connections.forEach(({ from, to }) => {
+      const forward = `${from}->${to}`;
+      const reverse = `${to}->${from}`;
+      
+      // If we haven't seen either direction, add the forward direction
+      if (!seen.has(forward) && !seen.has(reverse)) {
+        filtered.push({ from, to });
+        seen.add(forward);
+        seen.add(reverse); // Mark both directions as seen
+      }
+    });
+
+    return filtered;
+  };
+
+  const connections = getFilteredConnections(initialRules);
+
+  // Build complete adjacency map for bidirectional impacts (for explanation table)
   const buildAdjacencyMap = (connections: SpaceSharingRule[]): Record<string, string[]> => {
     const map: Record<string, string[]> = {};
     
@@ -112,7 +133,7 @@ export function SpaceSharingRulesBlock({ initialRules = [] }: SpaceSharingRulesB
         Go to <strong>Settings › Space Sharing</strong> and add these connections:
       </p>
       
-      {/* Connection list */}
+      {/* Connection list - now shows only filtered (parent-to-child) connections */}
       <div className="space-y-3">
         {connections.map((connection, index) => (
           <div className="flex items-center gap-3" key={`${connection.from}-${connection.to}-${index}`}>

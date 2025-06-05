@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MultiSelect } from "@/components/ui/multi-select";
@@ -79,7 +80,7 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
       
       {rules.map((rule, index) => (
         <div key={index}>
-          <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+          <div className="bg-[#F1F3F5] p-6 sm:p-3 rounded-lg">
             <div className="flex flex-wrap items-center gap-2 text-sm mb-3">
               <span className="text-slate-600">Limit</span>
               <Select value={rule.target || 'individuals'} onValueChange={(value) => updateRule(index, 'target', value)}>
@@ -252,6 +253,7 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
                   onSelectionChange={(selected) => updateRule(index, 'days', selected)}
                   placeholder="Select days"
                   className="min-w-0 max-w-[200px]"
+                  abbreviateDays={true}
                 />
               </div>
             )}
