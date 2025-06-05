@@ -150,17 +150,17 @@ export const SetupGuideModal = ({
 
     switch (step.step_key) {
       case 'booking_conditions':
-        return <BookingConditionsBlock conditions={step.rule_blocks} />;
+        return <BookingConditionsBlock initialConditions={step.rule_blocks} />;
       case 'pricing_rules':
-        return <PricingRulesBlock rules={step.rule_blocks} />;
+        return <PricingRulesBlock initialRules={step.rule_blocks} />;
       case 'quota_rules':
-        return <QuotaRulesBlock rules={step.rule_blocks} />;
+        return <QuotaRulesBlock initialRules={step.rule_blocks} />;
       case 'buffer_time_rules':
-        return <BufferTimeRulesBlock rules={step.rule_blocks} />;
+        return <BufferTimeRulesBlock initialRules={step.rule_blocks} />;
       case 'booking_window_rules':
-        return <BookingWindowRulesBlock rules={step.rule_blocks} />;
+        return <BookingWindowRulesBlock initialRules={step.rule_blocks} />;
       case 'space_sharing':
-        return <SpaceSharingRulesBlock rules={step.rule_blocks} />;
+        return <SpaceSharingRulesBlock initialRules={step.rule_blocks} />;
       default:
         return null;
     }
