@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 
@@ -103,152 +104,6 @@ function normalizeTemplateRules(json: any): any {
 
   console.log('normalizeTemplateRules: Template normalization complete');
   return normalizedJson;
-}
-
-// Unit normalization utility
-function toHours(value: number, unit: 'hours' | 'days' | 'weeks'): number {
-  if (unit === 'days') return value * 24;
-  if (unit === 'weeks') return value * 24 * 7;
-  return value;
-}
-
-// Extract time value and unit from text
-function extractTimeUnit(text: string): { value: number; unit: 'hours' | 'days' | 'weeks'; display: string } {
-  const timePatterns = [
-    { regex: /(\d+)\s*(week|weeks|wk)/i, unit: 'weeks' as const },
-    { regex: /(\d+)\s*(day|days|d)\b/i, unit: 'days' as const },
-    { regex: /(\d+)\s*(hour|hours|hr|h)\b/i, unit: 'hours' as const },
-    { regex: /(one|1)\s*(week|weeks)/i, value: 1, unit: 'weeks' as const },
-    { regex: /(two|2)\s*(week|weeks)/i, value: 2, unit: 'weeks' as const },
-    { regex: /(three|3)\s*(week|weeks)/i, value: 3, unit: 'weeks' as const },
-    { regex: /(one|1)\s*(day|days)/i, value: 1, unit: 'days' as const },
-    { regex: /(two|2)\s*(day|days)/i, value: 2, unit: 'days' as const },
-    { regex: /(three|3)\s*(day|days)/i, value: 3, unit: 'days' as const },
-  ];
-
-  for (const pattern of timePatterns) {
-    const match = text.match(pattern.regex);
-    if (match) {
-      const value = pattern.value || parseInt(match[1]) || 1;
-      const unit = pattern.unit;
-      const display = `${value} ${unit === 'weeks' ? (value === 1 ? 'week' : 'weeks') : 
-                                   unit === 'days' ? (value === 1 ? 'day' : 'days') : 
-                                   (value === 1 ? 'hour' : 'hours')}`;
-      return { value, unit, display };
-    }
-  }
-
-  // Default fallback
-  return { value: 72, unit: 'hours', display: '72 hours' };
-}
-
-// Booking window phrase mapping
-function parseBookingWindowOperator(text: string): 'more_than' | 'less_than' {
-  const advanceWindowMap = [
-    { regex: /\b(no |not |stop .* from )?(?:reserve|booking|book|schedule)[^\n]*\bmore than\b/i, op: 'more_than' },
-    { regex: /\b(at least|minimum of)\b/i, op: 'more_than' },
-    { regex: /\b(within|inside|up to|no more than)\b/i, op: 'less_than' },
-    { regex: /\b(less than|under)\b/i, op: 'less_than' },
-    { regex: /\b(reserve ahead of time|in advance)\b.*\b(\d+|one|two|three|four|five|six|seven)\b/i, op: 'more_than' },
-    { regex: /\bover\b/i, op: 'more_than' },
-    { regex: /\bbeyond\b/i, op: 'more_than' },
-  ];
-
-  for (const mapping of advanceWindowMap) {
-    if (mapping.regex.test(text)) {
-      return mapping.op as 'more_than' | 'less_than';
-    }
-  }
-
-  // Default fallback
-  return 'less_than';
-}
-
-// Pricing rule type detection
-function parsePricingType(text: string): 'fixed' | 'per_hour' {
-  if (/flat (rate|fee)|fixed (rate|fee)|flat\s*\$|\$\d+\s*flat/i.test(text)) {
-    return 'fixed';
-  }
-  return 'per_hour';
-}
-
-// Space-sharing phrase detection
-function parseSpaceSharing(text: string): Array<{from: string, to: string}> {
-  const connections: Array<{from: string, to: string}> = [];
-  
-  const spaceSharingPatterns = [
-    // "If X is booked, block Y" patterns
-    { regex: /if\s+(?:the\s+)?([^,\s]+(?:\s+[^,\s]+)*)\s+is\s+booked,?\s+(?:block|prevent|disable)\s+([^.]+)/gi },
-    // "Booking X should prevent Y" patterns  
-    { regex: /booking\s+(?:the\s+)?([^,\s]+(?:\s+[^,\s]+)*)\s+should\s+(?:prevent|block|disable)\s+([^.]+)/gi },
-    // "X and Y are mutually exclusive" patterns
-    { regex: /([^,\s]+(?:\s+[^,\s]+)*)\s+and\s+([^,\s]+(?:\s+[^,\s]+)*)\s+are\s+mutually\s+exclusive/gi },
-    // "Whole venue" patterns
-    { regex: /\bwhole\s+venue\b|\bentire\s+venue\b|\bfull\s+venue\b/gi },
-  ];
-
-  for (const pattern of spaceSharingPatterns) {
-    let match;
-    while ((match = pattern.regex.exec(text)) !== null) {
-      if (pattern.regex.source.includes('mutually')) {
-        // Bidirectional for mutually exclusive
-        const space1 = match[1].trim();
-        const space2 = match[2].trim();
-        connections.push({from: space1, to: space2});
-        connections.push({from: space2, to: space1});
-      } else {
-        const fromSpace = match[1].trim();
-        const toSpaces = match[2].split(/\s+(?:and|&)\s+|\s*,\s*/);
-        
-        for (const toSpace of toSpaces) {
-          const cleanToSpace = toSpace.trim().replace(/^['"]|['"]$/g, '');
-          if (cleanToSpace) {
-            connections.push({from: fromSpace, to: cleanToSpace});
-          }
-        }
-      }
-    }
-  }
-
-  return connections;
-}
-
-// Resolve chained dependencies for "WHAT IT ALL MEANS"
-function resolveChainedDependencies(connections: Array<{from: string, to: string}>): Array<{from: string, to: string}> {
-  const resolved = new Set<string>();
-  const result: Array<{from: string, to: string}> = [];
-  
-  // Add direct connections
-  for (const conn of connections) {
-    const key = `${conn.from}->${conn.to}`;
-    if (!resolved.has(key)) {
-      resolved.add(key);
-      result.push(conn);
-    }
-  }
-
-  // Add implied connections (A->B, B->C implies A->C)
-  let changed = true;
-  let iterations = 0;
-  while (changed && iterations < 30) { // Prevent infinite loops
-    changed = false;
-    iterations++;
-    
-    for (const conn1 of result) {
-      for (const conn2 of result) {
-        if (conn1.to === conn2.from && conn1.from !== conn2.to) {
-          const impliedKey = `${conn1.from}->${conn2.to}`;
-          if (!resolved.has(impliedKey)) {
-            resolved.add(impliedKey);
-            result.push({from: conn1.from, to: conn2.to});
-            changed = true;
-          }
-        }
-      }
-    }
-  }
-
-  return result;
 }
 
 // Convert time_range to from_time/to_time for template rule blocks
@@ -366,6 +221,8 @@ serve(async (req) => {
       );
     }
 
+    console.log(`Processing rule: "${rule}"`);
+
     // Call OpenAI API
     const openAiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -379,6 +236,8 @@ serve(async (req) => {
           {
             role: "system",
             content: `You are a venue automation assistant helping admins configure complex booking logic using natural language prompts.
+
+CRITICAL: When the user provides a prompt, you MUST return a complete JSON structure with ALL relevant rule types. If the user mentions hourly and daily pricing, always output a pricing_rules array with at least two objects: one per_hour and one fixed. If the user mentions a tag restriction ("only X"), output a booking_conditions array with operator "contains_none_of" and value = [tag].
 
 When the user provides a prompt, return the following JSON structure:
 
@@ -627,6 +486,12 @@ Return a **clean JSON object** in this structure:
       "rule_blocks": [...]
     },
     {
+      "step_key": "pricing_rules",
+      "title": "Step 5: Create pricing rules", 
+      "instruction": "Go to Settings > Pricing and create the following pricing rules:",
+      "rule_blocks": [...]
+    },
+    {
       "step_key": "space_sharing",
       "title": "Step 9: Set space-sharing rules",
       "instruction": "Go to Settings › Space Sharing and add the following connections:",
@@ -667,6 +532,8 @@ Your JSON should never be wrapped in markdown backticks or contain extra notes. 
     }
 
     const openAiData = await openAiResponse.json();
+    console.log('[GPT raw response]', JSON.stringify(openAiData, null, 2));
+    
     let responseContent = openAiData.choices[0].message.content;
 
     // Clean up markdown code blocks if present
@@ -700,8 +567,24 @@ Your JSON should never be wrapped in markdown backticks or contain extra notes. 
       );
     }
 
+    // Debug: Log the parsed result structure
+    console.log('[Parsed result structure]', {
+      pricing_rules_count: parsedResult.parsed_rule_blocks?.pricing_rules?.length || 0,
+      booking_conditions_count: parsedResult.parsed_rule_blocks?.booking_conditions?.length || 0,
+      setup_guide_count: parsedResult.setup_guide?.length || 0,
+      setup_guide_keys: parsedResult.setup_guide?.map((s: any) => s.step_key) || []
+    });
+
     // Convert time_range to from_time/to_time for template compatibility
     ensureRuleBlocks(parsedResult);
+
+    // Final debug: Log the final result structure
+    console.log('[Final result structure]', {
+      pricing_rules_count: parsedResult.parsed_rule_blocks?.pricing_rules?.length || 0,
+      booking_conditions_count: parsedResult.parsed_rule_blocks?.booking_conditions?.length || 0,
+      setup_guide_count: parsedResult.setup_guide?.length || 0,
+      setup_guide_keys: parsedResult.setup_guide?.map((s: any) => s.step_key) || []
+    });
 
     return new Response(JSON.stringify(parsedResult), {
       status: 200,

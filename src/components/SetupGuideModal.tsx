@@ -34,6 +34,14 @@ export function SetupGuideModal({ result, isOpen, onClose }: SetupGuideModalProp
   // Detect if opened from template library
   const isLibrary = location.pathname.startsWith('/templates/');
   
+  console.debug('[SetupGuideModal] Received result:', {
+    pricing_rules_count: result.pricing_rules?.length || 0,
+    booking_conditions_count: result.booking_conditions?.length || 0,
+    setup_guide_count: result.setup_guide?.length || 0,
+    setup_guide_keys: result.setup_guide?.map((s: any) => s.step_key) || [],
+    isLibrary
+  });
+  
   // Helper functions defined before useMemo to avoid reference errors
   const getUniqueSpaces = () => {
     const spaces = new Set<string>();
@@ -81,6 +89,8 @@ export function SetupGuideModal({ result, isOpen, onClose }: SetupGuideModalProp
   const dynamicSetupGuide = useMemo(() => {
     const steps: SetupGuideStep[] = [];
     
+    console.debug('[SetupGuideModal] Building dynamic setup guide, isLibrary:', isLibrary);
+    
     // Only add initial setup steps if NOT in library mode
     if (!isLibrary) {
       // Step 1: Create spaces
@@ -109,7 +119,17 @@ export function SetupGuideModal({ result, isOpen, onClose }: SetupGuideModalProp
     }
     
     // Add rule configuration steps based on available data
+    console.debug('[SetupGuideModal] Checking rule conditions:', {
+      hasBookingConditions: result.booking_conditions && result.booking_conditions.length > 0,
+      hasPricingRules: result.pricing_rules && result.pricing_rules.length > 0,
+      hasQuotaRules: result.quota_rules && result.quota_rules.length > 0,
+      hasBufferTimeRules: result.buffer_time_rules && result.buffer_time_rules.length > 0,
+      hasBookingWindowRules: result.booking_window_rules && result.booking_window_rules.length > 0,
+      hasSpaceSharing: result.space_sharing && result.space_sharing.length > 0
+    });
+    
     if (result.booking_conditions && result.booking_conditions.length > 0) {
+      console.debug('[SetupGuideModal] Adding booking_conditions step');
       steps.push({
         step_key: 'booking_conditions',
         title: `Step ${steps.length + 1}: Create booking conditions`,
@@ -119,6 +139,7 @@ export function SetupGuideModal({ result, isOpen, onClose }: SetupGuideModalProp
     }
     
     if (result.pricing_rules && result.pricing_rules.length > 0) {
+      console.debug('[SetupGuideModal] Adding pricing_rules step');
       steps.push({
         step_key: 'pricing_rules',
         title: `Step ${steps.length + 1}: Create pricing rules`,
@@ -128,6 +149,7 @@ export function SetupGuideModal({ result, isOpen, onClose }: SetupGuideModalProp
     }
     
     if (result.quota_rules && result.quota_rules.length > 0) {
+      console.debug('[SetupGuideModal] Adding quota_rules step');
       steps.push({
         step_key: 'quota_rules',
         title: `Step ${steps.length + 1}: Create quota rules`,
@@ -137,6 +159,7 @@ export function SetupGuideModal({ result, isOpen, onClose }: SetupGuideModalProp
     }
     
     if (result.buffer_time_rules && result.buffer_time_rules.length > 0) {
+      console.debug('[SetupGuideModal] Adding buffer_time_rules step');
       steps.push({
         step_key: 'buffer_time_rules',
         title: `Step ${steps.length + 1}: Add buffer times`,
@@ -146,6 +169,7 @@ export function SetupGuideModal({ result, isOpen, onClose }: SetupGuideModalProp
     }
     
     if (result.booking_window_rules && result.booking_window_rules.length > 0) {
+      console.debug('[SetupGuideModal] Adding booking_window_rules step');
       steps.push({
         step_key: 'booking_window_rules',
         title: `Step ${steps.length + 1}: Create booking window rules`,
@@ -155,6 +179,7 @@ export function SetupGuideModal({ result, isOpen, onClose }: SetupGuideModalProp
     }
     
     if (result.space_sharing && result.space_sharing.length > 0) {
+      console.debug('[SetupGuideModal] Adding space_sharing step');
       steps.push({
         step_key: 'space_sharing',
         title: `Step ${steps.length + 1}: Set space-sharing rules`,
@@ -163,16 +188,25 @@ export function SetupGuideModal({ result, isOpen, onClose }: SetupGuideModalProp
       });
     }
     
+    console.debug('[SetupGuideModal] Final dynamic steps:', steps.map(s => s.step_key));
     return steps;
   }, [result, isLibrary]);
   
   // Use dynamic guide or fallback to original setup_guide
   const setupGuide = dynamicSetupGuide.length > 0 ? dynamicSetupGuide : result.setup_guide;
   
+  console.debug('[SetupGuideModal] Final setup guide:', {
+    dynamicCount: dynamicSetupGuide.length,
+    originalCount: result.setup_guide?.length || 0,
+    finalCount: setupGuide?.length || 0,
+    finalKeys: setupGuide?.map((s: any) => s.step_key) || []
+  });
+  
   // Check if we have any setup guide data
   const hasSetupGuide = setupGuide && setupGuide.length > 0;
   
   if (!hasSetupGuide) {
+    console.debug('[SetupGuideModal] No setup guide available, not rendering modal');
     return null;
   }
 
