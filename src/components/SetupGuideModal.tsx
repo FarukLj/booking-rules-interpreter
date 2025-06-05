@@ -34,6 +34,49 @@ export function SetupGuideModal({ result, isOpen, onClose }: SetupGuideModalProp
   // Detect if opened from template library
   const isLibrary = location.pathname.startsWith('/templates/');
   
+  // Helper functions defined before useMemo to avoid reference errors
+  const getUniqueSpaces = () => {
+    const spaces = new Set<string>();
+    if (result.booking_conditions) {
+      result.booking_conditions.forEach(rule => 
+        rule.space.forEach(space => spaces.add(space))
+      );
+    }
+    if (result.pricing_rules) {
+      result.pricing_rules.forEach(rule => 
+        rule.space.forEach(space => spaces.add(space))
+      );
+    }
+    if (result.space_sharing) {
+      result.space_sharing.forEach(rule => {
+        spaces.add(rule.from);
+        spaces.add(rule.to);
+      });
+    }
+    // Add other rule types...
+    return Array.from(spaces);
+  };
+
+  const getUniqueTags = () => {
+    const tags = new Set<string>();
+    if (result.booking_conditions) {
+      result.booking_conditions.forEach(rule => {
+        if (Array.isArray(rule.value)) {
+          rule.value.forEach(tag => tags.add(tag));
+        }
+      });
+    }
+    if (result.pricing_rules) {
+      result.pricing_rules.forEach(rule => {
+        if (Array.isArray(rule.value)) {
+          rule.value.forEach(tag => tags.add(tag));
+        }
+      });
+    }
+    // Add other rule types...
+    return Array.from(tags);
+  };
+  
   // Build dynamic setup guide based on mode and available data
   const dynamicSetupGuide = useMemo(() => {
     const steps: SetupGuideStep[] = [];
@@ -191,48 +234,6 @@ export function SetupGuideModal({ result, isOpen, onClose }: SetupGuideModalProp
       default:
         return null;
     }
-  };
-
-  const getUniqueSpaces = () => {
-    const spaces = new Set<string>();
-    if (result.booking_conditions) {
-      result.booking_conditions.forEach(rule => 
-        rule.space.forEach(space => spaces.add(space))
-      );
-    }
-    if (result.pricing_rules) {
-      result.pricing_rules.forEach(rule => 
-        rule.space.forEach(space => spaces.add(space))
-      );
-    }
-    if (result.space_sharing) {
-      result.space_sharing.forEach(rule => {
-        spaces.add(rule.from);
-        spaces.add(rule.to);
-      });
-    }
-    // Add other rule types...
-    return Array.from(spaces);
-  };
-
-  const getUniqueTags = () => {
-    const tags = new Set<string>();
-    if (result.booking_conditions) {
-      result.booking_conditions.forEach(rule => {
-        if (Array.isArray(rule.value)) {
-          rule.value.forEach(tag => tags.add(tag));
-        }
-      });
-    }
-    if (result.pricing_rules) {
-      result.pricing_rules.forEach(rule => {
-        if (Array.isArray(rule.value)) {
-          rule.value.forEach(tag => tags.add(tag));
-        }
-      });
-    }
-    // Add other rule types...
-    return Array.from(tags);
   };
 
   return (
