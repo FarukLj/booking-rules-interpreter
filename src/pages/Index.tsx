@@ -6,6 +6,7 @@ import { SetupGuideModal } from "@/components/SetupGuideModal";
 import { LibCategoryGrid } from "@/components/LibCategoryGrid";
 import { LibTemplateGrid } from "@/components/LibTemplateGrid";
 import { LibTemplateModal } from "@/components/LibTemplateModal";
+import { Navbar } from "@/components/Navbar";
 import { RuleResult } from "@/types/RuleResult";
 import { toast } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,6 +25,15 @@ const Index = () => {
   const handleRuleSubmit = async (ruleText: string) => {
     setIsLoading(true);
     try {
+      // Add input validation
+      if (!ruleText.trim()) {
+        throw new Error("Please enter a booking rule");
+      }
+      
+      if (ruleText.length > 2000) {
+        throw new Error("Rule text is too long. Please keep it under 2000 characters.");
+      }
+
       // Call the parseRule edge function
       const { data, error } = await supabase.functions.invoke('parseRule', {
         body: { rule: ruleText }
@@ -73,6 +83,8 @@ const Index = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
+      <Navbar />
+      
       <header className="bg-white shadow-sm py-6">
         <div className="container mx-auto px-4">
           <h1 className="text-3xl font-bold text-slate-800">AI Booking Rule Assistant</h1>
