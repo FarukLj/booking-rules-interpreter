@@ -83,22 +83,22 @@ export function BookingConditionRow({
         <span className="text-slate-600">, a booking is not allowed if:</span>
       </div>
 
-      <div className="flex sm:flex-col items-center gap-0 text-sm mb-3">
-        <div className="flex-1 sm:w-full sm:mb-2">
+      <div className="flex flex-col md:flex-row items-center gap-0 text-sm mb-3">
+        <div className="w-full md:flex-1">
           <ConditionTypeSelector
             condition={condition}
             onConditionChange={updateCondition}
           />
         </div>
         
-        <div className="flex-1 sm:w-full sm:mb-2">
+        <div className="w-full md:flex-1">
           <OperatorSelector
             condition={condition}
             onOperatorChange={(operator) => updateCondition('operator', operator)}
           />
         </div>
         
-        <div className="flex-1 sm:w-full">
+        <div className="w-full md:flex-1">
           {condition.condition_type === "user_tags" ? (
             <MultiSelect
               options={tagOptions}
