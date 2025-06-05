@@ -7,6 +7,7 @@ import { PricingRule } from "@/types/RuleResult";
 import { Info, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { LinkSelectTrigger } from "@/components/ui/LinkSelect";  // ← add this
 
 interface PricingRulesBlockProps {
   initialRules?: PricingRule[];
@@ -167,16 +168,11 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
                   updateRule(index, 'time_range', `${value}–${endTime}`);
                 }}
               >
-                <SelectTrigger
-  className={cn(
-    "inline-flex items-center gap-1 bg-transparent border-none p-0 h-auto text-sm font-semibold text-blue-700 hover:text-blue-600 focus:outline-none",
-    "w-auto" // keeps the trigger width as wide as its text
-  )}
->
+                <LinkSelectTrigger className="w-24" >
                   <SelectValue>
                     {formatTimeDisplay(rule.time_range?.split('–')[0] || '09:00')}
                   </SelectValue>
-                </SelectTrigger>
+                </LinkSelectTrigger>
                 <SelectContent className="z-50">
                   {timeOptions.map(time => (
                     <SelectItem key={time} value={time}>{formatTimeDisplay(time)}</SelectItem>
@@ -192,16 +188,11 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
                   updateRule(index, 'time_range', `${startTime}–${value}`);
                 }}
               >
-                <SelectTrigger
-  className={cn(
-    "inline-flex items-center gap-1 bg-transparent border-none p-0 h-auto text-sm font-semibold text-blue-700 hover:text-blue-600 focus:outline-none",
-    "w-auto" // keeps the trigger width as wide as its text
-  )}
->
+                <LinkSelectTrigger>
                   <SelectValue>
                     {formatTimeDisplay(rule.time_range?.split('–')[1] || '17:00')}
                   </SelectValue>
-                </SelectTrigger>
+                </LinkSelectTrigger>
                 <SelectContent className="z-50">
                   {timeOptions.map(time => (
                     <SelectItem key={time} value={time}>{formatTimeDisplay(time)}</SelectItem>
