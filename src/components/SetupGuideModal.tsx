@@ -1,261 +1,230 @@
 
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import React from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle, Circle, Settings, Users, Clock, DollarSign, Timer, Calendar, Building } from "lucide-react";
-import { RuleResult, SetupGuideStep } from "@/types/RuleResult";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { RuleResult } from "@/types/RuleResult";
 import { BookingConditionsBlock } from "./BookingConditionsBlock";
 import { PricingRulesBlock } from "./PricingRulesBlock";
 import { QuotaRulesBlock } from "./QuotaRulesBlock";
 import { BufferTimeRulesBlock } from "./BufferTimeRulesBlock";
 import { BookingWindowRulesBlock } from "./BookingWindowRulesBlock";
 import { SpaceSharingRulesBlock } from "./SpaceSharingRulesBlock";
-import { useState } from "react";
 
 interface SetupGuideModalProps {
   result: RuleResult;
   isOpen: boolean;
   onClose: () => void;
+  mode?: "ai" | "library";
+  templateTitle?: string;
 }
 
-export function SetupGuideModal({ result, isOpen, onClose }: SetupGuideModalProps) {
-  const [completedSteps, setCompletedSteps] = useState<Set<string>>(new Set());
+export const SetupGuideModal = ({ 
+  result, 
+  isOpen, 
+  onClose, 
+  mode = "ai",
+  templateTitle 
+}: SetupGuideModalProps) => {
   
-  // Check if we have the new setup guide format
-  const hasSetupGuide = result.setup_guide && result.setup_guide.length > 0;
-  
-  if (!hasSetupGuide) {
-    return null; // Fallback to regular modal if no setup guide
+  // Build setup guide based on mode
+  const buildSetupGuide = (data: RuleResult, currentMode: string) => {
+    const steps = [];
+
+    // Only include basic setup steps for AI mode
+    if (currentMode === "ai") {
+      // Extract unique spaces from all rule types
+      const allSpaces = new Set<string>();
+      
+      data.booking_conditions?.forEach(rule => rule.space?.forEach(space => allSpaces.add(space)));
+      data.pricing_rules?.forEach(rule => rule.space?.forEach(space => allSpaces.add(space)));
+      data.quota_rules?.forEach(rule => rule.affected_spaces?.forEach(space => allSpaces.add(space)));
+      data.buffer_time_rules?.forEach(rule => rule.spaces?.forEach(space => allSpaces.add(space)));
+      data.booking_window_rules?.forEach(rule => rule.spaces?.forEach(space => allSpaces.add(space)));
+      data.space_sharing?.forEach(rule => {
+        allSpaces.add(rule.from);
+        allSpaces.add(rule.to);
+      });
+
+      if (allSpaces.size > 0) {
+        steps.push({
+          step_key: "create_spaces",
+          title: "Step 1: Create the required spaces",
+          instruction: `Go to Settings > Spaces and click 'Add Space'. Create these spaces: ${Array.from(allSpaces).join(', ')}`,
+          spaces: Array.from(allSpaces)
+        });
+      }
+
+      steps.push({
+        step_key: "hours_of_availability",
+        title: "Step 2: Add hours of availability",
+        instruction: "Go to Settings › Hours of availability and set each space to at least 07:00 AM – 09:00 PM for Monday–Friday. Adjust weekend hours as needed.",
+        spaces: Array.from(allSpaces),
+        times: "07:00 AM – 09:00 PM"
+      });
+
+      // Extract unique tags
+      const allTags = new Set<string>();
+      data.booking_conditions?.forEach(rule => {
+        if (rule.condition_type === "user_tags" && Array.isArray(rule.value)) {
+          rule.value.forEach(tag => allTags.add(tag));
+        }
+      });
+      data.pricing_rules?.forEach(rule => {
+        if (rule.condition_type === "user_tags" && Array.isArray(rule.value)) {
+          rule.value.forEach(tag => allTags.add(tag));
+        }
+      });
+      data.quota_rules?.forEach(rule => {
+        rule.tags?.forEach(tag => allTags.add(tag));
+      });
+      data.booking_window_rules?.forEach(rule => {
+        rule.tags?.forEach(tag => allTags.add(tag));
+      });
+
+      if (allTags.size > 0) {
+        steps.push({
+          step_key: "create_user_tags",
+          title: "Step 3: Add user tags",
+          instruction: `Go to Users > Manage Tags and add: ${Array.from(allTags).join(', ')}. Note: For booking conditions with exclusive access (Only X can book), use 'contains none of' with the allowed tag. For pricing rules, use 'contains any of' with tags that should receive the price.`
+        });
+      }
+    }
+
+    // Add rule-specific steps for both modes
+    const ruleStepMap = [
+      { key: 'booking_conditions', title: 'Create booking conditions', instruction: 'Go to Settings > Conditions and create the following restriction rules:' },
+      { key: 'pricing_rules', title: 'Create pricing rules', instruction: 'Go to Settings > Pricing and create the following pricing rules:' },
+      { key: 'quota_rules', title: 'Create quota rules', instruction: 'Go to Settings > Quotas and create the following quota rules:' },
+      { key: 'buffer_time_rules', title: 'Create buffer time rules', instruction: 'Go to Settings > Buffer Times and create the following buffer rules:' },
+      { key: 'booking_window_rules', title: 'Create booking window rules', instruction: 'Go to Settings > Booking Windows and create the following advance booking rules:' },
+      { key: 'space_sharing', title: 'Set space-sharing rules', instruction: 'Go to Settings › Space Sharing and add the following connections:' }
+    ];
+
+    ruleStepMap.forEach((ruleStep, index) => {
+      const ruleData = data[ruleStep.key as keyof RuleResult] as any[];
+      if (ruleData && ruleData.length > 0) {
+        const stepNumber = currentMode === "ai" ? steps.length + 1 : index + 1;
+        steps.push({
+          step_key: ruleStep.key,
+          title: `Step ${stepNumber}: ${ruleStep.title}`,
+          instruction: ruleStep.instruction,
+          rule_blocks: ruleData,
+          ...(ruleStep.key === 'space_sharing' && { connections: ruleData })
+        });
+      }
+    });
+
+    return steps;
+  };
+
+  const setupGuide = result.setup_guide?.length > 0 ? result.setup_guide : buildSetupGuide(result, mode);
+
+  // Dev mode guard rail
+  if (process.env.NODE_ENV === 'development') {
+    const ruleStepKeys = ['pricing_rules', 'booking_conditions', 'quota_rules', 'buffer_time_rules', 'booking_window_rules', 'space_sharing'];
+    const emptySteps = setupGuide.filter(step => 
+      ruleStepKeys.includes(step.step_key) && 
+      (!step.rule_blocks || step.rule_blocks.length === 0)
+    );
+    
+    if (emptySteps.length > 0) {
+      console.error('[SetupGuideModal] Empty rule_blocks detected:', emptySteps.map(s => s.step_key));
+      throw new Error(`[ModalGuard] Empty rule_blocks for steps: ${emptySteps.map(s => s.step_key).join(', ')}`);
+    }
+
+    // Dev echo for debugging
+    const ruleCount = {
+      PR: result.pricing_rules?.length || 0,
+      BC: result.booking_conditions?.length || 0,
+      QT: result.quota_rules?.length || 0,
+      BT: result.buffer_time_rules?.length || 0,
+      BW: result.booking_window_rules?.length || 0,
+      SS: result.space_sharing?.length || 0
+    };
+    console.debug('[SetupGuideModal] Rule counts:', ruleCount);
   }
 
-  const toggleStepCompletion = (stepKey: string) => {
-    const newCompleted = new Set(completedSteps);
-    if (newCompleted.has(stepKey)) {
-      newCompleted.delete(stepKey);
-    } else {
-      newCompleted.add(stepKey);
-    }
-    setCompletedSteps(newCompleted);
-  };
-
-  const getStepIcon = (stepKey: string) => {
-    switch (stepKey) {
-      case 'create_spaces':
-        return <Settings className="h-5 w-5" />;
-      case 'hours_of_availability':
-        return <Building className="h-5 w-5" />;
-      case 'create_user_tags':
-        return <Users className="h-5 w-5" />;
-      case 'booking_conditions':
-        return <Circle className="h-5 w-5" />;
-      case 'pricing_rules':
-        return <DollarSign className="h-5 w-5" />;
-      case 'quota_rules':
-        return <Clock className="h-5 w-5" />;
-      case 'buffer_time_rules':
-        return <Timer className="h-5 w-5" />;
-      case 'booking_window_rules':
-        return <Calendar className="h-5 w-5" />;
-      case 'space_sharing':
-        return <Building className="h-5 w-5" />;
-      default:
-        return <Circle className="h-5 w-5" />;
-    }
-  };
-
-  const renderRuleBlocks = (step: SetupGuideStep) => {
-    if (!step.rule_blocks || step.rule_blocks.length === 0) {
-      // Handle space-sharing connections
-      if (step.step_key === 'space_sharing' && step.connections) {
-        return <SpaceSharingRulesBlock initialRules={step.connections} />;
-      }
-      return null;
-    }
+  const renderRuleBlock = (step: any) => {
+    if (!step.rule_blocks?.length) return null;
 
     switch (step.step_key) {
       case 'booking_conditions':
-        return <BookingConditionsBlock initialConditions={step.rule_blocks} />;
+        return <BookingConditionsBlock conditions={step.rule_blocks} />;
       case 'pricing_rules':
-        return <PricingRulesBlock initialRules={step.rule_blocks} />;
+        return <PricingRulesBlock rules={step.rule_blocks} />;
       case 'quota_rules':
-        return <QuotaRulesBlock initialRules={step.rule_blocks} />;
+        return <QuotaRulesBlock rules={step.rule_blocks} />;
       case 'buffer_time_rules':
-        return <BufferTimeRulesBlock initialRules={step.rule_blocks} />;
+        return <BufferTimeRulesBlock rules={step.rule_blocks} />;
       case 'booking_window_rules':
-        return <BookingWindowRulesBlock initialRules={step.rule_blocks} />;
+        return <BookingWindowRulesBlock rules={step.rule_blocks} />;
+      case 'space_sharing':
+        return <SpaceSharingRulesBlock rules={step.rule_blocks} />;
       default:
         return null;
     }
   };
 
-  const getUniqueSpaces = () => {
-    const spaces = new Set<string>();
-    if (result.parsed_rule_blocks?.booking_conditions) {
-      result.parsed_rule_blocks.booking_conditions.forEach(rule => 
-        rule.space.forEach(space => spaces.add(space))
-      );
-    }
-    if (result.parsed_rule_blocks?.pricing_rules) {
-      result.parsed_rule_blocks.pricing_rules.forEach(rule => 
-        rule.space.forEach(space => spaces.add(space))
-      );
-    }
-    if (result.parsed_rule_blocks?.space_sharing) {
-      result.parsed_rule_blocks.space_sharing.forEach(rule => {
-        spaces.add(rule.from);
-        spaces.add(rule.to);
-      });
-    }
-    // Add other rule types...
-    return Array.from(spaces);
-  };
-
-  const getUniqueTags = () => {
-    const tags = new Set<string>();
-    if (result.parsed_rule_blocks?.booking_conditions) {
-      result.parsed_rule_blocks.booking_conditions.forEach(rule => {
-        if (Array.isArray(rule.value)) {
-          rule.value.forEach(tag => tags.add(tag));
-        }
-      });
-    }
-    if (result.parsed_rule_blocks?.pricing_rules) {
-      result.parsed_rule_blocks.pricing_rules.forEach(rule => {
-        if (Array.isArray(rule.value)) {
-          rule.value.forEach(tag => tags.add(tag));
-        }
-      });
-    }
-    // Add other rule types...
-    return Array.from(tags);
-  };
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
         <DialogHeader>
-          <DialogTitle className="text-2xl flex items-center gap-2">
-            <Settings className="h-6 w-6" />
-            Booking Rules Setup Assistant
+          <DialogTitle className="flex items-center justify-between">
+            <span>
+              {mode === "library" && templateTitle ? `Template: ${templateTitle}` : "Setup Guide"}
+            </span>
+            {process.env.NODE_ENV === 'development' && (
+              <code className="text-xs text-gray-400 font-mono">
+                PR:{result.pricing_rules?.length || 0} BC:{result.booking_conditions?.length || 0} QT:{result.quota_rules?.length || 0} BT:{result.buffer_time_rules?.length || 0} BW:{result.booking_window_rules?.length || 0} SS:{result.space_sharing?.length || 0}
+              </code>
+            )}
           </DialogTitle>
-          <DialogDescription>
-            Follow these steps to configure your booking system according to your requirements
-          </DialogDescription>
         </DialogHeader>
         
-        <div className="space-y-6 my-4">
-          {/* Summary at the top */}
-          {result.summary && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">What This Setup Accomplishes</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-slate-700">{result.summary}</p>
-              </CardContent>
-            </Card>
-          )}
+        <ScrollArea className="max-h-[calc(90vh-120px)]">
+          <div className="space-y-6 pr-4">
+            {result.summary && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h3 className="font-medium text-blue-900 mb-2">What this template accomplishes:</h3>
+                <p className="text-blue-800">{result.summary}</p>
+              </div>
+            )}
 
-          {/* Step-by-step guide */}
-          {result.setup_guide?.map((step, index) => (
-            <Card key={step.step_key} className="border-l-4 border-l-blue-500">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-3 text-lg">
-                    <div className="flex items-center gap-2">
-                      {getStepIcon(step.step_key)}
-                      {step.title}
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => toggleStepCompletion(step.step_key)}
-                      className="ml-auto"
-                    >
-                      {completedSteps.has(step.step_key) ? (
-                        <CheckCircle className="h-5 w-5 text-green-600" />
-                      ) : (
-                        <Circle className="h-5 w-5 text-slate-400" />
-                      )}
-                    </Button>
-                  </CardTitle>
+            {setupGuide.map((step, index) => (
+              <div key={step.step_key} className="border border-slate-200 rounded-lg p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <Badge variant="outline" className="text-sm font-medium">
+                    {step.title}
+                  </Badge>
                 </div>
-                <CardDescription className="text-slate-600">
-                  {step.instruction}
-                </CardDescription>
-              </CardHeader>
-              
-              <CardContent>
-                {/* Special content for spaces step */}
-                {step.step_key === 'create_spaces' && (
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium text-slate-700">Required spaces:</p>
+                
+                <p className="text-slate-700 mb-4">{step.instruction}</p>
+                
+                {step.spaces && (
+                  <div className="mb-4">
+                    <p className="text-sm font-medium text-slate-600 mb-2">Required spaces:</p>
                     <div className="flex flex-wrap gap-2">
-                      {getUniqueSpaces().map(space => (
+                      {step.spaces.map((space: string) => (
                         <Badge key={space} variant="secondary">{space}</Badge>
                       ))}
                     </div>
                   </div>
                 )}
-                
-                {/* Special content for hours of availability step */}
-                {step.step_key === 'hours_of_availability' && (
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium text-slate-700">Recommended availability hours:</p>
-                    <div className="flex flex-wrap gap-2">
-                      {getUniqueSpaces().map(space => (
-                        <Badge key={space} variant="outline">{space}: 07:00 AM – 09:00 PM</Badge>
-                      ))}
-                    </div>
-                    <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
-                      <p className="text-sm text-blue-800">
-                        <strong>Note:</strong> These hours define when spaces are available for booking. 
-                        You can adjust them based on your venue's operating schedule.
-                      </p>
-                    </div>
+
+                {step.times && (
+                  <div className="mb-4">
+                    <p className="text-sm font-medium text-slate-600 mb-2">Suggested hours:</p>
+                    <Badge variant="secondary">{step.times}</Badge>
                   </div>
                 )}
-                
-                {/* Special content for tags step */}
-                {step.step_key === 'create_user_tags' && (
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium text-slate-700">Required user tags:</p>
-                    <div className="flex flex-wrap gap-2">
-                      {getUniqueTags().map(tag => (
-                        <Badge key={tag} variant="secondary">{tag}</Badge>
-                      ))}
-                    </div>
-                    <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-md">
-                      <p className="text-sm text-amber-800">
-                        <strong>Important:</strong> When creating booking conditions, remember that they define who <em>cannot</em> book. 
-                        Use "users with none of the tags" to enforce "Only X can book" logic.
-                      </p>
-                    </div>
-                  </div>
-                )}
-                
-                {/* Render interactive rule blocks for configuration steps */}
-                {renderRuleBlocks(step)}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-        
-        <DialogFooter className="flex justify-between">
-          <div className="text-sm text-slate-500">
-            {completedSteps.size} of {result.setup_guide?.length || 0} steps completed
+
+                {renderRuleBlock(step)}
+              </div>
+            ))}
           </div>
-          <Button onClick={onClose}>Close Guide</Button>
-        </DialogFooter>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );
-}
+};

@@ -1,7 +1,11 @@
+
 import { useState } from "react";
 import { BookingRuleInput } from "@/components/BookingRuleInput";
 import { RuleModal } from "@/components/RuleModal";
 import { SetupGuideModal } from "@/components/SetupGuideModal";
+import { CategoryGrid } from "@/components/CategoryGrid";
+import { TemplateGrid } from "@/components/TemplateGrid";
+import { TemplateModal } from "@/components/TemplateModal";
 import { RuleResult } from "@/types/RuleResult";
 import { toast } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,6 +14,12 @@ const Index = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [showModal, setShowModal] = useState<boolean>(false);
   const [ruleResult, setRuleResult] = useState<RuleResult | null>(null);
+  
+  // Template library state
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [selectedCategoryName, setSelectedCategoryName] = useState<string>("");
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [showTemplateModal, setShowTemplateModal] = useState<boolean>(false);
 
   const handleRuleSubmit = async (ruleText: string) => {
     setIsLoading(true);
@@ -38,6 +48,26 @@ const Index = () => {
     }
   };
 
+  const handleCategorySelect = (categoryId: string, categoryName: string) => {
+    setSelectedCategoryId(categoryId);
+    setSelectedCategoryName(categoryName);
+  };
+
+  const handleBackToCategories = () => {
+    setSelectedCategoryId(null);
+    setSelectedCategoryName("");
+  };
+
+  const handleTemplateSelect = (templateId: string) => {
+    setSelectedTemplateId(templateId);
+    setShowTemplateModal(true);
+  };
+
+  const handleCloseTemplateModal = () => {
+    setShowTemplateModal(false);
+    setSelectedTemplateId(null);
+  };
+
   // Determine which modal to show based on the result format
   const hasSetupGuide = ruleResult?.setup_guide && ruleResult.setup_guide.length > 0;
 
@@ -56,6 +86,18 @@ const Index = () => {
         <div className="max-w-3xl mx-auto">
           <BookingRuleInput onSubmit={handleRuleSubmit} isLoading={isLoading} />
           
+          {/* Template Library Section */}
+          {!selectedCategoryId ? (
+            <CategoryGrid onCategorySelect={handleCategorySelect} />
+          ) : (
+            <TemplateGrid
+              categoryId={selectedCategoryId}
+              categoryName={selectedCategoryName}
+              onBack={handleBackToCategories}
+              onTemplateSelect={handleTemplateSelect}
+            />
+          )}
+          
           <div className="mt-12 bg-white p-6 rounded-lg shadow-sm border border-slate-200">
             <h2 className="text-xl font-semibold text-slate-800 mb-4">How it works</h2>
             <div className="grid md:grid-cols-3 gap-6">
@@ -64,7 +106,7 @@ const Index = () => {
                   <span className="text-blue-600 font-bold">1</span>
                 </div>
                 <h3 className="font-medium mb-2">Enter your rule</h3>
-                <p className="text-slate-500 text-sm">Type your booking rule in natural language</p>
+                <p className="text-slate-500 text-sm">Type your booking rule in natural language or browse templates</p>
               </div>
               <div className="flex flex-col items-center text-center p-4">
                 <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-3">
@@ -100,12 +142,13 @@ const Index = () => {
         </div>
       </footer>
       
-      {/* Show Setup Guide Modal for new format, fallback to Regular Modal for legacy */}
+      {/* AI-generated rule modal */}
       {showModal && ruleResult && hasSetupGuide && (
         <SetupGuideModal 
           result={ruleResult} 
           isOpen={showModal} 
-          onClose={() => setShowModal(false)} 
+          onClose={() => setShowModal(false)}
+          mode="ai"
         />
       )}
       
@@ -116,6 +159,13 @@ const Index = () => {
           onClose={() => setShowModal(false)} 
         />
       )}
+
+      {/* Template modal */}
+      <TemplateModal
+        templateId={selectedTemplateId}
+        isOpen={showTemplateModal}
+        onClose={handleCloseTemplateModal}
+      />
     </div>
   );
 };
