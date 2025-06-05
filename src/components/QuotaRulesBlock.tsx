@@ -1,9 +1,9 @@
-
 import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { Toggle } from "@/components/ui/toggle";
 import { QuotaRule } from "@/types/RuleResult";
+import { LinkSelect } from "@/components/ui/LinkSelect";
 
 interface QuotaRulesBlockProps {
   initialRules?: QuotaRule[];
@@ -220,44 +220,30 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
 
             {rule.consideration_time === "specific_time" && (
               <div className="flex flex-wrap items-center gap-2 text-sm mb-3">
-                <Select 
-                  value={rule.time_range?.split('–')[0] || '09:00'} 
+                <LinkSelect 
+                  value={rule.time_range?.split('–')[0] || '09:00'}
                   onValueChange={(value) => {
                     const endTime = rule.time_range?.split('–')[1] || '17:00';
                     updateRule(index, 'time_range', `${value}–${endTime}`);
                   }}
                 >
-                  <SelectTrigger className="w-24 h-10">
-                    <SelectValue>
-                      {formatTimeDisplay(rule.time_range?.split('–')[0] || '09:00')}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent className="z-50">
-                    {timeOptions.map(time => (
-                      <SelectItem key={time} value={time}>{formatTimeDisplay(time)}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  {timeOptions.map(time => (
+                    <SelectItem key={time} value={time}>{formatTimeDisplay(time)}</SelectItem>
+                  ))}
+                </LinkSelect>
                 
                 <span className="text-slate-600">to</span>
-                <Select 
-                  value={rule.time_range?.split('–')[1] || '17:00'} 
+                <LinkSelect 
+                  value={rule.time_range?.split('–')[1] || '17:00'}
                   onValueChange={(value) => {
                     const startTime = rule.time_range?.split('–')[0] || '09:00';
                     updateRule(index, 'time_range', `${startTime}–${value}`);
                   }}
                 >
-                  <SelectTrigger className="w-24 h-10">
-                    <SelectValue>
-                      {formatTimeDisplay(rule.time_range?.split('–')[1] || '17:00')}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent className="z-50">
-                    {timeOptions.map(time => (
-                      <SelectItem key={time} value={time}>{formatTimeDisplay(time)}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  {timeOptions.map(time => (
+                    <SelectItem key={time} value={time}>{formatTimeDisplay(time)}</SelectItem>
+                  ))}
+                </LinkSelect>
                 
                 <span className="text-slate-600">on</span>
                 <MultiSelect

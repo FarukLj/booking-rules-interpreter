@@ -1,10 +1,10 @@
-
 import { useState, useEffect } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { Toggle } from "@/components/ui/toggle";
 import { BookingCondition } from "@/types/RuleResult";
 import { Info } from "lucide-react";
+import { LinkSelect } from "@/components/ui/LinkSelect";
 
 interface BookingConditionsBlockProps {
   initialConditions?: BookingCondition[];
@@ -149,44 +149,30 @@ export function BookingConditionsBlock({ initialConditions = [] }: BookingCondit
               />
               
               <span className="text-slate-600">between</span>
-              <Select 
-                value={condition.time_range?.split('–')[0] || '09:00'} 
+              <LinkSelect 
+                value={condition.time_range?.split('–')[0] || '09:00'}
                 onValueChange={(value) => {
                   const endTime = condition.time_range?.split('–')[1] || '17:00';
                   updateCondition(index, 'time_range', `${value}–${endTime}`);
                 }}
               >
-                <SelectTrigger className="w-24 h-10">
-                  <SelectValue>
-                    {formatTimeDisplay(condition.time_range?.split('–')[0] || '09:00')}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent className="z-50">
-                  {timeOptions.map(time => (
-                    <SelectItem key={time} value={time}>{formatTimeDisplay(time)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                {timeOptions.map(time => (
+                  <SelectItem key={time} value={time}>{formatTimeDisplay(time)}</SelectItem>
+                ))}
+              </LinkSelect>
               
               <span className="text-slate-600">and</span>
-              <Select 
-                value={condition.time_range?.split('–')[1] || '17:00'} 
+              <LinkSelect 
+                value={condition.time_range?.split('–')[1] || '17:00'}
                 onValueChange={(value) => {
                   const startTime = condition.time_range?.split('–')[0] || '09:00';
                   updateCondition(index, 'time_range', `${startTime}–${value}`);
                 }}
               >
-                <SelectTrigger className="w-24 h-10">
-                  <SelectValue>
-                    {formatTimeDisplay(condition.time_range?.split('–')[1] || '17:00')}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent className="z-50">
-                  {timeOptions.map(time => (
-                    <SelectItem key={time} value={time}>{formatTimeDisplay(time)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                {timeOptions.map(time => (
+                  <SelectItem key={time} value={time}>{formatTimeDisplay(time)}</SelectItem>
+                ))}
+              </LinkSelect>
               
               <span className="text-slate-600">on</span>
               <MultiSelect
