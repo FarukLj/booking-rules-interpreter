@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 
@@ -41,6 +40,69 @@ function parseTime(timeStr: string): any {
   }
   
   return { hour, minute };
+}
+
+// Template normalization utility - injects from_time / to_time for template compatibility
+function normalizeTemplateRules(json: any): any {
+  if (!json) return json;
+
+  console.log('normalizeTemplateRules: Processing template JSON');
+
+  // Helper to process any array that might hold time_range
+  const injectTimes = (arr: any[] = []) => {
+    return arr.map((rule: any) => {
+      if (rule.time_range && (!rule.from_time || !rule.to_time)) {
+        console.log(`normalizeTemplateRules: Processing time_range "${rule.time_range}"`);
+        const [from, to] = splitTimeRange(rule.time_range);
+        if (from && to) {
+          console.log(`normalizeTemplateRules: Injected from_time={h:${from.hour}, m:${from.minute}} to_time={h:${to.hour}, m:${to.minute}}`);
+          return { ...rule, from_time: from, to_time: to };
+        } else {
+          console.warn(`normalizeTemplateRules: Failed to parse time_range "${rule.time_range}"`);
+        }
+      }
+      return rule;
+    });
+  };
+
+  // Process all rule types that support time ranges
+  const normalizedJson = {
+    ...json,
+    parsed_rule_blocks: {
+      ...json.parsed_rule_blocks,
+      pricing_rules: injectTimes(json.parsed_rule_blocks?.pricing_rules),
+      booking_conditions: injectTimes(json.parsed_rule_blocks?.booking_conditions),
+      buffer_time_rules: injectTimes(json.parsed_rule_blocks?.buffer_time_rules),
+      quota_rules: injectTimes(json.parsed_rule_blocks?.quota_rules),
+      booking_window_rules: injectTimes(json.parsed_rule_blocks?.booking_window_rules),
+      space_sharing: json.parsed_rule_blocks?.space_sharing || []
+    }
+  };
+
+  // Ensure rule_blocks exist in setup_guide steps and include derived times
+  if (normalizedJson.setup_guide) {
+    normalizedJson.setup_guide = normalizedJson.setup_guide.map((step: any) => {
+      switch (step.step_key) {
+        case 'pricing_rules':
+          return { ...step, rule_blocks: normalizedJson.parsed_rule_blocks.pricing_rules };
+        case 'booking_conditions':
+          return { ...step, rule_blocks: normalizedJson.parsed_rule_blocks.booking_conditions };
+        case 'buffer_time_rules':
+          return { ...step, rule_blocks: normalizedJson.parsed_rule_blocks.buffer_time_rules };
+        case 'quota_rules':
+          return { ...step, rule_blocks: normalizedJson.parsed_rule_blocks.quota_rules };
+        case 'booking_window_rules':
+          return { ...step, rule_blocks: normalizedJson.parsed_rule_blocks.booking_window_rules };
+        case 'space_sharing':
+          return { ...step, connections: normalizedJson.parsed_rule_blocks.space_sharing };
+        default:
+          return step;
+      }
+    });
+  }
+
+  console.log('normalizeTemplateRules: Template normalization complete');
+  return normalizedJson;
 }
 
 // Unit normalization utility
@@ -252,6 +314,30 @@ serve(async (req) => {
   }
 
   try {
+    // Check if this is a template fetch request
+    const url = new URL(req.url);
+    const templateId = url.searchParams.get('template_id');
+    
+    if (templateId && req.method === "GET") {
+      // This is a template fetch request - apply normalization
+      console.log(`Fetching template ${templateId} with normalization`);
+      
+      // Here you would normally fetch from Supabase, but since we don't have direct DB access
+      // in this edge function context for templates, we'll return a placeholder response
+      // The actual template fetching would happen in the frontend and then use normalizeTemplateRules
+      
+      return new Response(
+        JSON.stringify({ 
+          error: "Template fetching should be handled by frontend with normalization",
+          suggestion: "Use normalizeTemplateRules utility after fetching template data"
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
     // Get the OpenAI API key from environment variables
     const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
     if (!openaiApiKey) {

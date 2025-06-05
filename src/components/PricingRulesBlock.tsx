@@ -6,15 +6,20 @@ import { Toggle } from "@/components/ui/toggle";
 import { PricingRule } from "@/types/RuleResult";
 import { Info, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { timeObjectToTimeString, formatTimeDisplay } from "@/utils/timeRange";
+import { timeObjectToTimeString, formatTimeDisplay, normalizeTemplateRules } from "@/utils/timeRange";
 
 interface PricingRulesBlockProps {
   initialRules?: PricingRule[];
 }
 
 export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps) {
+  // Apply template normalization if needed
+  const normalizedRules = initialRules.length > 0 ? 
+    normalizeTemplateRules({ parsed_rule_blocks: { pricing_rules: initialRules } }).parsed_rule_blocks.pricing_rules :
+    initialRules;
+
   // Sort rules: fixed rates first, then per-period rates
-  const sortedInitialRules = initialRules.sort((a, b) => {
+  const sortedInitialRules = normalizedRules.sort((a, b) => {
     if (a.rate?.unit === "fixed" && b.rate?.unit !== "fixed") return -1;
     if (a.rate?.unit !== "fixed" && b.rate?.unit === "fixed") return 1;
     return 0;
@@ -43,6 +48,7 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
     rules.forEach((rule, index) => {
       if (rule.from_time && rule.to_time) {
         console.debug(`[TimeParse] Rule ${index}: from_time={h:${rule.from_time.hour}, m:${rule.from_time.minute}} to_time={h:${rule.to_time.hour}, m:${rule.to_time.minute}}`);
+        console.debug(`[TimeParse] Rule ${index}: Time objects are distinct:`, rule.from_time !== rule.to_time);
       } else if (rule.time_range) {
         console.debug(`[TimeParse] Rule ${index}: time_range="${rule.time_range}" but missing from_time/to_time objects`);
       }
@@ -140,7 +146,7 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
     ));
   };
 
-  const formatTimeDisplay = (time: string) => {
+  const formatTimeDisplayLocal = (time: string) => {
     const hour = parseInt(time.split(':')[0]);
     const minute = time.split(':')[1];
     const period = hour >= 12 ? 'PM' : 'AM';
@@ -161,14 +167,22 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
   const getTimeValue = (rule: PricingRule, position: 'start' | 'end'): string => {
     if (position === 'start') {
       if (rule.from_time) {
-        return timeObjectToTimeString(rule.from_time);
+        const timeString = timeObjectToTimeString(rule.from_time);
+        console.debug(`[TimeParse] getTimeValue start: using from_time ${timeString}`);
+        return timeString;
       }
-      return rule.time_range?.split('–')[0] || '09:00';
+      const fallback = rule.time_range?.split('–')[0] || '09:00';
+      console.debug(`[TimeParse] getTimeValue start: fallback to time_range ${fallback}`);
+      return fallback;
     } else {
       if (rule.to_time) {
-        return timeObjectToTimeString(rule.to_time);
+        const timeString = timeObjectToTimeString(rule.to_time);
+        console.debug(`[TimeParse] getTimeValue end: using to_time ${timeString}`);
+        return timeString;
       }
-      return rule.time_range?.split('–')[1] || '17:00';
+      const fallback = rule.time_range?.split('–')[1] || '17:00';
+      console.debug(`[TimeParse] getTimeValue end: fallback to time_range ${fallback}`);
+      return fallback;
     }
   };
 
@@ -186,8 +200,10 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
     const timeObj = { hour, minute };
     
     if (position === 'start') {
+      console.debug(`[TimeRange] Setting from_time to`, timeObj);
       updateRule(index, 'from_time', timeObj);
     } else {
+      console.debug(`[TimeRange] Setting to_time to`, timeObj);
       updateRule(index, 'to_time', timeObj);
     }
   };
@@ -213,12 +229,12 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
               >
                 <SelectTrigger className="w-24 h-10">
                   <SelectValue>
-                    {formatTimeDisplay(getTimeValue(rule, 'start'))}
+                    {formatTimeDisplayLocal(getTimeValue(rule, 'start'))}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent className="z-50 bg-white">
                   {timeOptions.map(time => (
-                    <SelectItem key={time} value={time}>{formatTimeDisplay(time)}</SelectItem>
+                    <SelectItem key={time} value={time}>{formatTimeDisplayLocal(time)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -230,12 +246,12 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
               >
                 <SelectTrigger className="w-24 h-10">
                   <SelectValue>
-                    {formatTimeDisplay(getTimeValue(rule, 'end'))}
+                    {formatTimeDisplayLocal(getTimeValue(rule, 'end'))}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent className="z-50 bg-white">
                   {timeOptions.map(time => (
-                    <SelectItem key={time} value={time}>{formatTimeDisplay(time)}</SelectItem>
+                    <SelectItem key={time} value={time}>{formatTimeDisplayLocal(time)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

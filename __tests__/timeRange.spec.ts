@@ -50,4 +50,26 @@ describe('Time Range Parsing', () => {
     expect(f).toBeNull();
     expect(t).toBeNull();
   });
+
+  test('8am-2pm mixed case converts correctly', () => {
+    const [f, t] = splitTimeRange('8am-2pm');
+    expect(f?.hour).toBe(8);
+    expect(f?.minute).toBe(0);
+    expect(t?.hour).toBe(14);
+    expect(t?.minute).toBe(0);
+  });
+
+  test('5 PM–11 PM with spaces converts correctly', () => {
+    const [f, t] = splitTimeRange('5 PM–11 PM');
+    expect(f?.hour).toBe(17);
+    expect(f?.minute).toBe(0);
+    expect(t?.hour).toBe(23);
+    expect(t?.minute).toBe(0);
+  });
+
+  test('ensures distinct times (regression test)', () => {
+    const [f, t] = splitTimeRange('17:00–23:00');
+    expect(f).not.toEqual(t);
+    expect(f?.hour).not.toBe(t?.hour);
+  });
 });
