@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { LinkSelectTrigger } from "@/components/ui/LinkSelect";  // ← add this
 
+
 interface PricingRulesBlockProps {
   initialRules?: PricingRule[];
 }
@@ -222,6 +223,7 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
   </Select>
 </div>
 
+
             <div className="grid grid-cols-[1fr_auto] gap-2 text-sm mb-3">
               <span className="text-slate-600">for a booking if</span>
               <Select value={rule.condition_type || 'duration'} onValueChange={(value) => {
@@ -244,7 +246,7 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
                 </SelectContent>
               </Select>
               
-              <Select value={rule.operator || 'is_greater_than'} onValueChange={(value) => updateRule(index, 'operator', value)}>
+              <Select value={rule.operator || 'is_greater_than'} onValueChange={(value) => updateRule(index, 'operator', value)} className="flex-grow">
                 <SelectTrigger className="min-w-[150px] h-10">
                   <SelectValue>
                     {rule.operator?.replace(/_/g, ' ') || 'is greater than'}
@@ -260,7 +262,7 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
               {rule.condition_type === "duration" ? (
                 <Select 
                   value={Array.isArray(rule.value) ? rule.value[0] : rule.value || '1h'} 
-                  onValueChange={(value) => updateRule(index, 'value', value)}
+                  onValueChange={(value) => updateRule(index, 'value', value)} className="flex-grow"
                 >
                   <SelectTrigger className="w-20 h-10">
                     <SelectValue>
