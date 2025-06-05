@@ -167,7 +167,12 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
                   updateRule(index, 'time_range', `${value}–${endTime}`);
                 }}
               >
-                <SelectTrigger className="w-24 h-10">
+                <SelectTrigger
+  className={cn(
+    "inline-flex items-center gap-1 bg-transparent border-none p-0 h-auto text-sm font-semibold text-blue-700 hover:text-blue-600 focus:outline-none",
+    "w-auto" // keeps the trigger width as wide as its text
+  )}
+>
                   <SelectValue>
                     {formatTimeDisplay(rule.time_range?.split('–')[0] || '09:00')}
                   </SelectValue>
@@ -187,7 +192,12 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
                   updateRule(index, 'time_range', `${startTime}–${value}`);
                 }}
               >
-                <SelectTrigger className="w-24 h-10">
+                <SelectTrigger
+  className={cn(
+    "inline-flex items-center gap-1 bg-transparent border-none p-0 h-auto text-sm font-semibold text-blue-700 hover:text-blue-600 focus:outline-none",
+    "w-auto" // keeps the trigger width as wide as its text
+  )}
+>
                   <SelectValue>
                     {formatTimeDisplay(rule.time_range?.split('–')[1] || '17:00')}
                   </SelectValue>
@@ -205,6 +215,7 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
                 selected={rule.days || []}
                 onSelectionChange={(selected) => updateRule(index, 'days', selected)}
                 placeholder="Select days"
+                triggerVariant="link"
                 className="min-w-0 max-w-[200px]"
               />
               
@@ -213,6 +224,7 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
                 selected={rule.space || []}
                 onSelectionChange={(selected) => updateRule(index, 'space', selected)}
                 placeholder="Select spaces"
+                triggerVariant="link"
                 className="min-w-0 max-w-[200px]"
               />
               
