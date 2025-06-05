@@ -1,20 +1,19 @@
 
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { useTemplatesByCategory } from '@/hooks/useTemplates';
+import { useLibTemplatesByCategory } from '@/hooks/useLibrary';
 import { Loader2, ArrowLeft, FileText } from 'lucide-react';
 
-interface TemplateGridProps {
+interface LibTemplateGridProps {
   categoryId: string;
   categoryName: string;
   onBack: () => void;
   onTemplateSelect: (templateId: string) => void;
 }
 
-export function TemplateGrid({ categoryId, categoryName, onBack, onTemplateSelect }: TemplateGridProps) {
-  const { data: templates, isLoading, error } = useTemplatesByCategory(categoryId);
+export function LibTemplateGrid({ categoryId, categoryName, onBack, onTemplateSelect }: LibTemplateGridProps) {
+  const { data: templates, isLoading, error } = useLibTemplatesByCategory(categoryId);
 
   if (isLoading) {
     return (
@@ -73,22 +72,15 @@ export function TemplateGrid({ categoryId, categoryName, onBack, onTemplateSelec
               <CardHeader>
                 <CardTitle className="text-lg">{template.title}</CardTitle>
                 <CardDescription className="line-clamp-2">
-                  {template.description}
+                  {template.short_desc}
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {template.tags?.map((tag) => (
-                    <Badge key={tag} variant="secondary" className="text-xs">
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
                 <Button 
                   className="w-full" 
                   onClick={() => onTemplateSelect(template.id)}
                 >
-                  Use This Template
+                  View Template
                 </Button>
               </CardContent>
             </Card>

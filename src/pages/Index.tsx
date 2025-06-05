@@ -3,9 +3,9 @@ import { useState } from "react";
 import { BookingRuleInput } from "@/components/BookingRuleInput";
 import { RuleModal } from "@/components/RuleModal";
 import { SetupGuideModal } from "@/components/SetupGuideModal";
-import { CategoryGrid } from "@/components/CategoryGrid";
-import { TemplateGrid } from "@/components/TemplateGrid";
-import { TemplateModal } from "@/components/TemplateModal";
+import { LibCategoryGrid } from "@/components/LibCategoryGrid";
+import { LibTemplateGrid } from "@/components/LibTemplateGrid";
+import { LibTemplateModal } from "@/components/LibTemplateModal";
 import { RuleResult } from "@/types/RuleResult";
 import { toast } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -88,9 +88,9 @@ const Index = () => {
           
           {/* Template Library Section */}
           {!selectedCategoryId ? (
-            <CategoryGrid onCategorySelect={handleCategorySelect} />
+            <LibCategoryGrid onCategorySelect={handleCategorySelect} />
           ) : (
-            <TemplateGrid
+            <LibTemplateGrid
               categoryId={selectedCategoryId}
               categoryName={selectedCategoryName}
               onBack={handleBackToCategories}
@@ -142,7 +142,7 @@ const Index = () => {
         </div>
       </footer>
       
-      {/* AI-generated rule modal */}
+      {/* AI-generated rule modal - only "ai" mode now */}
       {showModal && ruleResult && hasSetupGuide && (
         <SetupGuideModal 
           result={ruleResult} 
@@ -161,7 +161,7 @@ const Index = () => {
       )}
 
       {/* Template modal */}
-      <TemplateModal
+      <LibTemplateModal
         templateId={selectedTemplateId}
         isOpen={showTemplateModal}
         onClose={handleCloseTemplateModal}

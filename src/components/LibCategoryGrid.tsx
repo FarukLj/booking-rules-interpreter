@@ -1,16 +1,15 @@
 
 import React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { useTemplateCategories } from '@/hooks/useTemplates';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useLibCategories } from '@/hooks/useLibrary';
 import { Loader2, Database } from 'lucide-react';
 
-interface CategoryGridProps {
+interface LibCategoryGridProps {
   onCategorySelect: (categoryId: string, categoryName: string) => void;
 }
 
-export function CategoryGrid({ onCategorySelect }: CategoryGridProps) {
-  const { data: categories, isLoading, error } = useTemplateCategories();
+export function LibCategoryGrid({ onCategorySelect }: LibCategoryGridProps) {
+  const { data: categories, isLoading, error } = useLibCategories();
 
   if (isLoading) {
     return (
@@ -24,7 +23,7 @@ export function CategoryGrid({ onCategorySelect }: CategoryGridProps) {
     return (
       <div className="text-center py-12 text-red-600">
         <Database className="h-12 w-12 mx-auto mb-4 opacity-50" />
-        <p>Failed to load template categories</p>
+        <p>Failed to load categories</p>
       </div>
     );
   }
@@ -33,7 +32,7 @@ export function CategoryGrid({ onCategorySelect }: CategoryGridProps) {
     return (
       <div className="text-center py-12 text-slate-500">
         <Database className="h-12 w-12 mx-auto mb-4 opacity-50" />
-        <p>No template categories available</p>
+        <p>No categories available</p>
       </div>
     );
   }
@@ -41,7 +40,7 @@ export function CategoryGrid({ onCategorySelect }: CategoryGridProps) {
   return (
     <div className="mt-8">
       <h2 className="text-2xl font-semibold text-slate-800 mb-6">Template Library</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {categories.map((category) => (
           <Card 
             key={category.id} 
@@ -59,12 +58,9 @@ export function CategoryGrid({ onCategorySelect }: CategoryGridProps) {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <CardDescription>
-                Browse pre-configured booking rules for {category.name.toLowerCase()}
-              </CardDescription>
-              <Badge variant="secondary" className="mt-3">
-                Templates Available
-              </Badge>
+              <p className="text-slate-600">
+                Browse booking rule templates for {category.name.toLowerCase()}
+              </p>
             </CardContent>
           </Card>
         ))}

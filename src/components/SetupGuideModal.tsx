@@ -15,83 +15,78 @@ interface SetupGuideModalProps {
   result: RuleResult;
   isOpen: boolean;
   onClose: () => void;
-  mode?: "ai" | "library";
-  templateTitle?: string;
+  mode?: "ai";
 }
 
 export const SetupGuideModal = ({ 
   result, 
   isOpen, 
   onClose, 
-  mode = "ai",
-  templateTitle 
+  mode = "ai"
 }: SetupGuideModalProps) => {
   
-  // Build setup guide based on mode
-  const buildSetupGuide = (data: RuleResult, currentMode: string) => {
+  // Build setup guide for AI mode only
+  const buildSetupGuide = (data: RuleResult) => {
     const steps = [];
 
-    // Only include basic setup steps for AI mode
-    if (currentMode === "ai") {
-      // Extract unique spaces from all rule types
-      const allSpaces = new Set<string>();
-      
-      data.booking_conditions?.forEach(rule => rule.space?.forEach(space => allSpaces.add(space)));
-      data.pricing_rules?.forEach(rule => rule.space?.forEach(space => allSpaces.add(space)));
-      data.quota_rules?.forEach(rule => rule.affected_spaces?.forEach(space => allSpaces.add(space)));
-      data.buffer_time_rules?.forEach(rule => rule.spaces?.forEach(space => allSpaces.add(space)));
-      data.booking_window_rules?.forEach(rule => rule.spaces?.forEach(space => allSpaces.add(space)));
-      data.space_sharing?.forEach(rule => {
-        allSpaces.add(rule.from);
-        allSpaces.add(rule.to);
-      });
+    // Extract unique spaces from all rule types
+    const allSpaces = new Set<string>();
+    
+    data.booking_conditions?.forEach(rule => rule.space?.forEach(space => allSpaces.add(space)));
+    data.pricing_rules?.forEach(rule => rule.space?.forEach(space => allSpaces.add(space)));
+    data.quota_rules?.forEach(rule => rule.affected_spaces?.forEach(space => allSpaces.add(space)));
+    data.buffer_time_rules?.forEach(rule => rule.spaces?.forEach(space => allSpaces.add(space)));
+    data.booking_window_rules?.forEach(rule => rule.spaces?.forEach(space => allSpaces.add(space)));
+    data.space_sharing?.forEach(rule => {
+      allSpaces.add(rule.from);
+      allSpaces.add(rule.to);
+    });
 
-      if (allSpaces.size > 0) {
-        steps.push({
-          step_key: "create_spaces",
-          title: "Step 1: Create the required spaces",
-          instruction: `Go to Settings > Spaces and click 'Add Space'. Create these spaces: ${Array.from(allSpaces).join(', ')}`,
-          spaces: Array.from(allSpaces)
-        });
-      }
-
+    if (allSpaces.size > 0) {
       steps.push({
-        step_key: "hours_of_availability",
-        title: "Step 2: Add hours of availability",
-        instruction: "Go to Settings › Hours of availability and set each space to at least 07:00 AM – 09:00 PM for Monday–Friday. Adjust weekend hours as needed.",
-        spaces: Array.from(allSpaces),
-        times: "07:00 AM – 09:00 PM"
+        step_key: "create_spaces",
+        title: "Step 1: Create the required spaces",
+        instruction: `Go to Settings > Spaces and click 'Add Space'. Create these spaces: ${Array.from(allSpaces).join(', ')}`,
+        spaces: Array.from(allSpaces)
       });
-
-      // Extract unique tags
-      const allTags = new Set<string>();
-      data.booking_conditions?.forEach(rule => {
-        if (rule.condition_type === "user_tags" && Array.isArray(rule.value)) {
-          rule.value.forEach(tag => allTags.add(tag));
-        }
-      });
-      data.pricing_rules?.forEach(rule => {
-        if (rule.condition_type === "user_tags" && Array.isArray(rule.value)) {
-          rule.value.forEach(tag => allTags.add(tag));
-        }
-      });
-      data.quota_rules?.forEach(rule => {
-        rule.tags?.forEach(tag => allTags.add(tag));
-      });
-      data.booking_window_rules?.forEach(rule => {
-        rule.tags?.forEach(tag => allTags.add(tag));
-      });
-
-      if (allTags.size > 0) {
-        steps.push({
-          step_key: "create_user_tags",
-          title: "Step 3: Add user tags",
-          instruction: `Go to Users > Manage Tags and add: ${Array.from(allTags).join(', ')}. Note: For booking conditions with exclusive access (Only X can book), use 'contains none of' with the allowed tag. For pricing rules, use 'contains any of' with tags that should receive the price.`
-        });
-      }
     }
 
-    // Add rule-specific steps for both modes - only if rules exist
+    steps.push({
+      step_key: "hours_of_availability",
+      title: "Step 2: Add hours of availability",
+      instruction: "Go to Settings › Hours of availability and set each space to at least 07:00 AM – 09:00 PM for Monday–Friday. Adjust weekend hours as needed.",
+      spaces: Array.from(allSpaces),
+      times: "07:00 AM – 09:00 PM"
+    });
+
+    // Extract unique tags
+    const allTags = new Set<string>();
+    data.booking_conditions?.forEach(rule => {
+      if (rule.condition_type === "user_tags" && Array.isArray(rule.value)) {
+        rule.value.forEach(tag => allTags.add(tag));
+      }
+    });
+    data.pricing_rules?.forEach(rule => {
+      if (rule.condition_type === "user_tags" && Array.isArray(rule.value)) {
+        rule.value.forEach(tag => allTags.add(tag));
+      }
+    });
+    data.quota_rules?.forEach(rule => {
+      rule.tags?.forEach(tag => allTags.add(tag));
+    });
+    data.booking_window_rules?.forEach(rule => {
+      rule.tags?.forEach(tag => allTags.add(tag));
+    });
+
+    if (allTags.size > 0) {
+      steps.push({
+        step_key: "create_user_tags",
+        title: "Step 3: Add user tags",
+        instruction: `Go to Users > Manage Tags and add: ${Array.from(allTags).join(', ')}. Note: For booking conditions with exclusive access (Only X can book), use 'contains none of' with the allowed tag. For pricing rules, use 'contains any of' with tags that should receive the price.`
+      });
+    }
+
+    // Add rule-specific steps - only if rules exist
     const ruleStepMap = [
       { key: 'booking_conditions', title: 'Create booking conditions', instruction: 'Go to Settings > Conditions and create the following restriction rules:' },
       { key: 'pricing_rules', title: 'Create pricing rules', instruction: 'Go to Settings > Pricing and create the following pricing rules:' },
@@ -104,7 +99,7 @@ export const SetupGuideModal = ({
     ruleStepMap.forEach((ruleStep, index) => {
       const ruleData = data[ruleStep.key as keyof RuleResult] as any[];
       if (ruleData && ruleData.length > 0) {
-        const stepNumber = currentMode === "ai" ? steps.length + 1 : index + 1;
+        const stepNumber = steps.length + 1;
         steps.push({
           step_key: ruleStep.key,
           title: `Step ${stepNumber}: ${ruleStep.title}`,
@@ -118,7 +113,7 @@ export const SetupGuideModal = ({
     return steps;
   };
 
-  const setupGuide = result.setup_guide?.length > 0 ? result.setup_guide : buildSetupGuide(result, mode);
+  const setupGuide = result.setup_guide?.length > 0 ? result.setup_guide : buildSetupGuide(result);
 
   // Dev mode guard rail - only check if we have rule blocks that should contain data
   if (process.env.NODE_ENV === 'development') {
@@ -172,9 +167,7 @@ export const SetupGuideModal = ({
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
-            <span>
-              {mode === "library" && templateTitle ? `Template: ${templateTitle}` : "Setup Guide"}
-            </span>
+            <span>Setup Guide</span>
             {process.env.NODE_ENV === 'development' && (
               <code className="text-xs text-gray-400 font-mono">
                 PR:{result.pricing_rules?.length || 0} BC:{result.booking_conditions?.length || 0} QT:{result.quota_rules?.length || 0} BT:{result.buffer_time_rules?.length || 0} BW:{result.booking_window_rules?.length || 0} SS:{result.space_sharing?.length || 0}
@@ -187,7 +180,7 @@ export const SetupGuideModal = ({
           <div className="space-y-6 pr-4">
             {result.summary && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h3 className="font-medium text-blue-900 mb-2">What this template accomplishes:</h3>
+                <h3 className="font-medium text-blue-900 mb-2">What this setup accomplishes:</h3>
                 <p className="text-blue-800">{result.summary}</p>
               </div>
             )}

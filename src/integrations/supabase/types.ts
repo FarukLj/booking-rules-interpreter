@@ -9,61 +9,58 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      template_categories: {
+      lib_categories: {
         Row: {
           created_at: string | null
-          icon: string | null
           id: string
           name: string
         }
         Insert: {
           created_at?: string | null
-          icon?: string | null
           id?: string
           name: string
         }
         Update: {
           created_at?: string | null
-          icon?: string | null
           id?: string
           name?: string
         }
         Relationships: []
       }
-      templates: {
+      lib_templates: {
         Row: {
           category_id: string | null
           created_at: string | null
-          description: string | null
           id: string
-          rules_json: Json
-          tags: string[] | null
+          image_paths: string[] | null
+          long_desc: string | null
+          short_desc: string | null
           title: string
         }
         Insert: {
           category_id?: string | null
           created_at?: string | null
-          description?: string | null
           id?: string
-          rules_json: Json
-          tags?: string[] | null
+          image_paths?: string[] | null
+          long_desc?: string | null
+          short_desc?: string | null
           title: string
         }
         Update: {
           category_id?: string | null
           created_at?: string | null
-          description?: string | null
           id?: string
-          rules_json?: Json
-          tags?: string[] | null
+          image_paths?: string[] | null
+          long_desc?: string | null
+          short_desc?: string | null
           title?: string
         }
         Relationships: [
           {
-            foreignKeyName: "templates_category_id_fkey"
+            foreignKeyName: "lib_templates_category_id_fkey"
             columns: ["category_id"]
             isOneToOne: false
-            referencedRelation: "template_categories"
+            referencedRelation: "lib_categories"
             referencedColumns: ["id"]
           },
         ]
