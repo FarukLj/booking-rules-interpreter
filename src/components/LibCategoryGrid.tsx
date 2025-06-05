@@ -6,11 +6,7 @@ import { useLibCategories } from '@/hooks/useLibrary';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Database } from 'lucide-react';
 
-interface LibCategoryGridProps {
-  onCategorySelect?: (categoryId: string, categoryName: string) => void;
-}
-
-export function LibCategoryGrid({ onCategorySelect }: LibCategoryGridProps) {
+export function LibCategoryGrid() {
   const { data: categories, isLoading, error } = useLibCategories();
   const navigate = useNavigate();
 
@@ -20,12 +16,8 @@ export function LibCategoryGrid({ onCategorySelect }: LibCategoryGridProps) {
     return data.publicUrl;
   };
 
-  const handleCategoryClick = (categoryId: string, categoryName: string) => {
-    if (onCategorySelect) {
-      onCategorySelect(categoryId, categoryName);
-    } else {
-      navigate(`/category/${categoryId}`);
-    }
+  const handleCategoryClick = (categoryId: string) => {
+    navigate(`/templates/category/${categoryId}`);
   };
 
   if (isLoading) {
@@ -65,7 +57,7 @@ export function LibCategoryGrid({ onCategorySelect }: LibCategoryGridProps) {
             <Card 
               key={category.id} 
               className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-blue-300 overflow-hidden"
-              onClick={() => handleCategoryClick(category.id, category.name)}
+              onClick={() => handleCategoryClick(category.id)}
             >
               {imageUrl ? (
                 <div className="w-full h-48 overflow-hidden">

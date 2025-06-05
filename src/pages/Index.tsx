@@ -4,8 +4,6 @@ import { BookingRuleInput } from "@/components/BookingRuleInput";
 import { RuleModal } from "@/components/RuleModal";
 import { SetupGuideModal } from "@/components/SetupGuideModal";
 import { LibCategoryGrid } from "@/components/LibCategoryGrid";
-import { LibTemplateGrid } from "@/components/LibTemplateGrid";
-import { LibTemplateModal } from "@/components/LibTemplateModal";
 import { Navbar } from "@/components/Navbar";
 import { RuleResult } from "@/types/RuleResult";
 import { toast } from "@/components/ui/sonner";
@@ -15,12 +13,6 @@ const Index = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [showModal, setShowModal] = useState<boolean>(false);
   const [ruleResult, setRuleResult] = useState<RuleResult | null>(null);
-  
-  // Template library state
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
-  const [selectedCategoryName, setSelectedCategoryName] = useState<string>("");
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
-  const [showTemplateModal, setShowTemplateModal] = useState<boolean>(false);
 
   const handleRuleSubmit = async (ruleText: string) => {
     setIsLoading(true);
@@ -58,26 +50,6 @@ const Index = () => {
     }
   };
 
-  const handleCategorySelect = (categoryId: string, categoryName: string) => {
-    setSelectedCategoryId(categoryId);
-    setSelectedCategoryName(categoryName);
-  };
-
-  const handleBackToCategories = () => {
-    setSelectedCategoryId(null);
-    setSelectedCategoryName("");
-  };
-
-  const handleTemplateSelect = (templateId: string) => {
-    setSelectedTemplateId(templateId);
-    setShowTemplateModal(true);
-  };
-
-  const handleCloseTemplateModal = () => {
-    setShowTemplateModal(false);
-    setSelectedTemplateId(null);
-  };
-
   // Determine which modal to show based on the result format
   const hasSetupGuide = ruleResult?.setup_guide && ruleResult.setup_guide.length > 0;
 
@@ -98,17 +70,8 @@ const Index = () => {
         <div className="max-w-3xl mx-auto">
           <BookingRuleInput onSubmit={handleRuleSubmit} isLoading={isLoading} />
           
-          {/* Template Library Section */}
-          {!selectedCategoryId ? (
-            <LibCategoryGrid onCategorySelect={handleCategorySelect} />
-          ) : (
-            <LibTemplateGrid
-              categoryId={selectedCategoryId}
-              categoryName={selectedCategoryName}
-              onBack={handleBackToCategories}
-              onTemplateSelect={handleTemplateSelect}
-            />
-          )}
+          {/* Template Library Section - Only show categories */}
+          <LibCategoryGrid />
           
           <div className="mt-12 bg-white p-6 rounded-lg shadow-sm border border-slate-200">
             <h2 className="text-xl font-semibold text-slate-800 mb-4">How it works</h2>
@@ -171,13 +134,6 @@ const Index = () => {
           onClose={() => setShowModal(false)} 
         />
       )}
-
-      {/* Template modal */}
-      <LibTemplateModal
-        templateId={selectedTemplateId}
-        isOpen={showTemplateModal}
-        onClose={handleCloseTemplateModal}
-      />
     </div>
   );
 };

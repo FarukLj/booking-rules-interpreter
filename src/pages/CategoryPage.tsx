@@ -6,6 +6,7 @@ import { ArrowLeft } from 'lucide-react';
 import { LibTemplateGrid } from '@/components/LibTemplateGrid';
 import { LibTemplateModal } from '@/components/LibTemplateModal';
 import { useLibCategories } from '@/hooks/useLibrary';
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 
 export default function CategoryPage() {
   const { categoryId } = useParams<{ categoryId: string }>();
@@ -33,7 +34,7 @@ export default function CategoryPage() {
         <div className="max-w-6xl mx-auto">
           <Button variant="outline" onClick={handleBack} className="mb-6">
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Categories
+            Back to Home
           </Button>
           <div className="text-center py-12 text-slate-500">
             <p>Category not found</p>
@@ -46,10 +47,35 @@ export default function CategoryPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-slate-100 p-4">
       <div className="max-w-6xl mx-auto">
+        {/* Breadcrumb Navigation */}
+        <div className="mb-6">
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink 
+                  onClick={handleBack}
+                  className="cursor-pointer hover:text-blue-600"
+                >
+                  Home
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Template Library</BreadcrumbPage>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>{category.name}</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+        </div>
+
+        {/* Header Section */}
         <div className="flex items-center gap-4 mb-8">
           <Button variant="outline" onClick={handleBack}>
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Categories
+            Back to Home
           </Button>
           <div>
             <h1 className="text-3xl font-bold text-slate-800">{category.name} Templates</h1>
