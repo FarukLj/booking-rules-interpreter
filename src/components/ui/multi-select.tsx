@@ -64,13 +64,15 @@ export function MultiSelect({
     if (selected.length === 1) {
       return (
         <div className="flex items-center gap-1 min-w-0 flex-1">
-          <Badge variant="secondary" className="text-xs px-2 py-0.5 h-5 max-w-[160px] truncate">
-            <span className="truncate">{selected[0]}</span>
-            <X
-              className="ml-1 h-3 w-3 cursor-pointer hover:text-destructive flex-shrink-0"
-              onClick={(e) => removeItem(selected[0], e)}
-            />
-          </Badge>
+          <span
+  className="inline-flex items-center gap-0.5 rounded-full bg-link/10 text-link text-xs px-2 py-0.5 max-w-[160px] truncate"
+>
+  <span className="truncate">{selected[0]}</span>
+  <X
+    className="ml-1 h-3 w-3 cursor-pointer hover:text-destructive flex-shrink-0"
+    onClick={(e) => removeItem(selected[0], e)}
+  />
+</span>
         </div>
       );
     }
@@ -79,13 +81,16 @@ export function MultiSelect({
       return (
         <div className="flex items-center gap-1 min-w-0 flex-1 flex-wrap">
           {selected.slice(0, maxVisibleChips).map((item, index) => (
-            <Badge key={item} variant="secondary" className="text-xs px-2 py-0.5 h-5 max-w-[120px] truncate">
-              <span className="truncate">{item}</span>
-              <X
-                className="ml-1 h-3 w-3 cursor-pointer hover:text-destructive flex-shrink-0"
-                onClick={(e) => removeItem(item, e)}
-              />
-            </Badge>
+            <span
+  key={item}
+  className="inline-flex items-center gap-0.5 rounded-full bg-link/10 text-link text-xs px-2 py-0.5 max-w-[120px] truncate"
+>
+  <span className="truncate">{item}</span>
+  <X
+    className="ml-1 h-3 w-3 cursor-pointer hover:text-destructive flex-shrink-0"
+    onClick={(e) => removeItem(item, e)}
+  />
+</span>
           ))}
         </div>
       );
@@ -95,13 +100,17 @@ export function MultiSelect({
     return (
       <div className="flex items-center gap-1 min-w-0 flex-1">
         {selected.slice(0, 2).map((item) => (
-          <Badge key={item} variant="secondary" className="text-xs px-2 py-0.5 h-5 max-w-[100px] truncate">
-            <span className="truncate">{item}</span>
-            <X
-              className="ml-1 h-3 w-3 cursor-pointer hover:text-destructive flex-shrink-0"
-              onClick={(e) => removeItem(item, e)}
-            />
-          </Badge>
+          <span
+  key={item}
+  className="inline-flex items-center gap-0.5 rounded-full bg-link/10 text-link text-xs px-2 py-0.5 max-w-[100px] truncate"
+>
+  <span className="truncate">{item}</span>
+  <X
+    className="ml-1 h-3 w-3 cursor-pointer hover:text-destructive flex-shrink-0"
+    onClick={(e) => removeItem(item, e)}
+  />
+</span>
+
         ))}
         <span className="text-xs text-slate-600 font-medium flex-shrink-0">
           +{selected.length - 2} more
