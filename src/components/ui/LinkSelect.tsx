@@ -1,12 +1,15 @@
+
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
+  SelectTriggerProps,
   SelectValue,
 } from "@/components/ui/select";
 import { ChevronDown } from "lucide-react";
 import { ReactNode } from "react";
+import { cn } from "@/lib/utils";
 
 interface Props {
   value: string;
@@ -38,10 +41,7 @@ export function LinkSelect({
       </SelectContent>
     </Select>
   );
-
-  // ─── NEW: stand-alone trigger for blue-link style ──────────────────────────────
-import { SelectTrigger, SelectTriggerProps } from "@/components/ui/select";
-import { cn } from "@/lib/utils";       //  you already use this helper elsewhere
+}
 
 export function LinkSelectTrigger(props: SelectTriggerProps) {
   return (
@@ -57,7 +57,4 @@ export function LinkSelectTrigger(props: SelectTriggerProps) {
       <ChevronDown className="ml-1 w-3 h-3 shrink-0" />
     </SelectTrigger>
   );
-}
-// ───────────────────────────────────────────────────────────────────────────────
-
 }
