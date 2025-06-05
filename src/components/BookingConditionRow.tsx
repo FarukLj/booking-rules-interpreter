@@ -1,4 +1,3 @@
-
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { LinkSelect } from "@/components/ui/LinkSelect";
@@ -83,7 +82,7 @@ export function BookingConditionRow({
         <span className="text-slate-600">, a booking is not allowed if:</span>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 text-sm mb-3">
+      <div className="flex flex-wrap items-center gap-0 text-sm mb-3">
         <ConditionTypeSelector
           condition={condition}
           onConditionChange={updateCondition}
