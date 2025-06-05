@@ -1,3 +1,4 @@
+
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { LinkSelect } from "@/components/ui/LinkSelect";
@@ -82,42 +83,48 @@ export function BookingConditionRow({
         <span className="text-slate-600">, a booking is not allowed if:</span>
       </div>
 
-      <div className="flex flex-wrap items-center gap-0 text-sm mb-3">
-        <ConditionTypeSelector
-          condition={condition}
-          onConditionChange={updateCondition}
-        />
-        
-        <OperatorSelector
-          condition={condition}
-          onOperatorChange={(operator) => updateCondition('operator', operator)}
-        />
-        
-        {condition.condition_type === "user_tags" ? (
-          <MultiSelect
-            options={tagOptions}
-            selected={Array.isArray(condition.value) ? condition.value : []}
-            onSelectionChange={(selected) => updateCondition('value', selected)}
-            placeholder="Select tags"
-            className="min-w-0 max-w-[200px]"
+      <div className="flex sm:flex-col items-center gap-0 text-sm mb-3">
+        <div className="flex-1 sm:w-full sm:mb-2">
+          <ConditionTypeSelector
+            condition={condition}
+            onConditionChange={updateCondition}
           />
-        ) : (
-          <Select 
-            value={Array.isArray(condition.value) ? condition.value[0] : condition.value || '30min'} 
-            onValueChange={(value) => updateCondition('value', value)}
-          >
-            <SelectTrigger className="w-20 h-10">
-              <SelectValue>
-                {Array.isArray(condition.value) ? condition.value[0] : condition.value || '30min'}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent className="z-50">
-              {durationValues.map(value => (
-                <SelectItem key={value} value={value}>{value}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
+        </div>
+        
+        <div className="flex-1 sm:w-full sm:mb-2">
+          <OperatorSelector
+            condition={condition}
+            onOperatorChange={(operator) => updateCondition('operator', operator)}
+          />
+        </div>
+        
+        <div className="flex-1 sm:w-full">
+          {condition.condition_type === "user_tags" ? (
+            <MultiSelect
+              options={tagOptions}
+              selected={Array.isArray(condition.value) ? condition.value : []}
+              onSelectionChange={(selected) => updateCondition('value', selected)}
+              placeholder="Select tags"
+              className="w-full"
+            />
+          ) : (
+            <Select 
+              value={Array.isArray(condition.value) ? condition.value[0] : condition.value || '30min'} 
+              onValueChange={(value) => updateCondition('value', value)}
+            >
+              <SelectTrigger className="w-full h-10">
+                <SelectValue>
+                  {Array.isArray(condition.value) ? condition.value[0] : condition.value || '30min'}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent className="z-50">
+                {durationValues.map(value => (
+                  <SelectItem key={value} value={value}>{value}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
       </div>
       
       {condition.explanation && (

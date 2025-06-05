@@ -24,7 +24,7 @@ export function ConditionTypeSelector({ condition, onConditionChange }: Conditio
         }
       }}
     >
-      <SelectTrigger className="min-w-[180px] h-10">
+      <SelectTrigger className="w-full h-10">
         <SelectValue>
           {getLogicText(condition)}
         </SelectValue>

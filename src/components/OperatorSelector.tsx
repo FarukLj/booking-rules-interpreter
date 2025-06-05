@@ -14,7 +14,7 @@ export function OperatorSelector({ condition, onOperatorChange }: OperatorSelect
       value={getOperatorDisplayText(condition.operator || 'is_less_than')} 
       onValueChange={(value) => onOperatorChange(getOperatorValue(value))}
     >
-      <SelectTrigger className="min-w-[150px] h-10">
+      <SelectTrigger className="w-full h-10">
         <SelectValue>
           {getOperatorDisplayText(condition.operator || 'is_less_than')}
         </SelectValue>
