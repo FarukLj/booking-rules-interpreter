@@ -4,12 +4,12 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectTriggerProps,
   SelectValue,
 } from "@/components/ui/select";
 import { ChevronDown } from "lucide-react";
 import { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import * as React from "react";
 
 interface Props {
   value: string;
@@ -43,7 +43,7 @@ export function LinkSelect({
   );
 }
 
-export function LinkSelectTrigger(props: SelectTriggerProps) {
+export function LinkSelectTrigger(props: React.ComponentPropsWithoutRef<typeof SelectTrigger>) {
   return (
     <SelectTrigger
       {...props}
