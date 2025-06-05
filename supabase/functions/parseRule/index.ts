@@ -191,25 +191,36 @@ function resolveChainedDependencies(connections: Array<{from: string, to: string
 
 // Convert time_range to from_time/to_time for template rule blocks
 function ensureRuleBlocks(parsedResult: any) {
+  console.log('ensureRuleBlocks: Processing parsed result');
+  
   if (parsedResult.parsed_rule_blocks?.pricing_rules) {
-    parsedResult.parsed_rule_blocks.pricing_rules.forEach((rule: any) => {
+    console.log(`ensureRuleBlocks: Processing ${parsedResult.parsed_rule_blocks.pricing_rules.length} pricing rules`);
+    parsedResult.parsed_rule_blocks.pricing_rules.forEach((rule: any, index: number) => {
       if (rule.time_range && (!rule.from_time || !rule.to_time)) {
+        console.log(`ensureRuleBlocks: Converting time_range "${rule.time_range}" for pricing rule ${index}`);
         const [fromTime, toTime] = splitTimeRange(rule.time_range);
         if (fromTime && toTime) {
+          // Assign BEFORE any object spreading to prevent overwriting
           rule.from_time = fromTime;
           rule.to_time = toTime;
+          console.log(`ensureRuleBlocks: Set pricing rule ${index} from_time={h:${fromTime.hour}, m:${fromTime.minute}} to_time={h:${toTime.hour}, m:${toTime.minute}}`);
+        } else {
+          console.warn(`ensureRuleBlocks: Failed to parse time_range "${rule.time_range}" for pricing rule ${index}`);
         }
       }
     });
   }
 
   if (parsedResult.parsed_rule_blocks?.booking_conditions) {
-    parsedResult.parsed_rule_blocks.booking_conditions.forEach((rule: any) => {
+    console.log(`ensureRuleBlocks: Processing ${parsedResult.parsed_rule_blocks.booking_conditions.length} booking conditions`);
+    parsedResult.parsed_rule_blocks.booking_conditions.forEach((rule: any, index: number) => {
       if (rule.time_range && (!rule.from_time || !rule.to_time)) {
+        console.log(`ensureRuleBlocks: Converting time_range "${rule.time_range}" for booking condition ${index}`);
         const [fromTime, toTime] = splitTimeRange(rule.time_range);
         if (fromTime && toTime) {
           rule.from_time = fromTime;
           rule.to_time = toTime;
+          console.log(`ensureRuleBlocks: Set booking condition ${index} from_time={h:${fromTime.hour}, m:${fromTime.minute}} to_time={h:${toTime.hour}, m:${toTime.minute}}`);
         }
       }
     });
@@ -218,12 +229,15 @@ function ensureRuleBlocks(parsedResult: any) {
   // Apply to other rule types as needed
   ['quota_rules', 'buffer_time_rules', 'booking_window_rules'].forEach(ruleType => {
     if (parsedResult.parsed_rule_blocks?.[ruleType]) {
-      parsedResult.parsed_rule_blocks[ruleType].forEach((rule: any) => {
+      console.log(`ensureRuleBlocks: Processing ${parsedResult.parsed_rule_blocks[ruleType].length} ${ruleType}`);
+      parsedResult.parsed_rule_blocks[ruleType].forEach((rule: any, index: number) => {
         if (rule.time_range && (!rule.from_time || !rule.to_time)) {
+          console.log(`ensureRuleBlocks: Converting time_range "${rule.time_range}" for ${ruleType} ${index}`);
           const [fromTime, toTime] = splitTimeRange(rule.time_range);
           if (fromTime && toTime) {
             rule.from_time = fromTime;
             rule.to_time = toTime;
+            console.log(`ensureRuleBlocks: Set ${ruleType} ${index} from_time={h:${fromTime.hour}, m:${fromTime.minute}} to_time={h:${toTime.hour}, m:${toTime.minute}}`);
           }
         }
       });

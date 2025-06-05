@@ -39,9 +39,12 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
 
   // Debug logging for time parsing
   useEffect(() => {
+    console.debug('PricingRulesBlock: rules updated', rules.length);
     rules.forEach((rule, index) => {
       if (rule.from_time && rule.to_time) {
-        console.log(`[TimeParse] Rule ${index}: from_time={h:${rule.from_time.hour}, m:${rule.from_time.minute}} to_time={h:${rule.to_time.hour}, m:${rule.to_time.minute}}`);
+        console.debug(`[TimeParse] Rule ${index}: from_time={h:${rule.from_time.hour}, m:${rule.from_time.minute}} to_time={h:${rule.to_time.hour}, m:${rule.to_time.minute}}`);
+      } else if (rule.time_range) {
+        console.debug(`[TimeParse] Rule ${index}: time_range="${rule.time_range}" but missing from_time/to_time objects`);
       }
     });
   }, [rules]);
@@ -174,6 +177,8 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
     const startTime = position === 'start' ? newTime : getTimeValue(rule, 'start');
     const endTime = position === 'end' ? newTime : getTimeValue(rule, 'end');
     
+    console.debug(`[TimeRange] Updating rule ${index} ${position} to ${newTime}, startTime: ${startTime}, endTime: ${endTime}`);
+    
     updateRule(index, 'time_range', `${startTime}–${endTime}`);
     
     // Update the time objects
@@ -211,7 +216,7 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
                     {formatTimeDisplay(getTimeValue(rule, 'start'))}
                   </SelectValue>
                 </SelectTrigger>
-                <SelectContent className="z-50">
+                <SelectContent className="z-50 bg-white">
                   {timeOptions.map(time => (
                     <SelectItem key={time} value={time}>{formatTimeDisplay(time)}</SelectItem>
                   ))}
@@ -228,7 +233,7 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
                     {formatTimeDisplay(getTimeValue(rule, 'end'))}
                   </SelectValue>
                 </SelectTrigger>
-                <SelectContent className="z-50">
+                <SelectContent className="z-50 bg-white">
                   {timeOptions.map(time => (
                     <SelectItem key={time} value={time}>{formatTimeDisplay(time)}</SelectItem>
                   ))}
