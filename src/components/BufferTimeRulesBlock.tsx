@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { Toggle } from "@/components/ui/toggle";
 import { BufferTimeRule } from "@/types/RuleResult";
@@ -11,20 +11,6 @@ interface BufferTimeRulesBlockProps {
 }
 
 export function BufferTimeRulesBlock({ initialRules = [] }: BufferTimeRulesBlockProps) {
-  const [rules, setRules] = useState<BufferTimeRule[]>(
-    initialRules.length > 0 ? initialRules : [{
-      spaces: ["Space 1"],
-      buffer_duration: "30min",
-      explanation: "Default buffer time rule"
-    }]
-  );
-  
-  const [logicOperators, setLogicOperators] = useState<string[]>(
-    new Array(Math.max(0, rules.length - 1)).fill("AND")
-  );
-
-  const spaceOptions = ["Space 1", "Space 2", "Conference Room A", "Studio 1", "Studio 2", "Studio 3", "Meeting Room B", "Court A", "Gym"];
-  
   // Generate buffer time options from 15m to 24h in 15-minute increments
   const durationOptions = [];
   for (let i = 15; i <= 60; i += 15) {
@@ -34,10 +20,54 @@ export function BufferTimeRulesBlock({ initialRules = [] }: BufferTimeRulesBlock
     durationOptions.push(`${i}h`);
   }
 
+  // Validate and fix buffer_duration values
+  const validateDuration = (duration: string): string => {
+    if (!duration || !durationOptions.includes(duration)) {
+      console.log("Invalid duration detected:", duration, "defaulting to 30min");
+      return "30min";
+    }
+    return duration;
+  };
+
+  const [rules, setRules] = useState<BufferTimeRule[]>(() => {
+    if (initialRules.length > 0) {
+      return initialRules.map(rule => ({
+        ...rule,
+        buffer_duration: validateDuration(rule.buffer_duration)
+      }));
+    }
+    return [{
+      spaces: ["Space 1"],
+      buffer_duration: "30min",
+      explanation: "Default buffer time rule"
+    }];
+  });
+  
+  const [logicOperators, setLogicOperators] = useState<string[]>(
+    new Array(Math.max(0, rules.length - 1)).fill("AND")
+  );
+
+  const spaceOptions = ["Space 1", "Space 2", "Conference Room A", "Studio 1", "Studio 2", "Studio 3", "Meeting Room B", "Court A", "Gym"];
+
+  // Debug logging
+  useEffect(() => {
+    console.log("BufferTimeRulesBlock - rules:", rules);
+    console.log("BufferTimeRulesBlock - durationOptions:", durationOptions);
+  }, [rules]);
+
   const updateRule = (index: number, field: keyof BufferTimeRule, value: any) => {
-    setRules(prev => prev.map((rule, i) => 
-      i === index ? { ...rule, [field]: value } : rule
-    ));
+    setRules(prev => prev.map((rule, i) => {
+      if (i === index) {
+        const updatedRule = { ...rule, [field]: value };
+        // Validate buffer_duration when it's updated
+        if (field === 'buffer_duration') {
+          updatedRule.buffer_duration = validateDuration(value);
+        }
+        console.log("Updating rule:", updatedRule);
+        return updatedRule;
+      }
+      return rule;
+    }));
   };
 
   const updateLogicOperator = (index: number, operator: string) => {
@@ -63,8 +93,9 @@ export function BufferTimeRulesBlock({ initialRules = [] }: BufferTimeRulesBlock
               
               <span className="text-slate-600">buffer time of</span>
               <LinkSelect 
-                value={rule.buffer_duration || '30min'} 
+                value={rule.buffer_duration} 
                 onValueChange={(value) => updateRule(index, 'buffer_duration', value)}
+                debug={true}
               >
                 {durationOptions.map(duration => (
                   <SelectItem key={duration} value={duration}>{duration}</SelectItem>

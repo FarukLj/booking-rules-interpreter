@@ -17,6 +17,7 @@ interface Props {
   placeholder?: string;
   children: ReactNode;            // <SelectItem>s
   width?: string;                 // eg "w-28"
+  debug?: boolean;                // Add debug prop for troubleshooting
 }
 
 export function LinkSelect({
@@ -25,7 +26,14 @@ export function LinkSelect({
   placeholder,
   children,
   width = "w-fit",
+  debug = false,
 }: Props) {
+  // Debug logging
+  if (debug) {
+    console.log("LinkSelect - value:", value);
+    console.log("LinkSelect - placeholder:", placeholder);
+  }
+
   return (
     <Select value={value} onValueChange={onValueChange}>
       <SelectTrigger
