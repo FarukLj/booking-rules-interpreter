@@ -7,6 +7,7 @@ import { HelpCircle, AlertTriangle } from "lucide-react";
 import { normalizeAdvanceUnit, convertFromHours, getTimeDisplayHelper } from "./utils/unitConversion";
 import { getLogicValidation, getConstraintExplanation } from "./utils/validation";
 import { getUserGroupText, getConstraintText } from "./utils/textHelpers";
+import { BookingWindowRow } from "./BookingWindowRow";
 
 interface BookingWindowRuleItemProps {
   rule: BookingWindowRule;
@@ -34,119 +35,145 @@ export function BookingWindowRuleItem({
     onRuleUpdate('unit', newUnit);
   };
 
-  return (
-    <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-      <div className="flex flex-wrap items-center gap-2 text-sm mb-3">
-        <Select value={rule.user_scope || 'all_users'} onValueChange={(value) => onRuleUpdate('user_scope', value)}>
-          <SelectTrigger className="min-w-[160px] h-10">
-            <SelectValue>
-              {getUserGroupText(rule.user_scope || 'all_users')}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent className="z-50">
-            <SelectItem value="all_users">all users</SelectItem>
-            <SelectItem value="users_with_tags">users with any of the tags</SelectItem>
-            <SelectItem value="users_with_no_tags">users with none of the tags</SelectItem>
-          </SelectContent>
-        </Select>
-        
-        {(rule.user_scope === "users_with_tags" || rule.user_scope === "users_with_no_tags") && (
-          <MultiSelect
-            options={tagOptions}
-            selected={rule.tags || []}
-            onSelectionChange={(selected) => onRuleUpdate('tags', selected)}
-            placeholder="Select tags"
-            className="min-w-0 max-w-[200px]"
-          />
-        )}
-        
-        <span className="text-slate-600">cannot make a booking for</span>
+  // Create the user scope selector (with optional tags)
+  const userScopeSelector = (
+    <div className="flex gap-2 items-center">
+      <Select value={rule.user_scope || 'all_users'} onValueChange={(value) => onRuleUpdate('user_scope', value)}>
+        <SelectTrigger className="min-w-[160px] h-10">
+          <SelectValue>
+            {getUserGroupText(rule.user_scope || 'all_users')}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent className="z-50">
+          <SelectItem value="all_users">all users</SelectItem>
+          <SelectItem value="users_with_tags">users with any of the tags</SelectItem>
+          <SelectItem value="users_with_no_tags">users with none of the tags</SelectItem>
+        </SelectContent>
+      </Select>
+      
+      {(rule.user_scope === "users_with_tags" || rule.user_scope === "users_with_no_tags") && (
         <MultiSelect
-          options={spaceOptions}
-          selected={rule.spaces || []}
-          onSelectionChange={(selected) => onRuleUpdate('spaces', selected)}
-          placeholder="Select spaces"
+          options={tagOptions}
+          selected={rule.tags || []}
+          onSelectionChange={(selected) => onRuleUpdate('tags', selected)}
+          placeholder="Select tags"
           className="min-w-0 max-w-[200px]"
         />
-        
-        <div className="flex items-center gap-1">
-          <Select value={rule.constraint || 'less_than'} onValueChange={(value) => onRuleUpdate('constraint', value)}>
-            <SelectTrigger className="w-24 h-10">
-              <SelectValue>
-                {getConstraintText(rule.constraint || 'less_than')}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent className="z-50">
-              <SelectItem value="less_than">less than</SelectItem>
-              <SelectItem value="more_than">more than</SelectItem>
-            </SelectContent>
-          </Select>
-          
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <HelpCircle className="h-4 w-4 text-slate-400 hover:text-slate-600" />
-              </TooltipTrigger>
-              <TooltipContent side="top" className="max-w-[350px]">
-                <div className="text-xs space-y-2">
-                  <div><strong>less than:</strong> {getConstraintExplanation('less_than')}</div>
-                  <div><strong>more than:</strong> {getConstraintExplanation('more_than')}</div>
-                  <div className="pt-1 border-t border-slate-200">
-                    <div><strong>Example:</strong> "Coaches must book at least 24h in advance" = less than 24h</div>
-                    <div><strong>Example:</strong> "No more than 48h in advance" = more than 48h</div>
-                  </div>
-                </div>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-        
-        <div className="flex items-center gap-1">
-          <input 
-            type="number" 
-            value={rule.value || 72} 
-            onChange={(e) => onRuleUpdate('value', parseInt(e.target.value) || 0)}
-            className="w-20 px-2 py-2 border border-input rounded-md text-sm h-10"
-            placeholder="72"
-          />
-          
-          {getTimeDisplayHelper(rule.value || 72, rule.unit || 'hours') && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="text-xs text-slate-500 cursor-help">
-                    {getTimeDisplayHelper(rule.value || 72, rule.unit || 'hours')}
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                  <div className="text-xs">
-                    Time conversion helper
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
-        </div>
-        
-        <Select 
-          value={rule.unit || 'hours'} 
-          onValueChange={(value: "hours" | "days" | "weeks") => handleUnitChange(value)}
-        >
-          <SelectTrigger className="min-w-[100px] h-10">
-            <SelectValue>
-              {rule.unit || 'hours'} in advance
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent className="z-50">
-            <SelectItem value="hours">hours in advance</SelectItem>
-            <SelectItem value="days">days in advance</SelectItem>
-            <SelectItem value="weeks">weeks in advance</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      )}
+    </div>
+  );
+
+  // Create the spaces selector
+  const spacesSelector = (
+    <MultiSelect
+      options={spaceOptions}
+      selected={rule.spaces || []}
+      onSelectionChange={(selected) => onRuleUpdate('spaces', selected)}
+      placeholder="Select spaces"
+      className="min-w-0"
+    />
+  );
+
+  // Create the constraint operator selector
+  const operatorSelector = (
+    <div className="flex items-center gap-1">
+      <Select value={rule.constraint || 'less_than'} onValueChange={(value) => onRuleUpdate('constraint', value)}>
+        <SelectTrigger className="w-24 h-10">
+          <SelectValue>
+            {getConstraintText(rule.constraint || 'less_than')}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent className="z-50">
+          <SelectItem value="less_than">less than</SelectItem>
+          <SelectItem value="more_than">more than</SelectItem>
+        </SelectContent>
+      </Select>
+      
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <HelpCircle className="h-4 w-4 text-slate-400 hover:text-slate-600" />
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-[350px]">
+            <div className="text-xs space-y-2">
+              <div><strong>less than:</strong> {getConstraintExplanation('less_than')}</div>
+              <div><strong>more than:</strong> {getConstraintExplanation('more_than')}</div>
+              <div className="pt-1 border-t border-slate-200">
+                <div><strong>Example:</strong> "Coaches must book at least 24h in advance" = less than 24h</div>
+                <div><strong>Example:</strong> "No more than 48h in advance" = more than 48h</div>
+              </div>
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    </div>
+  );
+
+  // Create the value input with helper text
+  const valueInput = (
+    <div className="flex items-center gap-1">
+      <input 
+        type="number" 
+        value={rule.value || 72} 
+        onChange={(e) => onRuleUpdate('value', parseInt(e.target.value) || 0)}
+        className="w-20 px-2 py-2 border border-input rounded-md text-sm h-10 text-right"
+        placeholder="72"
+      />
+      
+      {getTimeDisplayHelper(rule.value || 72, rule.unit || 'hours') && (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="text-xs text-slate-500 cursor-help">
+                {getTimeDisplayHelper(rule.value || 72, rule.unit || 'hours')}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <div className="text-xs">
+                Time conversion helper
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )}
+    </div>
+  );
+
+  // Create the unit selector
+  const unitSelector = (
+    <Select 
+      value={rule.unit || 'hours'} 
+      onValueChange={(value: "hours" | "days" | "weeks") => handleUnitChange(value)}
+    >
+      <SelectTrigger className="min-w-[100px] h-10">
+        <SelectValue>
+          {rule.unit || 'hours'} in advance
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent className="z-50">
+        <SelectItem value="hours">hours in advance</SelectItem>
+        <SelectItem value="days">days in advance</SelectItem>
+        <SelectItem value="weeks">weeks in advance</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+
+  // Create empty help icon for row 3 (constraint explanation is already in operator)
+  const helpIcon = <div></div>;
+
+  return (
+    <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+      <BookingWindowRow
+        selectorLeft={userScopeSelector}
+        selectorRight={spacesSelector}
+        operator={operatorSelector}
+        valueInput={valueInput}
+        unitSelect={unitSelector}
+        helpIcon={helpIcon}
+      />
       
       {rule.explanation && (
-        <div className="text-xs text-slate-600 bg-white p-2 rounded border">
+        <div className="text-xs text-slate-600 bg-white p-2 rounded border mt-3">
           <strong>Explanation:</strong> {rule.explanation}
         </div>
       )}
