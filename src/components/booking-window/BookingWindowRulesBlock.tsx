@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
-import { BookingWindowRow } from './BookingWindowRow';
+import { BookingWindowRuleItem } from './BookingWindowRuleItem';
 import { LogicOperatorToggle } from './LogicOperatorToggle';
 import type { BookingWindowRule } from '@/types/RuleResult';
 
@@ -73,12 +73,11 @@ export function BookingWindowRulesBlock({
         <div className="space-y-3">
           {rules.map((rule, index) => (
             <div key={rule.id}>
-              <BookingWindowRow
+              <BookingWindowRuleItem
                 rule={rule}
                 onRuleUpdate={(field, value) => updateRule(rule.id!, field, value)}
-                onRemove={() => removeRule(rule.id!)}
-                availableSpaces={availableSpaces}
-                showRemove={rules.length > 1}
+                spaceOptions={availableSpaces}
+                tagOptions={[]} // TODO: Add tag options when available
               />
               {index < rules.length - 1 && rules.length > 1 && (
                 <div className="flex justify-center py-2">
