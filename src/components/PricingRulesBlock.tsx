@@ -73,61 +73,15 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
   
   const durationValues = ["15min", "30min", "45min", "1h", "1h15min", "1h30min", "2h", "3h", "4h", "6h", "8h"];
 
-  const updateRule = (index: number, field: keyof PricingRule, value: any) => {
-    setRules(prev => prev.map((rule, i) => 
-      i === index ? { ...rule, [field]: value } : rule
-    ));
-  };
+  const timeSelectOptions = timeOptions.map(time => ({
+    value: time,
+    label: formatTimeDisplay(time)
+  }));
 
-  const updateRateField = (index: number, field: 'amount' | 'unit', value: any) => {
-    setRules(prev => prev.map((rule, i) => 
-      i === index ? { 
-        ...rule, 
-        rate: { ...rule.rate, [field]: field === 'amount' ? parseFloat(value) || 0 : value }
-      } : rule
-    ));
-  };
-
-  const updateLogicOperator = (index: number, operator: string) => {
-    setLogicOperators(prev => prev.map((op, i) => i === index ? operator : op));
-  };
-
-  const addSubCondition = (ruleIndex: number) => {
-    setRules(prev => prev.map((rule, i) => 
-      i === ruleIndex ? { 
-        ...rule, 
-        sub_conditions: [
-          ...(rule.sub_conditions || []),
-          {
-            condition_type: "duration",
-            operator: "is_greater_than",
-            value: "1h",
-            logic: "AND"
-          }
-        ]
-      } : rule
-    ));
-  };
-
-  const removeSubCondition = (ruleIndex: number, subIndex: number) => {
-    setRules(prev => prev.map((rule, i) => 
-      i === ruleIndex ? { 
-        ...rule, 
-        sub_conditions: rule.sub_conditions?.filter((_, si) => si !== subIndex)
-      } : rule
-    ));
-  };
-
-  const updateSubCondition = (ruleIndex: number, subIndex: number, field: string, value: any) => {
-    setRules(prev => prev.map((rule, i) => 
-      i === ruleIndex ? { 
-        ...rule, 
-        sub_conditions: rule.sub_conditions?.map((sub, si) => 
-          si === subIndex ? { ...sub, [field]: value } : sub
-        )
-      } : rule
-    ));
-  };
+  const rateUnitSelectOptions = rateUnitOptions.map(unit => ({
+    value: unit,
+    label: unit.replace('_', ' ')
+  }));
 
   const formatTimeDisplay = (time: string) => {
     const hour = parseInt(time.split(':')[0]);
@@ -166,11 +120,8 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
               <LinkSelect 
                 value={rule.time_range?.split('–')[0] || '09:00'}
                 onValueChange={(v) => updateRule(index, 'time_range', `${v}–${rule.time_range?.split('–')[1]}`)}
-              >
-                {timeOptions.map(t => 
-                  <SelectItem key={t} value={t}>{formatTimeDisplay(t)}</SelectItem>
-                )}
-              </LinkSelect>
+                options={timeSelectOptions}
+              />
 
               <span>and</span>
 
@@ -178,11 +129,8 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
               <LinkSelect 
                 value={rule.time_range?.split('–')[1] || '17:00'}
                 onValueChange={(v) => updateRule(index, 'time_range', `${rule.time_range?.split('–')[0]}–${v}`)}
-              >
-                {timeOptions.map(t => 
-                  <SelectItem key={t} value={t}>{formatTimeDisplay(t)}</SelectItem>
-                )}
-              </LinkSelect>
+                options={timeSelectOptions}
+              />
 
               <span>on</span>
 
@@ -218,11 +166,8 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
               <LinkSelect 
                 value={rule.rate?.unit || 'per_hour'}
                 onValueChange={v => updateRateField(index, 'unit', v)}
-              >
-                {rateUnitOptions.map(u => 
-                  <SelectItem key={u} value={u}>{u.replace('_', ' ')}</SelectItem>
-                )}
-              </LinkSelect>
+                options={rateUnitSelectOptions}
+              />
             </div>
 
             <div className="grid grid-cols-[1fr_auto] gap-2 text-sm mb-3">

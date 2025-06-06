@@ -1,25 +1,37 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { LinkSelect } from '@/components/ui/LinkSelect';
 import { Plus, Trash2 } from 'lucide-react';
 
 interface BufferTimeRule {
-  id: string;
+  id?: string;
   buffer_type: 'before' | 'after' | 'between';
   duration: number;
   unit: 'minutes' | 'hours';
   applies_to?: string[];
+  spaces?: string[];
+  buffer_duration?: string;
+  explanation?: string;
 }
 
 interface BufferTimeRulesBlockProps {
-  rules: BufferTimeRule[];
-  onRulesChange: (rules: BufferTimeRule[]) => void;
+  initialRules?: BufferTimeRule[];
   availableSpaces?: string[];
 }
 
-export function BufferTimeRulesBlock({ rules, onRulesChange, availableSpaces = [] }: BufferTimeRulesBlockProps) {
+export function BufferTimeRulesBlock({ initialRules = [], availableSpaces = [] }: BufferTimeRulesBlockProps) {
+  const [rules, setRules] = useState<BufferTimeRule[]>(
+    initialRules.length > 0 ? initialRules.map((rule, index) => ({
+      id: rule.id || Date.now().toString() + index,
+      buffer_type: 'before' as const,
+      duration: 15,
+      unit: 'minutes' as const,
+      ...rule
+    })) : []
+  );
+
   const addRule = () => {
     const newRule: BufferTimeRule = {
       id: Date.now().toString(),
@@ -27,17 +39,17 @@ export function BufferTimeRulesBlock({ rules, onRulesChange, availableSpaces = [
       duration: 15,
       unit: 'minutes'
     };
-    onRulesChange([...rules, newRule]);
+    setRules([...rules, newRule]);
   };
 
   const updateRule = (id: string, field: keyof BufferTimeRule, value: any) => {
-    onRulesChange(rules.map(rule => 
+    setRules(rules.map(rule => 
       rule.id === id ? { ...rule, [field]: value } : rule
     ));
   };
 
   const removeRule = (id: string) => {
-    onRulesChange(rules.filter(rule => rule.id !== id));
+    setRules(rules.filter(rule => rule.id !== id));
   };
 
   const bufferTypeOptions = [
@@ -65,7 +77,7 @@ export function BufferTimeRulesBlock({ rules, onRulesChange, availableSpaces = [
             <div className="flex-1">
               <LinkSelect
                 value={rule.buffer_type}
-                onValueChange={(value) => updateRule(rule.id, 'buffer_type', value as 'before' | 'after' | 'between')}
+                onValueChange={(value) => updateRule(rule.id!, 'buffer_type', value as 'before' | 'after' | 'between')}
                 options={bufferTypeOptions}
                 className="w-full"
               />
@@ -77,7 +89,7 @@ export function BufferTimeRulesBlock({ rules, onRulesChange, availableSpaces = [
               <input
                 type="number"
                 value={rule.duration}
-                onChange={(e) => updateRule(rule.id, 'duration', parseInt(e.target.value) || 0)}
+                onChange={(e) => updateRule(rule.id!, 'duration', parseInt(e.target.value) || 0)}
                 className="w-20 px-3 py-2 text-sm border border-input rounded-md text-center text-foreground bg-white"
                 min="0"
                 placeholder="15"
@@ -85,7 +97,7 @@ export function BufferTimeRulesBlock({ rules, onRulesChange, availableSpaces = [
               
               <LinkSelect
                 value={rule.unit}
-                onValueChange={(value) => updateRule(rule.id, 'unit', value as 'minutes' | 'hours')}
+                onValueChange={(value) => updateRule(rule.id!, 'unit', value as 'minutes' | 'hours')}
                 options={unitOptions}
                 className="w-24"
               />
@@ -94,7 +106,7 @@ export function BufferTimeRulesBlock({ rules, onRulesChange, availableSpaces = [
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => removeRule(rule.id)}
+              onClick={() => removeRule(rule.id!)}
               className="text-red-500 hover:text-red-700 hover:bg-red-50"
             >
               <Trash2 className="h-4 w-4" />

@@ -39,6 +39,11 @@ export function BookingConditionRow({
     onConditionChange(index, field, value);
   };
 
+  const timeSelectOptions = timeOptions.map(time => ({
+    value: time,
+    label: formatTimeDisplay(time)
+  }));
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2 text-sm mb-3">
@@ -58,11 +63,8 @@ export function BookingConditionRow({
             const endTime = condition.time_range?.split('–')[1] || '17:00';
             updateCondition('time_range', `${value}–${endTime}`);
           }}
-        >
-          {timeOptions.map(time => (
-            <SelectItem key={time} value={time}>{formatTimeDisplay(time)}</SelectItem>
-          ))}
-        </LinkSelect>
+          options={timeSelectOptions}
+        />
         
         <span className="text-slate-600">and</span>
         <LinkSelect 
@@ -71,11 +73,8 @@ export function BookingConditionRow({
             const startTime = condition.time_range?.split('–')[0] || '09:00';
             updateCondition('time_range', `${startTime}–${value}`);
           }}
-        >
-          {timeOptions.map(time => (
-            <SelectItem key={time} value={time}>{formatTimeDisplay(time)}</SelectItem>
-          ))}
-        </LinkSelect>
+          options={timeSelectOptions}
+        />
         
         <span className="text-slate-600">on</span>
         <MultiSelect

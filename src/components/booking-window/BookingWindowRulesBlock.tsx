@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
@@ -8,41 +8,50 @@ import { LogicOperatorToggle } from './LogicOperatorToggle';
 import type { BookingWindowRule } from '@/types/RuleResult';
 
 interface BookingWindowRulesBlockProps {
-  rules: BookingWindowRule[];
-  onRulesChange: (rules: BookingWindowRule[]) => void;
+  initialRules?: BookingWindowRule[];
   availableSpaces?: string[];
 }
 
 export function BookingWindowRulesBlock({ 
-  rules, 
-  onRulesChange, 
+  initialRules = [], 
   availableSpaces = [] 
 }: BookingWindowRulesBlockProps) {
+  
+  const [rules, setRules] = useState<BookingWindowRule[]>(
+    initialRules.length > 0 ? initialRules.map((rule, index) => ({
+      id: rule.id || Date.now().toString() + index,
+      logic_operator: rule.logic_operator || 'AND',
+      ...rule
+    })) : []
+  );
   
   const addRule = () => {
     const newRule: BookingWindowRule = {
       id: Date.now().toString(),
+      user_scope: 'all_users',
       spaces: [],
       constraint: 'less_than',
       value: 72,
-      unit: 'hours'
+      unit: 'hours',
+      explanation: '',
+      logic_operator: 'AND'
     };
-    onRulesChange([...rules, newRule]);
+    setRules([...rules, newRule]);
   };
 
   const updateRule = (id: string, field: keyof BookingWindowRule, value: any) => {
-    onRulesChange(rules.map(rule => 
+    setRules(rules.map(rule => 
       rule.id === id ? { ...rule, [field]: value } : rule
     ));
   };
 
   const removeRule = (id: string) => {
-    onRulesChange(rules.filter(rule => rule.id !== id));
+    setRules(rules.filter(rule => rule.id !== id));
   };
 
   const updateLogicOperator = (operator: 'AND' | 'OR') => {
     // Update all rules with the new logic operator
-    onRulesChange(rules.map(rule => ({ ...rule, logic_operator: operator })));
+    setRules(rules.map(rule => ({ ...rule, logic_operator: operator })));
   };
 
   return (
@@ -66,8 +75,8 @@ export function BookingWindowRulesBlock({
             <div key={rule.id}>
               <BookingWindowRow
                 rule={rule}
-                onRuleUpdate={(field, value) => updateRule(rule.id, field, value)}
-                onRemove={() => removeRule(rule.id)}
+                onRuleUpdate={(field, value) => updateRule(rule.id!, field, value)}
+                onRemove={() => removeRule(rule.id!)}
                 availableSpaces={availableSpaces}
                 showRemove={rules.length > 1}
               />
