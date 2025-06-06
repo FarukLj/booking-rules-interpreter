@@ -1,7 +1,9 @@
+
 import React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { RuleResult } from "@/types/RuleResult";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { RuleResult } from "@/types/RuleResult";
 import { BookingConditionsBlock } from "@/components/BookingConditionsBlock";
 import { PricingRulesBlock } from "@/components/PricingRulesBlock";
 import { QuotaRulesBlock } from "@/components/QuotaRulesBlock";

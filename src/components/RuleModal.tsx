@@ -1,9 +1,14 @@
+
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { RuleResult } from "@/types/RuleResult";
 import { BookingConditionsBlock } from "@/components/BookingConditionsBlock";
 import { PricingRulesBlock } from "@/components/PricingRulesBlock";
