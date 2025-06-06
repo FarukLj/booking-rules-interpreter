@@ -3,17 +3,14 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
-  DialogFooter,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { RuleResult } from "@/types/RuleResult";
-import { Badge } from "@/components/ui/badge";
-import { BookingConditionsBlock } from "./BookingConditionsBlock";
-import { PricingRulesBlock } from "./PricingRulesBlock";
-import { QuotaRulesBlock } from "./QuotaRulesBlock";
-import { BufferTimeRulesBlock } from "./BufferTimeRulesBlock";
-import { BookingWindowRulesBlock } from "./BookingWindowRulesBlock";
+import { BookingConditionsBlock } from "@/components/BookingConditionsBlock";
+import { PricingRulesBlock } from "@/components/PricingRulesBlock";
+import { QuotaRulesBlock } from "@/components/QuotaRulesBlock";
+import { BufferTimeRulesBlock } from "@/components/BufferTimeRulesBlock";
+import { BookingWindowRulesBlock } from "@/components/booking-window/BookingWindowRulesBlock";
+import { SpaceSharingRulesBlock } from "@/components/SpaceSharingRulesBlock";
 
 interface RuleModalProps {
   result: RuleResult;

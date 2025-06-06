@@ -1,15 +1,16 @@
-
 import React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { RuleResult } from "@/types/RuleResult";
-import { BookingConditionsBlock } from "./BookingConditionsBlock";
-import { PricingRulesBlock } from "./PricingRulesBlock";
-import { QuotaRulesBlock } from "./QuotaRulesBlock";
-import { BufferTimeRulesBlock } from "./BufferTimeRulesBlock";
-import { BookingWindowRulesBlock } from "./BookingWindowRulesBlock";
-import { SpaceSharingRulesBlock } from "./SpaceSharingRulesBlock";
+import { Button } from "@/components/ui/button";
+import { BookingConditionsBlock } from "@/components/BookingConditionsBlock";
+import { PricingRulesBlock } from "@/components/PricingRulesBlock";
+import { QuotaRulesBlock } from "@/components/QuotaRulesBlock";
+import { BufferTimeRulesBlock } from "@/components/BufferTimeRulesBlock";
+import { BookingWindowRulesBlock } from "@/components/booking-window/BookingWindowRulesBlock";
+import { SpaceSharingRulesBlock } from "@/components/SpaceSharingRulesBlock";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { CheckCircle2, Clock, Users, DollarSign, Calendar, Shield, ArrowRight } from "lucide-react";
 
 interface SetupGuideModalProps {
   result: RuleResult;
