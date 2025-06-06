@@ -63,20 +63,24 @@ export function BookingWindowRuleItem({
     </div>
   );
 
-  // Row 3 Content: Spaces selector + operator + value input + unit selector
+  // Row 3 Content: All 4 components in a single flex container with equal width
   const row3Content = (
-    <>
-      <MultiSelect
-        options={spaceOptions}
-        selected={rule.spaces || []}
-        onSelectionChange={(selected) => onRuleUpdate('spaces', selected)}
-        placeholder="Select spaces"
-        className="min-w-0"
-      />
+    <div className="flex gap-2 items-center w-full">
+      {/* Spaces selector */}
+      <div className="flex-1">
+        <MultiSelect
+          options={spaceOptions}
+          selected={rule.spaces || []}
+          onSelectionChange={(selected) => onRuleUpdate('spaces', selected)}
+          placeholder="Select spaces"
+          className="min-w-0 w-full"
+        />
+      </div>
       
-      <div className="flex items-center gap-1">
+      {/* Operator selector with help icon */}
+      <div className="flex-1 flex items-center gap-1">
         <Select value={rule.constraint || 'less_than'} onValueChange={(value) => onRuleUpdate('constraint', value)}>
-          <SelectTrigger className="w-24 h-10">
+          <SelectTrigger className="w-full h-10">
             <SelectValue>
               {getConstraintText(rule.constraint || 'less_than')}
             </SelectValue>
@@ -90,7 +94,7 @@ export function BookingWindowRuleItem({
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <HelpCircle className="h-4 w-4 text-slate-400 hover:text-slate-600" />
+              <HelpCircle className="h-4 w-4 text-slate-400 hover:text-slate-600 flex-shrink-0" />
             </TooltipTrigger>
             <TooltipContent side="top" className="max-w-[350px]">
               <div className="text-xs space-y-2">
@@ -106,12 +110,13 @@ export function BookingWindowRuleItem({
         </TooltipProvider>
       </div>
 
-      <div className="flex items-center gap-1">
+      {/* Number input with time helper */}
+      <div className="flex-1 flex items-center gap-1">
         <input 
           type="number" 
           value={rule.value || 72} 
           onChange={(e) => onRuleUpdate('value', parseInt(e.target.value) || 0)}
-          className="w-20 px-2 py-2 border border-input rounded-md text-sm h-10 text-right"
+          className="w-full px-2 py-2 border border-input rounded-md text-sm h-10 text-right"
           placeholder="72"
         />
         
@@ -119,7 +124,7 @@ export function BookingWindowRuleItem({
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="text-xs text-slate-500 cursor-help">
+                <span className="text-xs text-slate-500 cursor-help flex-shrink-0">
                   {getTimeDisplayHelper(rule.value || 72, rule.unit || 'hours')}
                 </span>
               </TooltipTrigger>
@@ -133,22 +138,25 @@ export function BookingWindowRuleItem({
         )}
       </div>
 
-      <Select 
-        value={rule.unit || 'hours'} 
-        onValueChange={(value: "hours" | "days" | "weeks") => handleUnitChange(value)}
-      >
-        <SelectTrigger className="min-w-[100px] h-10">
-          <SelectValue>
-            {rule.unit || 'hours'} in advance
-          </SelectValue>
-        </SelectTrigger>
-        <SelectContent className="z-50">
-          <SelectItem value="hours">hours in advance</SelectItem>
-          <SelectItem value="days">days in advance</SelectItem>
-          <SelectItem value="weeks">weeks in advance</SelectItem>
-        </SelectContent>
-      </Select>
-    </>
+      {/* Unit selector */}
+      <div className="flex-1">
+        <Select 
+          value={rule.unit || 'hours'} 
+          onValueChange={(value: "hours" | "days" | "weeks") => handleUnitChange(value)}
+        >
+          <SelectTrigger className="w-full h-10">
+            <SelectValue>
+              {rule.unit || 'hours'} in advance
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent className="z-50">
+            <SelectItem value="hours">hours in advance</SelectItem>
+            <SelectItem value="days">days in advance</SelectItem>
+            <SelectItem value="weeks">weeks in advance</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
   );
 
   return (
