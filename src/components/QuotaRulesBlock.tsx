@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MultiSelect } from "@/components/ui/multi-select";
@@ -41,6 +42,16 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
   const hourOptions = Array.from({ length: 101 }, (_, i) => `${i}h`);
   const minuteOptions = ["0m", "15m", "30m", "45m"];
 
+  const updateRule = (index: number, field: keyof QuotaRule, value: any) => {
+    setRules(prev => prev.map((rule, i) => 
+      i === index ? { ...rule, [field]: value } : rule
+    ));
+  };
+
+  const updateLogicOperator = (index: number, operator: string) => {
+    setLogicOperators(prev => prev.map((op, i) => i === index ? operator : op));
+  };
+
   const formatTimeDisplay = (time: string) => {
     const hour = parseInt(time.split(':')[0]);
     const minute = time.split(':')[1];
@@ -48,11 +59,6 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
     const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
     return `${displayHour}:${minute} ${period}`;
   };
-
-  const timeSelectOptions = timeOptions.map(time => ({
-    value: time,
-    label: formatTimeDisplay(time)
-  }));
 
   const getUserSelectorText = (target: string) => {
     switch (target) {
@@ -66,16 +72,6 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
 
   const shouldShowTagsDropdown = (target: string) => {
     return target === "individuals_with_tags" || target === "individuals_with_no_tags" || target === "group_with_tag";
-  };
-
-  const updateRule = (index: number, field: keyof QuotaRule, value: any) => {
-    setRules(prev => prev.map((rule, i) => 
-      i === index ? { ...rule, [field]: value } : rule
-    ));
-  };
-
-  const updateLogicOperator = (index: number, operator: string) => {
-    setLogicOperators(prev => prev.map((op, i) => i === index ? operator : op));
   };
 
   return (
@@ -231,8 +227,11 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
                     const endTime = rule.time_range?.split('–')[1] || '17:00';
                     updateRule(index, 'time_range', `${value}–${endTime}`);
                   }}
-                  options={timeSelectOptions}
-                />
+                >
+                  {timeOptions.map(time => (
+                    <SelectItem key={time} value={time}>{formatTimeDisplay(time)}</SelectItem>
+                  ))}
+                </LinkSelect>
                 
                 <span className="text-slate-600">to</span>
                 <LinkSelect 
@@ -241,8 +240,11 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
                     const startTime = rule.time_range?.split('–')[0] || '09:00';
                     updateRule(index, 'time_range', `${startTime}–${value}`);
                   }}
-                  options={timeSelectOptions}
-                />
+                >
+                  {timeOptions.map(time => (
+                    <SelectItem key={time} value={time}>{formatTimeDisplay(time)}</SelectItem>
+                  ))}
+                </LinkSelect>
                 
                 <span className="text-slate-600">on</span>
                 <MultiSelect
