@@ -1,3 +1,4 @@
+
 export interface BookingCondition {
   space: string[];
   time_range: string;
@@ -51,7 +52,7 @@ export interface BookingWindowRule {
   tags?: string[];
   constraint: "less_than" | "more_than";
   value: number;
-  unit: "hours" | "days";
+  unit: "hours" | "days" | "weeks";
   display?: string;
   spaces: string[];
   explanation: string;

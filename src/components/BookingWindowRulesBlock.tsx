@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MultiSelect } from "@/components/ui/multi-select";
@@ -80,7 +79,7 @@ export function BookingWindowRulesBlock({ initialRules = [] }: BookingWindowRule
     setLogicOperators(prev => prev.map((op, i) => i === index ? operator : op));
   };
 
-  const handleUnitChange = (index: number, newUnit: string) => {
+  const handleUnitChange = (index: number, newUnit: "hours" | "days" | "weeks") => {
     setRules(prev => prev.map((rule, i) => {
       if (i === index) {
         // Convert current value to hours, then to new unit
@@ -93,7 +92,7 @@ export function BookingWindowRulesBlock({ initialRules = [] }: BookingWindowRule
           ...rule,
           value: newValue,
           unit: newUnit
-        };
+        } as BookingWindowRule;
       }
       return rule;
     }));
@@ -225,7 +224,7 @@ export function BookingWindowRulesBlock({ initialRules = [] }: BookingWindowRule
               
               <Select 
                 value={rule.unit || 'hours'} 
-                onValueChange={(value) => handleUnitChange(index, value)}
+                onValueChange={(value: "hours" | "days" | "weeks") => handleUnitChange(index, value)}
               >
                 <SelectTrigger className="min-w-[100px] h-10">
                   <SelectValue>
