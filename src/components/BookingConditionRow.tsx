@@ -29,6 +29,13 @@ export function BookingConditionRow({
   onConditionChange
 }: BookingConditionRowProps) {
   const updateCondition = (field: keyof BookingCondition, value: any) => {
+    // Defensive validation for booking conditions
+    if (field === 'operator' && condition.condition_type === 'user_tags') {
+      if (value === 'contains_any_of') {
+        console.warn('[BookingCondition] Warning: contains_any_of may create double-negative logic for "only...can book" rules. Consider contains_none_of.');
+      }
+    }
+    
     onConditionChange(index, field, value);
   };
 
@@ -133,14 +140,23 @@ export function BookingConditionRow({
         </div>
       )}
 
-      {/* Logic validation display */}
+      {/* Enhanced logic validation display */}
       {condition.condition_type === "user_tags" && (
         <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded border mt-2">
           <strong>Logic:</strong> {
             condition.operator === "contains_none_of" 
-              ? `Blocks users whose tag set contains none of: ${Array.isArray(condition.value) ? condition.value.join(', ') : condition.value} (i.e., only those users CAN book)`
-              : `Blocks users whose tag set contains any of: ${Array.isArray(condition.value) ? condition.value.join(', ') : condition.value} (i.e., those users CANNOT book)`
+              ? `Allows only users whose tag set contains any of: ${Array.isArray(condition.value) ? condition.value.join(', ') : condition.value} (blocks everyone else)`
+              : condition.operator === "contains_any_of"
+              ? `Blocks users whose tag set contains any of: ${Array.isArray(condition.value) ? condition.value.join(', ') : condition.value} (those users CANNOT book)`
+              : `Uses operator "${condition.operator}" with tags: ${Array.isArray(condition.value) ? condition.value.join(', ') : condition.value}`
           }
+        </div>
+      )}
+
+      {/* Validation warning for potential logic inversions */}
+      {condition.condition_type === "user_tags" && condition.operator === "contains_any_of" && (
+        <div className="text-xs text-orange-600 bg-orange-50 p-2 rounded border mt-2">
+          <strong>Logic Warning:</strong> If this is for "only [users] can book" rules, consider using "contains none of" instead to create proper allowlist logic.
         </div>
       )}
     </div>

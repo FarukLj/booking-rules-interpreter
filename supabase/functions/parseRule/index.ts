@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 
@@ -6,6 +5,70 @@ const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')
 
 // Rate limiting store (in production, use Redis or similar)
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
+
+// Pattern detection for post-processing
+const allowlistPatterns = /(only|just|exclusively)\s+([\w\s,&]+?)\s+can\s+book/i;
+const noMoreThanPatterns = /(no more than|at most|up to)\s+(\d+)\s*(hour|hours|day|days|week|weeks)\s+in advance/i;
+
+// Unit normalization utility
+function normalizeAdvanceUnit(value: number, unit: string): number {
+  switch(unit.toLowerCase()) {
+    case 'day':
+    case 'days':
+      return value * 24;
+    case 'week':
+    case 'weeks':
+      return value * 24 * 7;
+    case 'hour':
+    case 'hours':
+    default:
+      return value;
+  }
+}
+
+// Post-processing sanitization layer
+function sanitizeRules(parsedResponse: any, originalRule: string): any {
+  console.log('Starting rule sanitization...');
+  
+  // Fix booking conditions - handle "only...can book" patterns
+  if (parsedResponse.booking_conditions) {
+    parsedResponse.booking_conditions.forEach((condition: any, index: number) => {
+      // Check if this is an allowlist pattern that got parsed as deny rule
+      if (originalRule.match(allowlistPatterns) && condition.operator === 'contains_any_of') {
+        console.log(`[SANITIZE] Fixing logic inversion in booking condition ${index}: contains_any_of -> contains_none_of`);
+        condition.operator = 'contains_none_of';
+        condition.__corrected = true;
+      }
+    });
+  }
+
+  // Fix booking window rules - handle advance booking constraints
+  if (parsedResponse.booking_window_rules) {
+    parsedResponse.booking_window_rules.forEach((rule: any, index: number) => {
+      // Fix operator for "no more than" patterns
+      if (rule.constraint === 'less_than') {
+        const advanceMatch = originalRule.match(noMoreThanPatterns);
+        if (advanceMatch) {
+          console.log(`[SANITIZE] Fixing booking window operator ${index}: less_than -> more_than (detected: ${advanceMatch[0]})`);
+          rule.constraint = 'more_than';
+          rule.__corrected = true;
+        }
+      }
+
+      // Normalize units to hours
+      if (rule.unit && rule.unit !== 'hours') {
+        const originalValue = rule.value;
+        const originalUnit = rule.unit;
+        rule.value = normalizeAdvanceUnit(rule.value, rule.unit);
+        rule.unit = 'hours';
+        console.log(`[SANITIZE] Unit conversion ${index}: ${originalValue} ${originalUnit} -> ${rule.value} hours`);
+        rule.__unit_converted = true;
+      }
+    });
+  }
+
+  return parsedResponse;
+}
 
 // Simple rate limiting function
 function checkRateLimit(identifier: string, maxRequests = 10, windowMs = 60000): boolean {
@@ -68,6 +131,25 @@ serve(async (req) => {
     const prompt = `
 You are an advanced AI booking rule interpreter that extracts structured data from natural language venue booking rules. You must analyze the input text and identify ALL applicable rule types from the six categories below.
 
+CRITICAL PARSING INSTRUCTIONS:
+1. "ONLY" PATTERNS: When you see "only [users] can book", this means ONLY those users are allowed, everyone else is blocked.
+   - Generate booking_conditions with condition_type: "user_tags"
+   - Use operator: "contains_none_of" (this blocks users who DON'T have the allowed tags)
+   - Set value to the allowed tags
+   - Example: "Only Club Members can book" → operator: "contains_none_of", value: ["Club Members"]
+
+2. BOOKING WINDOW CONSTRAINTS: When you see "no more than/at most/up to X time in advance":
+   - This means users CANNOT book if they try to book MORE than X time in advance
+   - Use constraint: "more_than" (blocks if booking is more than X time ahead)
+   - Always preserve original units (days, weeks, hours) - do NOT convert to hours
+   - Example: "no more than 48 hours in advance" → constraint: "more_than", value: 48, unit: "hours"
+   - Example: "up to 14 days ahead" → constraint: "more_than", value: 14, unit: "days"
+
+3. UNIT PRESERVATION: Always preserve the original time units mentioned:
+   - "48 hours" → value: 48, unit: "hours"
+   - "14 days" → value: 14, unit: "days"  
+   - "2 weeks" → value: 2, unit: "weeks"
+
 RULE CATEGORIES TO DETECT:
 
 1. BOOKING CONDITIONS (Access restrictions)
@@ -94,12 +176,6 @@ RULE CATEGORIES TO DETECT:
    - Keywords: "split", "block", "vice-versa", "if...then", "connected"
    - Format: Relationships between spaces (parent/child, blocking)
 
-ANALYSIS PROCESS:
-1. Read the entire rule text carefully
-2. Identify each sentence and what rule type(s) it represents
-3. Extract structured data for EACH identified rule type
-4. Generate a comprehensive response covering ALL detected rules
-
 RESPONSE FORMAT:
 Return a JSON object with these fields:
 
@@ -110,7 +186,7 @@ Return a JSON object with these fields:
       "time_range": "HH:MM–HH:MM",
       "days": ["Monday", "Tuesday", ...],
       "condition_type": "user_tags",
-      "operator": "contains_any_of" | "contains_none_of",
+      "operator": "contains_none_of" | "contains_any_of",
       "value": ["tag1", "tag2"],
       "explanation": "Clear explanation of this condition"
     }
@@ -150,7 +226,7 @@ Return a JSON object with these fields:
     {
       "user_scope": "users_with_tags",
       "tags": ["Public"],
-      "constraint": "less_than",
+      "constraint": "more_than",
       "value": 48,
       "unit": "hours",
       "spaces": ["Court 1", "Court 2"],
@@ -161,47 +237,19 @@ Return a JSON object with these fields:
     {
       "from": "PB A",
       "to": "Court 3"
-    },
-    {
-      "from": "PB B", 
-      "to": "Court 3"
     }
   ],
   "summary": "Comprehensive summary of all detected rules and their interactions"
 }
 
-EXAMPLES OF RULE DETECTION:
-
-Input: "Only Club Members and Coaches can book Court 1 & Court 2 on weekday mornings before 8 AM"
-Detected: BOOKING CONDITIONS
-- Restricts access to specific user tags on specific spaces and times
-
-Input: "charge $40/hour during peak time; otherwise $25/hour"
-Detected: PRICING RULES  
-- Two different rates based on time conditions
-
-Input: "Limit each Coach to 12 hours per week"
-Detected: QUOTA RULES
-- Usage restriction for users with specific tag
-
-Input: "15-minute buffer between reservations"
-Detected: BUFFER TIME RULES
-- Required gap between bookings
-
-Input: "Guests must book no more than 48 hours in advance"
-Detected: BOOKING WINDOW RULES
-- Advance booking restriction for specific user type
-
-Input: "If PB A is booked, block Court 3"
-Detected: SPACE SHARING RULES
-- Space dependency relationship
-
 IMPORTANT NOTES:
+- For "only...can book" patterns, use "contains_none_of" operator
+- For advance booking limits with "no more than", use "more_than" constraint
+- Preserve original time units (hours, days, weeks)
 - Always include "explanation" fields for human readability
 - Use 24-hour time format (e.g., "17:00" not "5 PM")
 - Extract ALL rule types present in the input
 - If no rules of a category are found, omit that array entirely
-- Be thorough - complex rules often contain multiple rule types
 
 Now analyze this booking rule and extract ALL applicable rule structures:
 
@@ -252,6 +300,9 @@ Rule: ${rule}
     if (!parsedResponse || typeof parsedResponse !== 'object') {
       throw new Error('Invalid response structure from AI')
     }
+
+    // Apply post-processing sanitization
+    parsedResponse = sanitizeRules(parsedResponse, rule);
 
     // Add setup guide generation
     const setupGuide = generateSetupGuide(parsedResponse)

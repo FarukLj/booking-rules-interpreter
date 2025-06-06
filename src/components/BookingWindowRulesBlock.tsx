@@ -11,6 +11,38 @@ interface BookingWindowRulesBlockProps {
   initialRules?: BookingWindowRule[];
 }
 
+// Unit normalization utility
+const normalizeAdvanceUnit = (value: number, unit: string): number => {
+  switch(unit.toLowerCase()) {
+    case 'day':
+    case 'days':
+      return value * 24;
+    case 'week':
+    case 'weeks':
+      return value * 24 * 7;
+    case 'hour':
+    case 'hours':
+    default:
+      return value;
+  }
+};
+
+// Convert hours back to other units for display
+const convertFromHours = (hours: number, targetUnit: string): number => {
+  switch(targetUnit.toLowerCase()) {
+    case 'day':
+    case 'days':
+      return Math.round(hours / 24);
+    case 'week':
+    case 'weeks':
+      return Math.round(hours / (24 * 7));
+    case 'hour':
+    case 'hours':
+    default:
+      return hours;
+  }
+};
+
 export function BookingWindowRulesBlock({ initialRules = [] }: BookingWindowRulesBlockProps) {
   const [rules, setRules] = useState<BookingWindowRule[]>(
     initialRules.length > 0 ? initialRules : [{
@@ -31,13 +63,40 @@ export function BookingWindowRulesBlock({ initialRules = [] }: BookingWindowRule
   const tagOptions = ["Public", "The Team", "Premium Members", "Gold Members", "Basic", "VIP", "Staff", "Instructor", "Pro Member", "Visitor"];
 
   const updateRule = (index: number, field: keyof BookingWindowRule, value: any) => {
-    setRules(prev => prev.map((rule, i) => 
-      i === index ? { ...rule, [field]: value } : rule
-    ));
+    setRules(prev => prev.map((rule, i) => {
+      if (i === index) {
+        // Validation for booking window logic
+        if (field === 'constraint' && value === 'less_than') {
+          console.warn('[BookingWindow] Warning: less_than constraint may cause logic inversion. Consider more_than for advance booking limits.');
+        }
+        
+        return { ...rule, [field]: value };
+      }
+      return rule;
+    }));
   };
 
   const updateLogicOperator = (index: number, operator: string) => {
     setLogicOperators(prev => prev.map((op, i) => i === index ? operator : op));
+  };
+
+  const handleUnitChange = (index: number, newUnit: string) => {
+    setRules(prev => prev.map((rule, i) => {
+      if (i === index) {
+        // Convert current value to hours, then to new unit
+        const valueInHours = normalizeAdvanceUnit(rule.value || 72, rule.unit || 'hours');
+        const newValue = convertFromHours(valueInHours, newUnit);
+        
+        console.log(`[Unit Conversion] ${rule.value} ${rule.unit} -> ${newValue} ${newUnit} (${valueInHours}h internal)`);
+        
+        return {
+          ...rule,
+          value: newValue,
+          unit: newUnit
+        };
+      }
+      return rule;
+    }));
   };
 
   const getUserGroupText = (userScope: string) => {
@@ -53,11 +112,12 @@ export function BookingWindowRulesBlock({ initialRules = [] }: BookingWindowRule
     switch (constraint) {
       case "less_than": return "less than";
       case "more_than": return "more than";
-      default: return "less than";
+      default: return "less_than";
     }
   };
 
-  const getTimeDisplayHelper = (hours: number) => {
+  const getTimeDisplayHelper = (value: number, unit: string) => {
+    const hours = normalizeAdvanceUnit(value, unit);
     if (hours >= 168) {
       const weeks = Math.floor(hours / 168);
       return `= ${weeks} week${weeks !== 1 ? 's' : ''}`;
@@ -128,8 +188,8 @@ export function BookingWindowRulesBlock({ initialRules = [] }: BookingWindowRule
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-[300px]">
                       <div className="text-xs space-y-1">
-                        <div><strong>less than:</strong> blocks if the booking is inside X hours</div>
-                        <div><strong>more than:</strong> blocks if the booking is beyond X hours</div>
+                        <div><strong>less than:</strong> blocks if the booking is inside X time</div>
+                        <div><strong>more than:</strong> blocks if the booking is beyond X time (use for "no more than X in advance")</div>
                       </div>
                     </TooltipContent>
                   </Tooltip>
@@ -145,12 +205,12 @@ export function BookingWindowRulesBlock({ initialRules = [] }: BookingWindowRule
                   placeholder="72"
                 />
                 
-                {getTimeDisplayHelper(rule.value || 72) && (
+                {getTimeDisplayHelper(rule.value || 72, rule.unit || 'hours') && (
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <span className="text-xs text-slate-500 cursor-help">
-                          {getTimeDisplayHelper(rule.value || 72)}
+                          {getTimeDisplayHelper(rule.value || 72, rule.unit || 'hours')}
                         </span>
                       </TooltipTrigger>
                       <TooltipContent side="top">
@@ -163,14 +223,19 @@ export function BookingWindowRulesBlock({ initialRules = [] }: BookingWindowRule
                 )}
               </div>
               
-              <Select value="hours_in_advance" disabled>
-                <SelectTrigger className="min-w-[120px] h-10">
+              <Select 
+                value={rule.unit || 'hours'} 
+                onValueChange={(value) => handleUnitChange(index, value)}
+              >
+                <SelectTrigger className="min-w-[100px] h-10">
                   <SelectValue>
-                    hours in advance
+                    {rule.unit || 'hours'} in advance
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent className="z-50">
-                  <SelectItem value="hours_in_advance">hours in advance</SelectItem>
+                  <SelectItem value="hours">hours in advance</SelectItem>
+                  <SelectItem value="days">days in advance</SelectItem>
+                  <SelectItem value="weeks">weeks in advance</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -178,6 +243,14 @@ export function BookingWindowRulesBlock({ initialRules = [] }: BookingWindowRule
             {rule.explanation && (
               <div className="text-xs text-slate-600 bg-white p-2 rounded border">
                 <strong>Explanation:</strong> {rule.explanation}
+              </div>
+            )}
+
+            {/* Validation warnings */}
+            {rule.constraint === 'less_than' && (
+              <div className="text-xs text-orange-600 bg-orange-50 p-2 rounded border mt-2">
+                <strong>Logic Check:</strong> "less than" may not work as expected for advance booking limits. 
+                Consider "more than" for rules like "no more than X in advance".
               </div>
             )}
           </div>
