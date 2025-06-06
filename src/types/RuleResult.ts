@@ -1,4 +1,3 @@
-
 export interface BookingCondition {
   space: string[];
   time_range: string;
@@ -43,9 +42,13 @@ export interface QuotaRule {
 
 export interface BufferTimeRule {
   id?: string;
-  spaces: string[];
-  buffer_duration: string;
-  explanation: string;
+  buffer_type: 'before' | 'after' | 'between';
+  duration: number;
+  unit: 'minutes' | 'hours';
+  applies_to?: string[];
+  spaces?: string[];
+  buffer_duration?: string;
+  explanation?: string;
 }
 
 export interface BookingWindowRule {

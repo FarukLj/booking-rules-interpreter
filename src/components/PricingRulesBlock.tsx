@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -49,6 +50,65 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
       }
     });
   }, [rules]);
+
+  const updateRule = (index: number, field: keyof PricingRule, value: any) => {
+    setRules(rules.map((rule, i) => i === index ? { ...rule, [field]: value } : rule));
+  };
+
+  const updateRateField = (index: number, field: 'amount' | 'unit', value: any) => {
+    setRules(rules.map((rule, i) => 
+      i === index ? { 
+        ...rule, 
+        rate: { 
+          ...rule.rate, 
+          [field]: field === 'amount' ? parseFloat(value) || 0 : value 
+        } 
+      } : rule
+    ));
+  };
+
+  const addSubCondition = (ruleIndex: number) => {
+    setRules(rules.map((rule, i) => 
+      i === ruleIndex ? {
+        ...rule,
+        sub_conditions: [
+          ...(rule.sub_conditions || []),
+          {
+            condition_type: "duration",
+            operator: "is_greater_than",
+            value: "1h",
+            logic: "AND"
+          }
+        ]
+      } : rule
+    ));
+  };
+
+  const updateSubCondition = (ruleIndex: number, subIndex: number, field: string, value: any) => {
+    setRules(rules.map((rule, i) => 
+      i === ruleIndex ? {
+        ...rule,
+        sub_conditions: rule.sub_conditions?.map((sub, j) => 
+          j === subIndex ? { ...sub, [field]: value } : sub
+        )
+      } : rule
+    ));
+  };
+
+  const removeSubCondition = (ruleIndex: number, subIndex: number) => {
+    setRules(rules.map((rule, i) => 
+      i === ruleIndex ? {
+        ...rule,
+        sub_conditions: rule.sub_conditions?.filter((_, j) => j !== subIndex)
+      } : rule
+    ));
+  };
+
+  const updateLogicOperator = (index: number, operator: string) => {
+    const newLogicOperators = [...logicOperators];
+    newLogicOperators[index] = operator;
+    setLogicOperators(newLogicOperators);
+  };
 
   const timeOptions = Array.from({ length: 96 }, (_, i) => {
     const hour = Math.floor(i / 4);
