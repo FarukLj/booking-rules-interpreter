@@ -6,9 +6,10 @@ const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')
 // Rate limiting store (in production, use Redis or similar)
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
 
-// Pattern detection for post-processing
+// Enhanced pattern detection for post-processing
 const allowlistPatterns = /(only|just|exclusively)\s+([\w\s,&]+?)\s+can\s+book/i;
 const noMoreThanPatterns = /(no more than|at most|up to)\s+(\d+)\s*(hour|hours|day|days|week|weeks)\s+in advance/i;
+const atLeastPatterns = /(at\s+least|least|minimum|min\.?|not\s+less\s+than|must\s+book\s+at\s+least|≥|>=)\s+(\d+)\s*(hour|hours|day|days|week|weeks)/i;
 
 // Unit normalization utility
 function normalizeAdvanceUnit(value: number, unit: string): number {
@@ -26,9 +27,9 @@ function normalizeAdvanceUnit(value: number, unit: string): number {
   }
 }
 
-// Post-processing sanitization layer
+// Enhanced post-processing sanitization layer
 function sanitizeRules(parsedResponse: any, originalRule: string): any {
-  console.log('Starting rule sanitization...');
+  console.log('Starting enhanced rule sanitization...');
   
   // Fix booking conditions - handle "only...can book" patterns
   if (parsedResponse.booking_conditions) {
@@ -42,15 +43,25 @@ function sanitizeRules(parsedResponse: any, originalRule: string): any {
     });
   }
 
-  // Fix booking window rules - handle advance booking constraints
+  // Enhanced booking window rules - handle both advance booking constraint types
   if (parsedResponse.booking_window_rules) {
     parsedResponse.booking_window_rules.forEach((rule: any, index: number) => {
       // Fix operator for "no more than" patterns
       if (rule.constraint === 'less_than') {
-        const advanceMatch = originalRule.match(noMoreThanPatterns);
-        if (advanceMatch) {
-          console.log(`[SANITIZE] Fixing booking window operator ${index}: less_than -> more_than (detected: ${advanceMatch[0]})`);
+        const noMoreThanMatch = originalRule.match(noMoreThanPatterns);
+        if (noMoreThanMatch) {
+          console.log(`[SANITIZE] Fixing booking window operator ${index}: less_than -> more_than (detected: ${noMoreThanMatch[0]})`);
           rule.constraint = 'more_than';
+          rule.__corrected = true;
+        }
+      }
+
+      // NEW: Fix operator for "at least" patterns
+      if (rule.constraint === 'more_than') {
+        const atLeastMatch = originalRule.match(atLeastPatterns);
+        if (atLeastMatch) {
+          console.log(`[SANITIZE] Fixing booking window operator ${index}: more_than -> less_than (detected: ${atLeastMatch[0]})`);
+          rule.constraint = 'less_than';
           rule.__corrected = true;
         }
       }
@@ -138,12 +149,16 @@ CRITICAL PARSING INSTRUCTIONS:
    - Set value to the allowed tags
    - Example: "Only Club Members can book" → operator: "contains_none_of", value: ["Club Members"]
 
-2. BOOKING WINDOW CONSTRAINTS: When you see "no more than/at most/up to X time in advance":
-   - This means users CANNOT book if they try to book MORE than X time in advance
-   - Use constraint: "more_than" (blocks if booking is more than X time ahead)
-   - Always preserve original units (days, weeks, hours) - do NOT convert to hours
-   - Example: "no more than 48 hours in advance" → constraint: "more_than", value: 48, unit: "hours"
-   - Example: "up to 14 days ahead" → constraint: "more_than", value: 14, unit: "days"
+2. BOOKING WINDOW CONSTRAINTS: 
+   a) "no more than/at most/up to X time in advance":
+      - This means users CANNOT book if they try to book MORE than X time in advance
+      - Use constraint: "more_than" (blocks if booking is more than X time ahead)
+      - Example: "no more than 48 hours in advance" → constraint: "more_than", value: 48, unit: "hours"
+   
+   b) "at least/minimum/must book at least X time in advance":
+      - This means users CANNOT book if they try to book LESS than X time in advance
+      - Use constraint: "less_than" (blocks if booking is less than X time ahead)
+      - Example: "must book at least 24 hours in advance" → constraint: "less_than", value: 24, unit: "hours"
 
 3. UNIT PRESERVATION: Always preserve the original time units mentioned:
    - "48 hours" → value: 48, unit: "hours"
@@ -169,7 +184,7 @@ RULE CATEGORIES TO DETECT:
    - Format: Required time between consecutive bookings
 
 5. BOOKING WINDOW RULES (Advance booking limits)
-   - Keywords: "advance", "ahead", "in advance", "hours/days before"
+   - Keywords: "advance", "ahead", "in advance", "hours/days before", "at least", "no more than"
    - Format: How far in advance different users can book
 
 6. SPACE SHARING RULES (Space dependencies)
@@ -226,7 +241,7 @@ Return a JSON object with these fields:
     {
       "user_scope": "users_with_tags",
       "tags": ["Public"],
-      "constraint": "more_than",
+      "constraint": "more_than" | "less_than",
       "value": 48,
       "unit": "hours",
       "spaces": ["Court 1", "Court 2"],
@@ -244,7 +259,8 @@ Return a JSON object with these fields:
 
 IMPORTANT NOTES:
 - For "only...can book" patterns, use "contains_none_of" operator
-- For advance booking limits with "no more than", use "more_than" constraint
+- For "at least X in advance", use "less_than" constraint
+- For "no more than X in advance", use "more_than" constraint
 - Preserve original time units (hours, days, weeks)
 - Always include "explanation" fields for human readability
 - Use 24-hour time format (e.g., "17:00" not "5 PM")
@@ -301,7 +317,7 @@ Rule: ${rule}
       throw new Error('Invalid response structure from AI')
     }
 
-    // Apply post-processing sanitization
+    // Apply enhanced post-processing sanitization
     parsedResponse = sanitizeRules(parsedResponse, rule);
 
     // Add setup guide generation

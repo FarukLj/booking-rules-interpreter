@@ -32,6 +32,19 @@ const expectedTennisPickleballResult = {
   ]
 };
 
+// New test case for "at least" pattern
+const expectedAtLeastResult = {
+  booking_window_rules: [
+    {
+      user_scope: "users_with_tags",
+      tags: ["Coach"],
+      constraint: "less_than", // Should be less_than for "at least"
+      value: 24,
+      unit: "hours"
+    }
+  ]
+};
+
 describe('Booking Rule Parser Regression Tests', () => {
   it('should correctly parse allowlist patterns with contains_none_of', () => {
     // Test the "only...can book" pattern
@@ -47,6 +60,15 @@ describe('Booking Rule Parser Regression Tests', () => {
     expect(publicRule.constraint).toBe('more_than');
     expect(publicRule.value).toBe(48);
     expect(publicRule.unit).toBe('hours');
+  });
+
+  it('should correctly parse "at least" patterns with less_than', () => {
+    // Test the "at least...in advance" pattern
+    const coachRule = expectedAtLeastResult.booking_window_rules[0];
+    expect(coachRule.constraint).toBe('less_than');
+    expect(coachRule.value).toBe(24);
+    expect(coachRule.unit).toBe('hours');
+    expect(coachRule.tags).toContain('Coach');
   });
 
   it('should preserve original time units', () => {
@@ -129,16 +151,54 @@ describe('Logic Validation Checks', () => {
   it('should detect booking window operator issues', () => {
     // Simulate booking window validation
     const validateBookingWindow = (rule: any) => {
-      if (rule.constraint === 'less_than') {
-        return { warning: 'less_than may cause logic inversion for advance booking limits' };
+      if (rule.constraint === 'less_than' && rule.value > 168) {
+        return { warning: 'Long-term less_than constraints may need more_than instead' };
+      }
+      if (rule.constraint === 'more_than' && rule.value < 24) {
+        return { warning: 'Short-term more_than constraints may be confusing' };
       }
       return { valid: true };
     };
 
-    const badRule = { constraint: 'less_than', value: 48 };
-    const goodRule = { constraint: 'more_than', value: 48 };
+    const shortMoreThanRule = { constraint: 'more_than', value: 12 };
+    const longLessThanRule = { constraint: 'less_than', value: 336 };
+    const goodRule = { constraint: 'less_than', value: 24 };
 
-    expect(validateBookingWindow(badRule)).toHaveProperty('warning');
+    expect(validateBookingWindow(shortMoreThanRule)).toHaveProperty('warning');
+    expect(validateBookingWindow(longLessThanRule)).toHaveProperty('warning');
     expect(validateBookingWindow(goodRule)).toHaveProperty('valid');
+  });
+});
+
+describe('Pattern Recognition Tests', () => {
+  it('should recognize various "at least" patterns', () => {
+    const atLeastPatterns = [
+      'coaches must book at least 24 hours in advance',
+      'minimum 48 hours advance notice required',
+      'at least 2 days in advance',
+      'not less than 24 hours ahead',
+      'book at least 1 week in advance'
+    ];
+
+    const atLeastRegex = /(at\s+least|least|minimum|min\.?|not\s+less\s+than|must\s+book\s+at\s+least|≥|>=)\s+(\d+)\s*(hour|hours|day|days|week|weeks)/i;
+
+    atLeastPatterns.forEach(pattern => {
+      expect(pattern.match(atLeastRegex)).toBeTruthy();
+    });
+  });
+
+  it('should recognize various "no more than" patterns', () => {
+    const noMoreThanPatterns = [
+      'no more than 48 hours in advance',
+      'up to 14 days ahead',
+      'at most 2 weeks in advance',
+      'within 24 hours'
+    ];
+
+    const noMoreThanRegex = /(no more than|at most|up to)\s+(\d+)\s*(hour|hours|day|days|week|weeks)\s+in advance/i;
+
+    noMoreThanPatterns.forEach(pattern => {
+      expect(pattern.match(noMoreThanRegex)).toBeTruthy();
+    });
   });
 });
