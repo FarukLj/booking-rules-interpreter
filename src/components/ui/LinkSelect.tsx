@@ -1,63 +1,38 @@
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { ChevronDown } from "lucide-react";
-import { ReactNode } from "react";
-import { cn } from "@/lib/utils";
-import * as React from "react";
+import React from 'react';
+import { ChevronDown } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
-interface Props {
+interface LinkSelectProps {
   value: string;
-  onValueChange: (v: string) => void;
+  onValueChange: (value: string) => void;
+  options: { value: string; label: string }[];
+  className?: string;
   placeholder?: string;
-  children: ReactNode;            // <SelectItem>s
-  width?: string;                 // eg "w-28"
 }
 
-export function LinkSelect({
-  value,
-  onValueChange,
-  placeholder,
-  children,
-  width = "w-fit",
-}: Props) {
+export function LinkSelect({ value, onValueChange, options, className, placeholder }: LinkSelectProps) {
+  const selectedOption = options.find(opt => opt.value === value);
+  
   return (
-    <Select value={value} onValueChange={onValueChange}>
-      <SelectTrigger
-        className={cn(
-          width,
-          "h-auto px-0 py-0 border-none bg-transparent text-blue-700 font-semibold",
-          "hover:text-blue-600 focus:ring-0 focus:outline-none",
-          "data-[state=open]:text-blue-600"
-        )}
+    <div className={cn("relative", className)}>
+      <select
+        value={value}
+        onChange={(e) => onValueChange(e.target.value)}
+        className="appearance-none w-full px-3 py-2 text-sm bg-white border border-input rounded-md pr-8 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground"
       >
-        <SelectValue placeholder={placeholder} />
-        <ChevronDown className="ml-1 w-3 h-3 shrink-0" />
-      </SelectTrigger>
-      <SelectContent className="z-[100]" position="popper">
-        {children}
-      </SelectContent>
-    </Select>
-  );
-}
-
-export function LinkSelectTrigger(props: React.ComponentPropsWithoutRef<typeof SelectTrigger>) {
-  return (
-    <SelectTrigger
-      {...props}
-      className={cn(
-        "h-auto px-0 py-0 border-none bg-transparent text-blue-700 font-semibold",
-        "hover:text-blue-600 focus:ring-0 focus:outline-none",
-        props.className
-      )}
-    >
-      {props.children}
-      <ChevronDown className="ml-1 w-3 h-3 shrink-0" />
-    </SelectTrigger>
+        {placeholder && (
+          <option value="" disabled>
+            {placeholder}
+          </option>
+        )}
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+    </div>
   );
 }

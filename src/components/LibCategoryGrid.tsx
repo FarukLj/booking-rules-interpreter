@@ -65,6 +65,23 @@ export function LibCategoryGrid() {
                     src={imageUrl}
                     alt={category.name}
                     className="w-full h-full object-cover"
+                    onError={(e) => {
+                      // Fallback to gradient background if image fails to load
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                      const parent = target.parentElement;
+                      if (parent) {
+                        parent.innerHTML = `
+                          <div class="w-full h-48 bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center">
+                            <div class="w-16 h-16 bg-blue-500 rounded-lg flex items-center justify-center">
+                              <span class="text-white font-bold text-xl">
+                                ${category.name.charAt(0)}
+                              </span>
+                            </div>
+                          </div>
+                        `;
+                      }
+                    }}
                   />
                 </div>
               ) : (

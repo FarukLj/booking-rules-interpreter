@@ -1,108 +1,122 @@
 
-import { useState } from "react";
-import { MultiSelect } from "@/components/ui/multi-select";
-import { Toggle } from "@/components/ui/toggle";
-import { BufferTimeRule } from "@/types/RuleResult";
-import { LinkSelect } from "@/components/ui/LinkSelect";
-import { SelectItem } from "@/components/ui/select";
+import React from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { LinkSelect } from '@/components/ui/LinkSelect';
+import { Plus, Trash2 } from 'lucide-react';
 
-interface BufferTimeRulesBlockProps {
-  initialRules?: BufferTimeRule[];
+interface BufferTimeRule {
+  id: string;
+  buffer_type: 'before' | 'after' | 'between';
+  duration: number;
+  unit: 'minutes' | 'hours';
+  applies_to?: string[];
 }
 
-export function BufferTimeRulesBlock({ initialRules = [] }: BufferTimeRulesBlockProps) {
-  const [rules, setRules] = useState<BufferTimeRule[]>(
-    initialRules.length > 0 ? initialRules : [{
-      spaces: ["Space 1"],
-      buffer_duration: "30min",
-      explanation: "Default buffer time rule"
-    }]
-  );
-  
-  const [logicOperators, setLogicOperators] = useState<string[]>(
-    new Array(Math.max(0, rules.length - 1)).fill("AND")
-  );
+interface BufferTimeRulesBlockProps {
+  rules: BufferTimeRule[];
+  onRulesChange: (rules: BufferTimeRule[]) => void;
+  availableSpaces?: string[];
+}
 
-  const spaceOptions = ["Space 1", "Space 2", "Conference Room A", "Studio 1", "Studio 2", "Studio 3", "Meeting Room B", "Court A", "Gym"];
-  
-  // Generate buffer time options from 15m to 24h in 15-minute increments
-  const durationOptions = [];
-  for (let i = 15; i <= 60; i += 15) {
-    durationOptions.push(`${i}min`);
-  }
-  for (let i = 2; i <= 24; i++) {
-    durationOptions.push(`${i}h`);
-  }
+export function BufferTimeRulesBlock({ rules, onRulesChange, availableSpaces = [] }: BufferTimeRulesBlockProps) {
+  const addRule = () => {
+    const newRule: BufferTimeRule = {
+      id: Date.now().toString(),
+      buffer_type: 'before',
+      duration: 15,
+      unit: 'minutes'
+    };
+    onRulesChange([...rules, newRule]);
+  };
 
-  const updateRule = (index: number, field: keyof BufferTimeRule, value: any) => {
-    setRules(prev => prev.map((rule, i) => 
-      i === index ? { ...rule, [field]: value } : rule
+  const updateRule = (id: string, field: keyof BufferTimeRule, value: any) => {
+    onRulesChange(rules.map(rule => 
+      rule.id === id ? { ...rule, [field]: value } : rule
     ));
   };
 
-  const updateLogicOperator = (index: number, operator: string) => {
-    setLogicOperators(prev => prev.map((op, i) => i === index ? operator : op));
+  const removeRule = (id: string) => {
+    onRulesChange(rules.filter(rule => rule.id !== id));
   };
 
+  const bufferTypeOptions = [
+    { value: 'before', label: 'Before booking' },
+    { value: 'after', label: 'After booking' },
+    { value: 'between', label: 'Between bookings' }
+  ];
+
+  const unitOptions = [
+    { value: 'minutes', label: 'minutes' },
+    { value: 'hours', label: 'hours' }
+  ];
+
   return (
-    <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-slate-800">Buffer Time Rules</h3>
-      
-      {rules.map((rule, index) => (
-        <div key={index}>
-          <div className="bg-[#F1F3F5] p-6 sm:p-3 rounded-lg">
-            <div className="flex flex-wrap items-center gap-2 text-sm mb-3">
-              <span className="text-slate-600">For</span>
-              <MultiSelect
-                triggerVariant="link"
-                options={spaceOptions}
-                selected={rule.spaces || []}
-                onSelectionChange={(selected) => updateRule(index, 'spaces', selected)}
-                placeholder="Select spaces"
+    <Card className="bg-[#F1F3F5]">
+      <CardHeader>
+        <CardTitle className="text-lg">Buffer Time Rules</CardTitle>
+        <CardDescription>
+          Set buffer time requirements before, after, or between bookings
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {rules.map((rule) => (
+          <div key={rule.id} className="flex items-center gap-3 p-4 bg-white rounded-lg border">
+            <div className="flex-1">
+              <LinkSelect
+                value={rule.buffer_type}
+                onValueChange={(value) => updateRule(rule.id, 'buffer_type', value as 'before' | 'after' | 'between')}
+                options={bufferTypeOptions}
+                className="w-full"
               />
-              
-              <span className="text-slate-600">buffer time of</span>
-              <LinkSelect 
-                value={rule.buffer_duration || '30min'} 
-                onValueChange={(value) => updateRule(index, 'buffer_duration', value)}
-              >
-                {durationOptions.map(duration => (
-                  <SelectItem key={duration} value={duration}>{duration}</SelectItem>
-                ))}
-              </LinkSelect>
-              
-              <span className="text-slate-600">between bookings</span>
             </div>
             
-            {rule.explanation && (
-              <div className="text-xs text-slate-600 bg-white p-2 rounded border">
-                <strong>Explanation:</strong> {rule.explanation}
-              </div>
-            )}
-          </div>
-          
-          {index < rules.length - 1 && (
-            <div className="flex justify-center my-2">
-              <div className="flex items-center space-x-2">
-                <Toggle
-                  pressed={logicOperators[index] === "AND"}
-                  onPressedChange={(pressed) => updateLogicOperator(index, pressed ? "AND" : "OR")}
-                  className="w-12 h-8"
-                >
-                  AND
-                </Toggle>
-                <Toggle
-                  pressed={logicOperators[index] === "OR"}
-                  onPressedChange={(pressed) => updateLogicOperator(index, pressed ? "OR" : "AND")}
-                  className="w-12 h-8"
-                >
-                  OR
-                </Toggle>
-              </div>
+            <span className="text-sm text-muted-foreground">requires</span>
+            
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                value={rule.duration}
+                onChange={(e) => updateRule(rule.id, 'duration', parseInt(e.target.value) || 0)}
+                className="w-20 px-3 py-2 text-sm border border-input rounded-md text-center text-foreground bg-white"
+                min="0"
+                placeholder="15"
+              />
+              
+              <LinkSelect
+                value={rule.unit}
+                onValueChange={(value) => updateRule(rule.id, 'unit', value as 'minutes' | 'hours')}
+                options={unitOptions}
+                className="w-24"
+              />
             </div>
-          )}
-        </div>
-      ))}
-    </div>
+            
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => removeRule(rule.id)}
+              className="text-red-500 hover:text-red-700 hover:bg-red-50"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        ))}
+
+        {rules.length === 0 && (
+          <div className="text-center py-8 text-muted-foreground">
+            No buffer time rules configured
+          </div>
+        )}
+
+        <Button
+          onClick={addRule}
+          variant="outline"
+          className="w-full"
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Add Buffer Time Rule
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
