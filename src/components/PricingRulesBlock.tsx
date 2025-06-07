@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -158,11 +159,11 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
       
       {rules.map((rule, index) => (
         <div key={index}>
-          <div className="bg-[#F1F3F5] p-6 sm:p-3 rounded">
-            <div className="flex flex-wrap items-center gap-1 text-base font-medium mb-3 leading-6">
+          <div className="bg-[#F1F3F5] p-4 sm:p-3 rounded-lg dark:bg-slate-800">
+            {/* Row 1: Natural Language Flow */}
+            <div className="flex flex-wrap items-center gap-1 text-sm font-medium mb-3 leading-6">
               <span>Between</span>
 
-              {/* FROM time */}
               <LinkSelect 
                 value={rule.time_range?.split('–')[0] || '09:00'}
                 onValueChange={(v) => updateRule(index, 'time_range', `${v}–${rule.time_range?.split('–')[1]}`)}
@@ -174,7 +175,6 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
 
               <span>and</span>
 
-              {/* TO time */}
               <LinkSelect 
                 value={rule.time_range?.split('–')[1] || '17:00'}
                 onValueChange={(v) => updateRule(index, 'time_range', `${rule.time_range?.split('–')[0]}–${v}`)}
@@ -186,7 +186,6 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
 
               <span>on</span>
 
-              {/* DAYS */}
               <MultiSelect
                 triggerVariant="link"
                 options={dayOptions}
@@ -196,7 +195,6 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
               />
               ,
 
-              {/* SPACES */}
               <MultiSelect
                 triggerVariant="link"
                 options={spaceOptions}
@@ -207,84 +205,97 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
               <span>is priced</span>
             </div>
             
-            <div className="flex items-center gap-2 flex-wrap mb-3">
-              <span className="text-2xl font-semibold">$</span>
-              <Input
-                type="number"
-                value={rule.rate?.amount || 25}
-                onChange={e => updateRateField(index, 'amount', e.target.value)}
-                className="w-20 h-9 border-0 border-b border-slate-300 rounded-none px-0 text-right"
-              />
-              <LinkSelect 
-                value={rule.rate?.unit || 'per_hour'}
-                onValueChange={v => updateRateField(index, 'unit', v)}
-              >
-                {rateUnitOptions.map(u => 
-                  <SelectItem key={u} value={u}>{u.replace('_', ' ')}</SelectItem>
-                )}
-              </LinkSelect>
-            </div>
+            {/* Row 2: Form Controls Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+              {/* Price Input + Unit */}
+              <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-md px-3 h-10">
+                <span className="text-lg font-semibold">$</span>
+                <Input
+                  type="number"
+                  value={rule.rate?.amount || 25}
+                  onChange={e => updateRateField(index, 'amount', e.target.value)}
+                  className="border-0 p-0 h-auto text-right flex-1 focus:ring-0"
+                />
+                <Select 
+                  value={rule.rate?.unit || 'per_hour'}
+                  onValueChange={v => updateRateField(index, 'unit', v)}
+                >
+                  <SelectTrigger className="border-0 p-0 h-auto w-auto">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {rateUnitOptions.map(u => 
+                      <SelectItem key={u} value={u}>{u.replace('_', ' ')}</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <div className="grid grid-cols-[1fr_auto] gap-2 text-sm mb-3">
-              <span className="text-slate-600">for a booking if</span>
+              {/* Condition Type */}
               <Select value={rule.condition_type || 'duration'} onValueChange={(value) => {
                 updateRule(index, 'condition_type', value);
-                // Clear tag list when switching to duration
                 if (value === 'duration') {
                   updateRule(index, 'value', '1h');
                 } else {
                   updateRule(index, 'value', []);
                 }
               }}>
-                <SelectTrigger className="w-32 h-10">
+                <SelectTrigger className="h-10">
                   <SelectValue>
-                    {rule.condition_type === "duration" ? "it's duration" : "the holder's set of tags"}
+                    {rule.condition_type === "duration" ? "duration" : "user tags"}
                   </SelectValue>
                 </SelectTrigger>
-                <SelectContent className="z-50">
-                  <SelectItem value="duration">it's duration</SelectItem>
-                  <SelectItem value="user_tags">the holder's set of tags</SelectItem>
+                <SelectContent>
+                  <SelectItem value="duration">duration</SelectItem>
+                  <SelectItem value="user_tags">user tags</SelectItem>
                 </SelectContent>
               </Select>
               
+              {/* Operator */}
               <Select value={rule.operator || 'is_greater_than'} onValueChange={(value) => updateRule(index, 'operator', value)}>
-                <SelectTrigger className="min-w-[150px] h-10">
+                <SelectTrigger className="h-10">
                   <SelectValue>
                     {rule.operator?.replace(/_/g, ' ') || 'is greater than'}
                   </SelectValue>
                 </SelectTrigger>
-                <SelectContent className="z-50">
+                <SelectContent>
                   {(rule.condition_type === "duration" ? durationOperators : tagOperators).map(operator => (
                     <SelectItem key={operator} value={operator.replace(/\s/g, '_')}>{operator}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               
+              {/* Value */}
               {rule.condition_type === "duration" ? (
                 <Select 
                   value={Array.isArray(rule.value) ? rule.value[0] : rule.value || '1h'} 
                   onValueChange={(value) => updateRule(index, 'value', value)}
                 >
-                  <SelectTrigger className="w-20 h-10">
+                  <SelectTrigger className="h-10">
                     <SelectValue>
                       {Array.isArray(rule.value) ? rule.value[0] : rule.value || '1h'}
                     </SelectValue>
                   </SelectTrigger>
-                  <SelectContent className="z-50">
+                  <SelectContent>
                     {durationValues.map(value => (
                       <SelectItem key={value} value={value}>{value}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               ) : (
-                <MultiSelect
-                  options={tagOptions}
-                  selected={Array.isArray(rule.value) ? rule.value : []}
-                  onSelectionChange={(selected) => updateRule(index, 'value', selected)}
-                  placeholder="Select tags"
-                />
+                <div className="h-10">
+                  <MultiSelect
+                    options={tagOptions}
+                    selected={Array.isArray(rule.value) ? rule.value : []}
+                    onSelectionChange={(selected) => updateRule(index, 'value', selected)}
+                    placeholder="Select tags"
+                  />
+                </div>
               )}
-              
+            </div>
+
+            {/* Add Condition Button */}
+            <div className="mb-3">
               <Button
                 type="button"
                 variant="outline"
@@ -307,7 +318,7 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
                   <SelectTrigger className="w-16 h-8">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="z-50">
+                  <SelectContent>
                     <SelectItem value="AND">AND</SelectItem>
                     <SelectItem value="OR">OR</SelectItem>
                   </SelectContent>
@@ -320,7 +331,7 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
                   <SelectTrigger className="w-32 h-8">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="z-50">
+                  <SelectContent>
                     <SelectItem value="duration">it's duration</SelectItem>
                     <SelectItem value="user_tags">the holder's set of tags</SelectItem>
                   </SelectContent>
@@ -333,7 +344,7 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
                   <SelectTrigger className="min-w-[150px] h-8">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="z-50">
+                  <SelectContent>
                     {(subCondition.condition_type === "duration" ? durationOperators : tagOperators).map(operator => (
                       <SelectItem key={operator} value={operator.replace(/\s/g, '_')}>{operator}</SelectItem>
                     ))}
@@ -348,7 +359,7 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
                     <SelectTrigger className="w-20 h-8">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="z-50">
+                    <SelectContent>
                       {durationValues.map(value => (
                         <SelectItem key={value} value={value}>{value}</SelectItem>
                       ))}
@@ -376,13 +387,13 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
             ))}
             
             {rule.condition_type === "user_tags" && (
-              <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded border mb-2">
+              <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded border mb-2 dark:bg-blue-900/20 dark:text-blue-400">
                 <strong>Logic:</strong> {getPricingLogicText(rule)}
               </div>
             )}
             
             {rule.explanation && (
-              <div className="text-xs text-slate-600 bg-white p-2 rounded border">
+              <div className="text-xs text-slate-600 bg-white p-2 rounded border dark:bg-slate-700 dark:text-slate-300">
                 <strong>Explanation:</strong> {rule.explanation}
               </div>
             )}
@@ -393,7 +404,7 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
               <Button
                 type="button"
                 size="sm"
-                className="rounded-full bg-g400 text-white px-3 py-1.5 text-sm"
+                className="rounded-full bg-slate-400 text-white px-3 py-1.5 text-sm hover:bg-slate-500"
                 onClick={() => updateLogicOperator(index, 'AND')}
               >
                 <Plus className="h-3 w-3 mr-1" /> and
@@ -402,7 +413,7 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
               <Button
                 type="button"
                 size="sm"
-                className="rounded-full bg-g400 text-white px-3 py-1.5 text-sm"
+                className="rounded-full bg-slate-400 text-white px-3 py-1.5 text-sm hover:bg-slate-500"
                 onClick={() => updateLogicOperator(index, 'OR')}
               >
                 <Plus className="h-3 w-3 mr-1" /> or
