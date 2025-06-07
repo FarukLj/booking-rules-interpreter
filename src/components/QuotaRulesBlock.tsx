@@ -80,11 +80,16 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
       
       {rules.map((rule, index) => (
         <div key={index}>
-          <div className="bg-[#F1F3F5] p-6 sm:p-3 rounded-lg">
-            <div className="flex flex-wrap items-center gap-2 text-sm mb-3">
-              <span className="text-slate-600">Limit</span>
+          <div className="bg-[#F1F3F5] p-4 sm:p-3 rounded-lg dark:bg-slate-800">
+            {/* Row 1: "Limit" string - full width */}
+            <div className="flex items-center text-sm text-slate-600 mb-3">
+              <span>Limit</span>
+            </div>
+
+            {/* Row 2: User target selector and tags dropdown - full width, equal distribution */}
+            <div className="flex flex-col sm:flex-row gap-3 mb-3">
               <Select value={rule.target || 'individuals'} onValueChange={(value) => updateRule(index, 'target', value)}>
-                <SelectTrigger className="min-w-[180px] h-10">
+                <SelectTrigger className="flex-1 h-10">
                   <SelectValue>
                     {getUserSelectorText(rule.target || 'individuals')}
                   </SelectValue>
@@ -98,18 +103,27 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
               </Select>
               
               {shouldShowTagsDropdown(rule.target || 'individuals') && (
-                <MultiSelect
-                  options={tagOptions}
-                  selected={rule.tags || []}
-                  onSelectionChange={(selected) => updateRule(index, 'tags', selected)}
-                  placeholder="Select tags"
-                  className="min-w-0 max-w-[200px]"
-                />
+                <div className="flex-1">
+                  <MultiSelect
+                    options={tagOptions}
+                    selected={rule.tags || []}
+                    onSelectionChange={(selected) => updateRule(index, 'tags', selected)}
+                    placeholder="Select tags"
+                    className="w-full"
+                  />
+                </div>
               )}
-              
-              <span className="text-slate-600">to a per-user</span>
+            </div>
+
+            {/* Row 3: "to a per-user" string - full width */}
+            <div className="flex items-center text-sm text-slate-600 mb-3">
+              <span>to a per-user</span>
+            </div>
+
+            {/* Row 4: Quota type selector - max-width 320px */}
+            <div className="flex items-center mb-3">
               <Select value={rule.quota_type || 'time'} onValueChange={(value) => updateRule(index, 'quota_type', value)}>
-                <SelectTrigger className="min-w-[160px] h-10">
+                <SelectTrigger className="max-w-[320px] h-10">
                   <SelectValue>
                     {rule.quota_type === "time" ? "time-usage maximum" : "booking-count maximum"}
                   </SelectValue>
@@ -121,8 +135,13 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
               </Select>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 text-sm mb-3">
-              <span className="text-slate-600">of</span>
+            {/* Row 5: "of" string - full width */}
+            <div className="flex items-center text-sm text-slate-600 mb-3">
+              <span>of</span>
+            </div>
+
+            {/* Row 6: Hour, minute, period, and space selectors - full width, equal distribution */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
               {rule.quota_type === "time" ? (
                 <>
                   <Select 
@@ -133,7 +152,7 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
                       updateRule(index, 'value', `${hours}${currentMinutes !== '0m' ? currentMinutes : ''}`);
                     }}
                   >
-                    <SelectTrigger className="w-16 h-10">
+                    <SelectTrigger className="h-10">
                       <SelectValue>
                         {typeof rule.value === 'string' && rule.value.includes('h') ? 
                           rule.value.split('h')[0] + 'h' : '2h'}
@@ -155,7 +174,7 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
                       updateRule(index, 'value', `${currentHours}${minutes !== '0m' ? minutes : ''}`);
                     }}
                   >
-                    <SelectTrigger className="w-16 h-10">
+                    <SelectTrigger className="h-10">
                       <SelectValue>
                         {typeof rule.value === 'string' && rule.value.includes('m') ? 
                           rule.value.split('h')[1] || '0m' : '0m'}
@@ -169,17 +188,20 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
                   </Select>
                 </>
               ) : (
-                <input 
-                  type="number" 
-                  value={typeof rule.value === 'number' ? rule.value : 5} 
-                  onChange={(e) => updateRule(index, 'value', parseInt(e.target.value) || 0)}
-                  className="w-20 px-2 py-2 border border-input rounded-md text-sm h-10"
-                  placeholder="5"
-                />
+                <>
+                  <input 
+                    type="number" 
+                    value={typeof rule.value === 'number' ? rule.value : 5} 
+                    onChange={(e) => updateRule(index, 'value', parseInt(e.target.value) || 0)}
+                    className="px-2 py-2 border border-input rounded-md text-sm h-10"
+                    placeholder="5"
+                  />
+                  <div></div>
+                </>
               )}
               
               <Select value={rule.period || 'day'} onValueChange={(value) => updateRule(index, 'period', value)}>
-                <SelectTrigger className="min-w-[140px] h-10">
+                <SelectTrigger className="h-10">
                   <SelectValue>
                     {rule.period === 'day' ? 'per day' :
                      rule.period === 'week' ? 'per week' :
@@ -200,14 +222,19 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
                 selected={rule.affected_spaces || []}
                 onSelectionChange={(selected) => updateRule(index, 'affected_spaces', selected)}
                 placeholder="Select spaces"
-                className="min-w-0 max-w-[200px]"
+                className="w-full"
               />
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 text-sm mb-3">
-              <span className="text-slate-600">and considering bookings scheduled at</span>
+            {/* Row 7: "and considering bookings scheduled at" string - full width */}
+            <div className="flex items-center text-sm text-slate-600 mb-3">
+              <span>and considering bookings scheduled at</span>
+            </div>
+
+            {/* Row 8: Consideration time selector - max-width 320px */}
+            <div className="flex items-center mb-3">
               <Select value={rule.consideration_time || 'any_time'} onValueChange={(value) => updateRule(index, 'consideration_time', value)}>
-                <SelectTrigger className="min-w-[120px] h-10">
+                <SelectTrigger className="max-w-[320px] h-10">
                   <SelectValue>
                     {rule.consideration_time === "any_time" ? "any time of week" : "only specific time"}
                   </SelectValue>
@@ -259,7 +286,7 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
             )}
             
             {rule.explanation && (
-              <div className="text-xs text-slate-600 bg-white p-2 rounded border">
+              <div className="text-xs text-slate-600 bg-white p-2 rounded border dark:bg-slate-700 dark:text-slate-300">
                 <strong>Explanation:</strong> {rule.explanation}
               </div>
             )}
