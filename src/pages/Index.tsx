@@ -54,9 +54,10 @@ const Index = () => {
   const hasSetupGuide = ruleResult?.setup_guide && ruleResult.setup_guide.length > 0;
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
+    <div className="min-h-screen flex flex-col">
       <Navbar />
       
+      {/* Header Section */}
       <header className="bg-white shadow-sm py-6">
         <div className="container mx-auto px-4">
           <h1 className="text-3xl font-bold text-slate-800">AI Booking Rule Assistant</h1>
@@ -66,14 +67,30 @@ const Index = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-12 flex-grow">
-        <div className="max-w-3xl mx-auto">
+      {/* Hero Section with Mesh Gradient */}
+      <section className="relative py-12 sm:py-8">
+        <div className="absolute inset-0 bg-interpreter-mesh">
+          <div 
+            className="absolute inset-0 bg-[url('/noise.png')] opacity-10 mix-blend-overlay pointer-events-none" 
+            aria-hidden="true" 
+          />
+        </div>
+        <div className="relative z-10 max-w-3xl mx-auto px-4">
           <BookingRuleInput onSubmit={handleRuleSubmit} isLoading={isLoading} />
-          
-          {/* Template Library Section - Only show categories */}
+        </div>
+      </section>
+
+      {/* Template Library Section - White Background */}
+      <section className="bg-white py-14 sm:py-10">
+        <div className="max-w-6xl mx-auto px-4">
           <LibCategoryGrid />
-          
-          <div className="mt-12 bg-white p-6 rounded-lg shadow-sm border border-slate-200">
+        </div>
+      </section>
+      
+      {/* How it Works Section */}
+      <section className="bg-slate-50 py-12">
+        <div className="max-w-3xl mx-auto px-4">
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
             <h2 className="text-xl font-semibold text-slate-800 mb-4">How it works</h2>
             <div className="grid md:grid-cols-3 gap-6">
               <div className="flex flex-col items-center text-center p-4">
@@ -99,8 +116,13 @@ const Index = () => {
               </div>
             </div>
           </div>
-          
-          <div className="mt-8 bg-white p-6 rounded-lg shadow-sm border border-slate-200">
+        </div>
+      </section>
+      
+      {/* Example Rules Section */}
+      <section className="bg-slate-50 pb-12">
+        <div className="max-w-3xl mx-auto px-4">
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
             <h2 className="text-xl font-semibold text-slate-800 mb-4">Example Rules</h2>
             <ul className="space-y-3 text-slate-700">
               <li className="p-3 bg-slate-50 rounded-md">"Only The Team can book Space 1 from 9am to 10pm at $25/hour or $150 full day"</li>
@@ -109,8 +131,9 @@ const Index = () => {
             </ul>
           </div>
         </div>
-      </main>
+      </section>
 
+      {/* Footer */}
       <footer className="bg-white border-t border-slate-200 py-6">
         <div className="container mx-auto px-4 text-center text-slate-500 text-sm">
           © {new Date().getFullYear()} AI Booking Rule Assistant. All rights reserved.

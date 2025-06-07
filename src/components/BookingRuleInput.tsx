@@ -26,7 +26,7 @@ export function BookingRuleInput({ onSubmit, isLoading }: BookingRuleInputProps)
   };
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
+    <div className="bg-white p-6 rounded-lg shadow-lg border border-slate-200/50 backdrop-blur-sm">
       <h2 className="text-xl font-semibold text-slate-800 mb-4">Enter a Booking Rule</h2>
       <form onSubmit={handleSubmit}>
         <div className="relative">

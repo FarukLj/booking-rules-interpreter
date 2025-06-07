@@ -44,6 +44,10 @@ export default {
 				/* ——— new production-UI tokens ——— */
 				g150: '#f5f7fa',   // light grey card background
 				link: '#0070f3',   // blue text links / dropdown triggers
+				
+				/* ——— AllBooked brand colors ——— */
+				pineDark: '#145843',   // AllBooked brand dark
+				pineLight: '#1E6E5E',  // AllBooked brand light
     
 				primary: {
 					DEFAULT: 'hsl(var(--primary))',
@@ -83,6 +87,13 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				}
+			},
+			backgroundImage: {
+				'interpreter-mesh': 
+					'radial-gradient(at 15% 20%, rgba(30,110,94,0.25) 0%, transparent 60%), ' +
+					'radial-gradient(at 85% 25%, rgba(20,88,67,0.20) 0%, transparent 55%), ' +
+					'radial-gradient(at 50% 80%, rgba(110,166,158,0.15) 0%, transparent 60%), ' +
+					'linear-gradient(135deg, #F7F9FB 0%, #EEF3F2 100%)',
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
