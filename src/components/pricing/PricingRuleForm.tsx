@@ -1,4 +1,3 @@
-
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { MultiSelect } from "@/components/ui/multi-select";
@@ -20,7 +19,7 @@ interface PricingRuleFormProps {
   tagOperators: string[];
   durationValues: string[];
   onUpdateRule: (index: number, field: keyof PricingRule, value: any) => void;
-  onUpdateRateField: (field: 'amount' | 'unit', value: any) => void;
+  onUpdateRateField: (index: number, field: 'amount' | 'unit', value: any) => void;
   onAddSubCondition: (ruleIndex: number) => void;
   onRemoveSubCondition: (ruleIndex: number, subIndex: number) => void;
   onUpdateSubCondition: (ruleIndex: number, subIndex: number, field: string, value: any) => void;
@@ -98,12 +97,12 @@ export function PricingRuleForm({
 <Input
   type="number"
   value={rule.rate?.amount ?? ''}
-  onChange={e => onUpdateRateField('amount', e.target.value)}
+  onChange={e => onUpdateRateField(index, 'amount', e.target.value)}
   className="w-20 h-6 border-b border-slate-300 rounded-none px-0 text-right"
 />
 <LinkSelect
   value={rule.rate?.unit ?? 'per_hour'}
-  onValueChange={v => onUpdateRateField('unit', v)}
+  onValueChange={v => onUpdateRateField(index, 'unit', v)}
   width="w-fit"
 >
   {rateUnitOptions.map(u => (
@@ -113,9 +112,6 @@ export function PricingRuleForm({
   ))}
 </LinkSelect>
 <span>for a booking if</span>
-
-
-        <span>for a booking if</span>
       </div>
       
       {/* Row B: Responsive Controls Grid */}
