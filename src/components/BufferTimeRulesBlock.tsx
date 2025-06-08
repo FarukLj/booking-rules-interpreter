@@ -29,12 +29,35 @@ export function BufferTimeRulesBlock({ initialRules = [] }: BufferTimeRulesBlock
     return duration;
   };
 
+  // Updated spaceOptions to include court spaces that AI commonly parses
+  const spaceOptions = [
+    "Space 1", "Space 2", "Conference Room A", "Studio 1", "Studio 2", "Studio 3", 
+    "Meeting Room B", "Court A", "Gym",
+    // Add court spaces that AI parser commonly generates
+    "Court 1", "Court 2", "Court 3", "Court 4", "Court 5", "Court 6", 
+    "Court 7", "Court 8", "Court 9", "Court 10", "Court 11", "Court 12",
+    "Court 13", "Court 14", "Court 15", "Court 16", "Court 17", "Court 18",
+    "Court 19", "Court 20", "Court 21", "Court 22", "Court 23", "Court 24"
+  ];
+
   const [rules, setRules] = useState<BufferTimeRule[]>(() => {
     if (initialRules.length > 0) {
-      return initialRules.map(rule => ({
-        ...rule,
-        buffer_duration: validateDuration(rule.buffer_duration)
-      }));
+      // Debug logging for initial rules
+      console.log("BufferTimeRulesBlock - received initialRules:", initialRules);
+      
+      return initialRules.map((rule, index) => {
+        // Check for invalid spaces and log them
+        const invalidSpaces = rule.spaces?.filter(space => !spaceOptions.includes(space)) || [];
+        if (invalidSpaces.length > 0) {
+          console.warn(`BufferTimeRulesBlock - Rule ${index} has invalid spaces that will be filtered out:`, invalidSpaces);
+          console.warn(`BufferTimeRulesBlock - Valid space options:`, spaceOptions);
+        }
+
+        return {
+          ...rule,
+          buffer_duration: validateDuration(rule.buffer_duration)
+        };
+      });
     }
     return [{
       spaces: ["Space 1"],
@@ -47,18 +70,26 @@ export function BufferTimeRulesBlock({ initialRules = [] }: BufferTimeRulesBlock
     new Array(Math.max(0, rules.length - 1)).fill("AND")
   );
 
-  const spaceOptions = ["Space 1", "Space 2", "Conference Room A", "Studio 1", "Studio 2", "Studio 3", "Meeting Room B", "Court A", "Gym"];
-
   // Debug logging
   useEffect(() => {
     console.log("BufferTimeRulesBlock - rules:", rules);
     console.log("BufferTimeRulesBlock - durationOptions:", durationOptions);
+    console.log("BufferTimeRulesBlock - spaceOptions:", spaceOptions);
   }, [rules]);
 
   const updateRule = (index: number, field: keyof BufferTimeRule, value: any) => {
     setRules(prev => prev.map((rule, i) => {
       if (i === index) {
         const updatedRule = { ...rule, [field]: value };
+        
+        // Special handling for spaces field to debug filtering
+        if (field === 'spaces' && Array.isArray(value)) {
+          const invalidSpaces = value.filter(space => !spaceOptions.includes(space));
+          if (invalidSpaces.length > 0) {
+            console.warn(`BufferTimeRulesBlock - updateRule: Invalid spaces detected and will be filtered:`, invalidSpaces);
+          }
+        }
+        
         // Validate buffer_duration when it's updated
         if (field === 'buffer_duration') {
           updatedRule.buffer_duration = validateDuration(value);
