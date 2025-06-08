@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { PricingRule } from "@/types/RuleResult";
 import { handleSmartTimeRange, timeRangeFromKeyword } from "@/utils/pricingFormatters";
@@ -40,18 +39,22 @@ export function usePricingRules(initialRules: PricingRule[] = []) {
     });
   }, [rules]);
 
-  const updateRule = (index: number, field: keyof PricingRule, value: any) => {
+  const updateRule = (index: number, field: keyof PricingRule | 'time_keyword', value: any) => {
     setRules(prev => prev.map((rule, i) => {
       if (i === index) {
         if (field === 'time_range') {
           value = handleSmartTimeRange(value);
         }
-        // Handle time_keyword parsing
+        // Handle time_keyword parsing (special case, not part of PricingRule interface)
         if (field === 'time_keyword' && typeof value === 'string') {
           const timeRange = timeRangeFromKeyword(value);
-          return { ...rule, time_range: timeRange, [field]: value };
+          return { ...rule, time_range: timeRange };
         }
-        return { ...rule, [field]: value };
+        // Only update if field is a valid PricingRule key
+        if (field !== 'time_keyword') {
+          return { ...rule, [field]: value };
+        }
+        return rule;
       }
       return rule;
     }));
