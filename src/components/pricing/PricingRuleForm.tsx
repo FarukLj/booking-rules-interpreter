@@ -98,12 +98,12 @@ export function PricingRuleForm({
 <Input
   type="number"
   value={rule.rate?.amount ?? ''}
-  onChange={e => updateRateField('amount', e.target.value)}
+  onChange={e => onUpdateRateField('amount', e.target.value)}
   className="w-20 h-6 border-b border-slate-300 rounded-none px-0 text-right"
 />
 <LinkSelect
   value={rule.rate?.unit ?? 'per_hour'}
-  onValueChange={v => updateRateField('unit', v)}
+  onValueChange={v => onUpdateRateField('unit', v)}
   width="w-fit"
 >
   {rateUnitOptions.map(u => (
