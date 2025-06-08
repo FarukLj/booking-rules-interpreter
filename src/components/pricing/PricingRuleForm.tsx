@@ -20,7 +20,7 @@ interface PricingRuleFormProps {
   tagOperators: string[];
   durationValues: string[];
   onUpdateRule: (index: number, field: keyof PricingRule, value: any) => void;
-  onUpdateRateField: (index: number, field: 'amount' | 'unit', value: any) => void;
+  onUpdateRateField: (field: 'amount' | 'unit', value: any) => void;
   onAddSubCondition: (ruleIndex: number) => void;
   onRemoveSubCondition: (ruleIndex: number, subIndex: number) => void;
   onUpdateSubCondition: (ruleIndex: number, subIndex: number, field: string, value: any) => void;
