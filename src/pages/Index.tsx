@@ -10,6 +10,7 @@ import { toast } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
 
 // this is a comment
+/* this is comment to force github updateo n jun 8 2025 final day edit */
 
 const Index = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
