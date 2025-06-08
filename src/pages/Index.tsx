@@ -9,6 +9,8 @@ import { RuleResult } from "@/types/RuleResult";
 import { toast } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
 
+// this is a comment
+
 const Index = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [showModal, setShowModal] = useState<boolean>(false);
