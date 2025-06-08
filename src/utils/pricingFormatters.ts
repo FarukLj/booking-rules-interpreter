@@ -7,16 +7,21 @@ export const formatTimeDisplay = (time: string) => {
   return `${displayHour}:${minute} ${period}`;
 };
 
+export const UNIT_LABEL: Record<string, string> = {
+  fixed: 'fixed rate',
+  per_15min: 'per 15 min',
+  per_30min: 'per 30 min',
+  per_hour: 'per hour',
+  per_2hours: 'per 2 h',
+  per_day: 'per day'
+};
+
+export function formatUnit(v: string) {
+  return UNIT_LABEL[v] ?? v;
+}
+
 export const formatRateUnit = (unit: string) => {
-  switch (unit) {
-    case "fixed": return "fixed rate";
-    case "per_15min": return "per 15min";
-    case "per_30min": return "per 30min";
-    case "per_hour": return "per hour";
-    case "per_2hours": return "per 2 hours";
-    case "per_day": return "per day";
-    default: return unit.replace('_', ' ');
-  }
+  return formatUnit(unit);
 };
 
 export const getRateDisplayText = (rate: { amount: number; unit: string }) => {
@@ -32,6 +37,16 @@ export const handleSmartTimeRange = (timeRange: string) => {
   }
   return timeRange;
 };
+
+/**  given "after 18:00" -> "18:00–24:00"
+ *   given "before 08:00" -> "00:00–08:00"                       */
+export function timeRangeFromKeyword(keyword: string): string {
+  const [dir, raw] = keyword.split(' ');
+  const hhmm = raw ?? '00:00';
+  return dir === 'after'
+    ? `${hhmm}–24:00`
+    : `00:00–${hhmm}`;
+}
 
 export const getPricingLogicText = (rule: any) => {
   if (rule.condition_type === "user_tags") {

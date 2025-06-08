@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { LinkSelect } from "@/components/ui/LinkSelect";
 import { Plus, X } from "lucide-react";
 import { PricingRule } from "@/types/RuleResult";
-import { formatTimeDisplay, formatRateUnit, getPricingLogicText } from "@/utils/pricingFormatters";
+import { formatTimeDisplay, formatUnit, getPricingLogicText } from "@/utils/pricingFormatters";
 
 interface PricingRuleFormProps {
   rule: PricingRule;
@@ -43,15 +43,18 @@ export function PricingRuleForm({
   onRemoveSubCondition,
   onUpdateSubCondition
 }: PricingRuleFormProps) {
+  const startTime = rule.time_range?.split('–')[0] || '09:00';
+  const endTime = rule.time_range?.split('–')[1] || '17:00';
+
   return (
     <div className="bg-[#F1F3F5] p-4 sm:p-3 rounded-lg dark:bg-slate-800">
-      {/* Row 1: Extended Natural Language Flow with Price */}
+      {/* Row A: Natural Language Flow with Price - Responsive flex-wrap */}
       <div className="flex flex-wrap items-center gap-1 text-sm font-medium mb-3 leading-6">
         <span>Between</span>
 
         <LinkSelect 
-          value={rule.time_range?.split('–')[0] || '09:00'}
-          onValueChange={(v) => onUpdateRule(index, 'time_range', `${v}–${rule.time_range?.split('–')[1] || '17:00'}`)}
+          value={startTime}
+          onValueChange={(v) => onUpdateRule(index, 'time_range', `${v}–${endTime}`)}
         >
           {timeOptions.map(t => 
             <SelectItem key={t} value={t}>{formatTimeDisplay(t)}</SelectItem>
@@ -61,8 +64,8 @@ export function PricingRuleForm({
         <span>and</span>
 
         <LinkSelect 
-          value={rule.time_range?.split('–')[1] || '17:00'}
-          onValueChange={(v) => onUpdateRule(index, 'time_range', `${rule.time_range?.split('–')[0] || '09:00'}–${v}`)}
+          value={endTime}
+          onValueChange={(v) => onUpdateRule(index, 'time_range', `${startTime}–${v}`)}
         >
           {timeOptions.map(t => 
             <SelectItem key={t} value={t}>{formatTimeDisplay(t)}</SelectItem>
@@ -89,14 +92,14 @@ export function PricingRuleForm({
 
         <span>is priced</span>
 
-        {/* Price Input Inline */}
-        <div className="flex items-center gap-1">
+        {/* Price Input with proper formatting */}
+        <span className="whitespace-nowrap flex items-center gap-1">
           <span className="text-lg font-semibold text-blue-700">$</span>
           <Input
             type="number"
             value={rule.rate?.amount || 25}
             onChange={e => onUpdateRateField(index, 'amount', e.target.value)}
-            className="border-0 p-0 h-auto w-16 text-blue-700 font-semibold focus:ring-0 bg-transparent"
+            className="border-0 p-0 h-auto w-[60px] text-blue-700 font-semibold focus:ring-0 bg-transparent"
           />
           
           <LinkSelect 
@@ -104,16 +107,16 @@ export function PricingRuleForm({
             onValueChange={v => onUpdateRateField(index, 'unit', v)}
           >
             {rateUnitOptions.map(u => 
-              <SelectItem key={u} value={u}>{formatRateUnit(u)}</SelectItem>
+              <SelectItem key={u} value={u}>{formatUnit(u)}</SelectItem>
             )}
           </LinkSelect>
-        </div>
+        </span>
 
         <span>for a booking if</span>
       </div>
       
-      {/* Row 2: Simplified 3-Component Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+      {/* Row B: Responsive Controls Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
         {/* Condition Type */}
         <Select value={rule.condition_type || 'duration'} onValueChange={(value) => {
           onUpdateRule(index, 'condition_type', value);
@@ -148,7 +151,7 @@ export function PricingRuleForm({
           </SelectContent>
         </Select>
         
-        {/* Value */}
+        {/* Value - with strict tag binding */}
         {rule.condition_type === "duration" ? (
           <Select 
             value={Array.isArray(rule.value) ? rule.value[0] : rule.value || '1h'} 
@@ -169,8 +172,15 @@ export function PricingRuleForm({
           <div className="h-10">
             <MultiSelect
               options={tagOptions}
-              selected={Array.isArray(rule.value) ? rule.value : []}
-              onSelectionChange={(selected) => onUpdateRule(index, 'value', selected)}
+              selected={Array.isArray(rule.value) ? rule.value.filter(v => tagOptions.includes(v)) : []}
+              onSelectionChange={(selected) => {
+                // Data source sanitation - only allow valid tag options
+                const validTags = selected.filter(tag => tagOptions.includes(tag));
+                if (validTags.length !== selected.length) {
+                  console.warn('Filtered out invalid tags:', selected.filter(tag => !tagOptions.includes(tag)));
+                }
+                onUpdateRule(index, 'value', validTags);
+              }}
               placeholder="Select tags"
             />
           </div>
@@ -251,8 +261,11 @@ export function PricingRuleForm({
           ) : (
             <MultiSelect
               options={tagOptions}
-              selected={Array.isArray(subCondition.value) ? subCondition.value : []}
-              onSelectionChange={(selected) => onUpdateSubCondition(index, subIndex, 'value', selected)}
+              selected={Array.isArray(subCondition.value) ? subCondition.value.filter(v => tagOptions.includes(v)) : []}
+              onSelectionChange={(selected) => {
+                const validTags = selected.filter(tag => tagOptions.includes(tag));
+                onUpdateSubCondition(index, subIndex, 'value', validTags);
+              }}
               placeholder="Select tags"
             />
           )}
