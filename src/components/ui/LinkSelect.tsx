@@ -10,6 +10,8 @@ import { ChevronDown } from "lucide-react";
 import { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import * as React from "react";
+import { formatUnit } from "@/utils/pricingFormatters";
+
 
 interface Props {
   value: string;
@@ -44,7 +46,10 @@ export function LinkSelect({
           "data-[state=open]:text-blue-600"
         )}
       >
-        <SelectValue placeholder={placeholder} />
+        <SelectValue placeholder={placeholder}>
+  {formatUnit(String(value))}
+</SelectValue>
+
         <ChevronDown className="ml-1 w-3 h-3 shrink-0" />
       </SelectTrigger>
       <SelectContent className="z-[100]" position="popper">
