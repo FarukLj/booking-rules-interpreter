@@ -44,7 +44,7 @@ export function PricingRuleForm({
   onUpdateSubCondition
 }: PricingRuleFormProps) {
   const startTime = rule.time_range?.split('–')[0] || '09:00';
-  const endTime = rule.time_range?.split('–')[1] || '17:00';
+  const endTime   = rule.time_range?.split('–')[1] || '24:00';
 
   return (
     <div className="bg-[#F1F3F5] p-4 sm:p-3 rounded-lg dark:bg-slate-800">
