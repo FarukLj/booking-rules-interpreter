@@ -5,12 +5,17 @@ import { Toggle } from "@/components/ui/toggle";
 import { BufferTimeRule } from "@/types/RuleResult";
 import { LinkSelect } from "@/components/ui/LinkSelect";
 import { SelectItem } from "@/components/ui/select";
+import { useSpaceOptions } from "@/hooks/useSpaceOptions";
 
 interface BufferTimeRulesBlockProps {
   initialRules?: BufferTimeRule[];
+  ruleResult?: any; // For extracting spaces from AI results
 }
 
-export function BufferTimeRulesBlock({ initialRules = [] }: BufferTimeRulesBlockProps) {
+export function BufferTimeRulesBlock({ initialRules = [], ruleResult }: BufferTimeRulesBlockProps) {
+  // Get dynamic space options from the hook
+  const { spaceOptions, isLoading: spacesLoading, extractedSpaceNames } = useSpaceOptions(ruleResult);
+
   // Generate buffer time options from 15m to 24h in 15-minute increments
   const durationOptions = [];
   for (let i = 15; i <= 60; i += 15) {
@@ -29,10 +34,32 @@ export function BufferTimeRulesBlock({ initialRules = [] }: BufferTimeRulesBlock
     return duration;
   };
 
+  // Normalize space values to strings and filter valid ones
+  const normalizeSpaces = (spaces: any[]): string[] => {
+    if (!spaces) return [];
+    
+    const normalized = spaces.map(space => {
+      if (typeof space === 'string') return space;
+      if (space?.name) return space.name;
+      return null;
+    }).filter(Boolean);
+
+    // Filter out spaces that don't exist in our options
+    const validSpaces = normalized.filter(space => spaceOptions.includes(space));
+    const invalidSpaces = normalized.filter(space => !spaceOptions.includes(space));
+    
+    if (invalidSpaces.length > 0) {
+      console.warn('Filtered out invalid spaces:', invalidSpaces);
+    }
+    
+    return validSpaces;
+  };
+
   const [rules, setRules] = useState<BufferTimeRule[]>(() => {
     if (initialRules.length > 0) {
       return initialRules.map(rule => ({
         ...rule,
+        spaces: normalizeSpaces(rule.spaces),
         buffer_duration: validateDuration(rule.buffer_duration)
       }));
     }
@@ -47,22 +74,40 @@ export function BufferTimeRulesBlock({ initialRules = [] }: BufferTimeRulesBlock
     new Array(Math.max(0, rules.length - 1)).fill("AND")
   );
 
-  const spaceOptions = ["Space 1", "Space 2", "Conference Room A", "Studio 1", "Studio 2", "Studio 3", "Meeting Room B", "Court A", "Gym"];
+  // Update rules when spaceOptions change to filter out invalid spaces
+  useEffect(() => {
+    if (spaceOptions.length > 0) {
+      setRules(prev => prev.map(rule => ({
+        ...rule,
+        spaces: normalizeSpaces(rule.spaces)
+      })));
+    }
+  }, [spaceOptions]);
 
   // Debug logging
   useEffect(() => {
     console.log("BufferTimeRulesBlock - rules:", rules);
-    console.log("BufferTimeRulesBlock - durationOptions:", durationOptions);
-  }, [rules]);
+    console.log("BufferTimeRulesBlock - spaceOptions:", spaceOptions);
+    console.log("BufferTimeRulesBlock - extractedSpaceNames:", extractedSpaceNames);
+  }, [rules, spaceOptions, extractedSpaceNames]);
 
   const updateRule = (index: number, field: keyof BufferTimeRule, value: any) => {
     setRules(prev => prev.map((rule, i) => {
       if (i === index) {
-        const updatedRule = { ...rule, [field]: value };
+        let updatedValue = value;
+        
+        // Apply space filtering for spaces field
+        if (field === 'spaces') {
+          updatedValue = value.filter((space: string) => spaceOptions.includes(space));
+        }
+        
+        const updatedRule = { ...rule, [field]: updatedValue };
+        
         // Validate buffer_duration when it's updated
         if (field === 'buffer_duration') {
           updatedRule.buffer_duration = validateDuration(value);
         }
+        
         console.log("Updating rule:", updatedRule);
         return updatedRule;
       }
@@ -74,9 +119,28 @@ export function BufferTimeRulesBlock({ initialRules = [] }: BufferTimeRulesBlock
     setLogicOperators(prev => prev.map((op, i) => i === index ? operator : op));
   };
 
+  // Show loading state while spaces are being fetched
+  if (spacesLoading) {
+    return (
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold text-slate-800">Buffer Time Rules</h3>
+        <div className="bg-[#F1F3F5] p-6 sm:p-3 rounded-lg">
+          <div className="text-sm text-slate-600">Loading spaces...</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-semibold text-slate-800">Buffer Time Rules</h3>
+      
+      {/* Show extracted space names for debugging */}
+      {extractedSpaceNames.length > 0 && (
+        <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded border">
+          <strong>AI-extracted spaces:</strong> {extractedSpaceNames.join(', ')}
+        </div>
+      )}
       
       {rules.map((rule, index) => (
         <div key={index}>

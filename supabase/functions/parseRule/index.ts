@@ -1,7 +1,11 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { corsHeaders } from "../_shared/cors.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
+const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
 
 // Rate limiting store (in production, use Redis or similar)
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
@@ -27,9 +31,74 @@ function normalizeAdvanceUnit(value: number, unit: string): number {
   }
 }
 
+// Space resolution utility
+async function resolveSpaces(spaceNames: string[]) {
+  if (!spaceNames || spaceNames.length === 0) return [];
+  
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  
+  try {
+    // Get existing spaces from database
+    const { data: existingSpaces, error } = await supabase
+      .from('spaces')
+      .select('id, name')
+      .in('name', spaceNames);
+    
+    if (error) {
+      console.error('Error fetching spaces:', error);
+      // Fallback to string names if DB query fails
+      return spaceNames;
+    }
+    
+    const existingSpaceNames = new Set(existingSpaces?.map(s => s.name) || []);
+    const newSpaceNames = spaceNames.filter(name => !existingSpaceNames.has(name));
+    
+    // Create any missing spaces
+    if (newSpaceNames.length > 0) {
+      const { data: newSpaces, error: insertError } = await supabase
+        .from('spaces')
+        .insert(newSpaceNames.map(name => ({ name })))
+        .select('id, name');
+      
+      if (insertError) {
+        console.warn('Could not create new spaces:', insertError);
+        // Still return existing spaces + string names for new ones
+        return [
+          ...(existingSpaces || []),
+          ...newSpaceNames
+        ];
+      }
+      
+      // Return all spaces (existing + newly created)
+      return [
+        ...(existingSpaces || []),
+        ...(newSpaces || [])
+      ];
+    }
+    
+    // Return only existing spaces
+    return existingSpaces || [];
+    
+  } catch (err) {
+    console.error('Space resolution failed:', err);
+    // Fallback to original string names
+    return spaceNames;
+  }
+}
+
 // Enhanced post-processing sanitization layer
-function sanitizeRules(parsedResponse: any, originalRule: string): any {
+async function sanitizeRules(parsedResponse: any, originalRule: string): Promise<any> {
   console.log('Starting enhanced rule sanitization...');
+  
+  // Resolve spaces in buffer_time_rules
+  if (parsedResponse.buffer_time_rules) {
+    for (const rule of parsedResponse.buffer_time_rules) {
+      if (rule.spaces && Array.isArray(rule.spaces)) {
+        rule.spaces = await resolveSpaces(rule.spaces);
+        console.log('Resolved buffer time spaces:', rule.spaces);
+      }
+    }
+  }
   
   // Fix booking conditions - handle "only...can book" patterns
   if (parsedResponse.booking_conditions) {
@@ -318,7 +387,7 @@ Rule: ${rule}
     }
 
     // Apply enhanced post-processing sanitization
-    parsedResponse = sanitizeRules(parsedResponse, rule);
+    parsedResponse = await sanitizeRules(parsedResponse, rule);
 
     // Add setup guide generation
     const setupGuide = generateSetupGuide(parsedResponse)

@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -144,24 +143,22 @@ export const SetupGuideModal = ({
     console.debug('[SetupGuideModal] Rule counts:', ruleCount);
   }
 
-  const renderRuleBlock = (step: any) => {
-    if (!step.rule_blocks?.length) return null;
-
-    switch (step.step_key) {
+  const renderRuleBlocks = (ruleBlocks: any[], blockType: string) => {
+    switch (blockType) {
       case 'booking_conditions':
-        return <BookingConditionsBlock initialConditions={step.rule_blocks} />;
+        return <BookingConditionsBlock initialConditions={ruleBlocks} />;
       case 'pricing_rules':
-        return <PricingRulesBlock initialRules={step.rule_blocks} />;
+        return <PricingRulesBlock initialRules={ruleBlocks} />;
       case 'quota_rules':
-        return <QuotaRulesBlock initialRules={step.rule_blocks} />;
+        return <QuotaRulesBlock initialRules={ruleBlocks} />;
       case 'buffer_time_rules':
-        return <BufferTimeRulesBlock initialRules={step.rule_blocks} />;
+        return <BufferTimeRulesBlock initialRules={ruleBlocks} ruleResult={result} />;
       case 'booking_window_rules':
-        return <BookingWindowRulesBlock initialRules={step.rule_blocks} />;
+        return <BookingWindowRulesBlock initialRules={ruleBlocks} />;
       case 'space_sharing':
-        return <SpaceSharingRulesBlock initialRules={step.rule_blocks} />;
+        return <SpaceSharingRulesBlock initialRules={ruleBlocks} />;
       default:
-        return null;
+        return <div>Unknown rule type: {blockType}</div>;
     }
   };
 
@@ -216,7 +213,7 @@ export const SetupGuideModal = ({
                   </div>
                 )}
 
-                {renderRuleBlock(step)}
+                {renderRuleBlocks(step.rule_blocks, step.step_key)}
               </div>
             ))}
           </div>

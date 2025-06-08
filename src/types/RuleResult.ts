@@ -42,7 +42,7 @@ export interface QuotaRule {
 }
 
 export interface BufferTimeRule {
-  spaces: string[];
+  spaces: (string | { id: string; name: string })[];
   buffer_duration: string;
   explanation: string;
 }
