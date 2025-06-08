@@ -42,8 +42,6 @@ export function usePricingRules(initialRules: PricingRule[] = []) {
   // ───────────────────────────────────────────────────────────
 //  Updates a single field **or** handles our special keyword
 //  “after 18:00” → time_range = "18:00–24:00"
-import { normaliseTimeRange } from "@/utils/pricingFormatters";   //  add this to the imports at the top
-
 const updateRule = (
   index: number,
   field: keyof PricingRule | "time_keyword",
