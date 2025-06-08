@@ -71,3 +71,29 @@ export const getPricingLogicText = (rule: any) => {
   }
   return "";
 };
+
+// ───────────────────────────────────────────────────────────
+// Human-friendly labels
+export const UNIT_LABEL: Record<string, string> = {
+  fixed: 'fixed rate',
+  per_15min: 'per 15 min',
+  per_30min: 'per 30 min',
+  per_hour: 'per hour',
+  per_2hours: 'per 2 h',
+  per_day: 'per day',
+};
+
+export function formatUnit(raw: string): string {
+  return UNIT_LABEL[raw] ?? raw.replaceAll('_', ' ');
+}
+
+// Parse “after 6 PM” → “18:00–24:00”
+export function normaliseTimeRange(keyword: string): string | null {
+  const match = /after\s*(\d{1,2})(?::?(\d{2}))?\s*(am|pm)?/i.exec(keyword);
+  if (!match) return null;
+  let [_, h, m = '00', ampm] = match;
+  let hour = Number(h);
+  if (ampm?.toLowerCase() === 'pm' && hour < 12) hour += 12;
+  const start = `${hour.toString().padStart(2, '0')}:${m}`;
+  return `${start}–24:00`;
+}
