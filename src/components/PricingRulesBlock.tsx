@@ -160,7 +160,7 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
       {rules.map((rule, index) => (
         <div key={index}>
           <div className="bg-[#F1F3F5] p-4 sm:p-3 rounded-lg dark:bg-slate-800">
-            {/* Row 1: Natural Language Flow */}
+            {/* Row 1: Extended Natural Language Flow with Price */}
             <div className="flex flex-wrap items-center gap-1 text-sm font-medium mb-3 leading-6">
               <span>Between</span>
 
@@ -203,34 +203,32 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
               />
 
               <span>is priced</span>
-            </div>
-            
-            {/* Row 2: Form Controls Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
-              {/* Price Input + Unit */}
-              <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-md px-3 h-10">
-                <span className="text-lg font-semibold">$</span>
+
+              {/* Price Input Inline */}
+              <div className="flex items-center gap-0">
+                <span className="text-lg font-semibold text-blue-700">$</span>
                 <Input
                   type="number"
                   value={rule.rate?.amount || 25}
                   onChange={e => updateRateField(index, 'amount', e.target.value)}
-                  className="border-0 p-0 h-auto text-right flex-1 focus:ring-0"
+                  className="border-0 p-0 h-auto w-16 text-blue-700 font-semibold focus:ring-0 bg-transparent"
                 />
-                <Select 
+                
+                <LinkSelect 
                   value={rule.rate?.unit || 'per_hour'}
                   onValueChange={v => updateRateField(index, 'unit', v)}
                 >
-                  <SelectTrigger className="border-0 p-0 h-auto w-auto">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {rateUnitOptions.map(u => 
-                      <SelectItem key={u} value={u}>{u.replace('_', ' ')}</SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
+                  {rateUnitOptions.map(u => 
+                    <SelectItem key={u} value={u}>{u.replace('_', ' ')}</SelectItem>
+                  )}
+                </LinkSelect>
               </div>
 
+              <span>for a booking if</span>
+            </div>
+            
+            {/* Row 2: Simplified 3-Component Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
               {/* Condition Type */}
               <Select value={rule.condition_type || 'duration'} onValueChange={(value) => {
                 updateRule(index, 'condition_type', value);
