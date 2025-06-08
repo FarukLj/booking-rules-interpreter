@@ -62,6 +62,11 @@ export function MultiSelect({
         <span className="text-muted-foreground text-sm truncate">{placeholder}</span>
       );
     }
+    // ── NEW: remove any values not in options array
+const validSelected = selected.filter(s => options.includes(s));
+if (validSelected.length !== selected.length) {
+  onSelectionChange(validSelected);   // silently fix list
+}
 
     // Add validation guard as specified
     const safeSelected = triggerVariant === "link"
