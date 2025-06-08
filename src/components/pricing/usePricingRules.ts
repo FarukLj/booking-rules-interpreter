@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { PricingRule } from "@/types/RuleResult";
-import { handleSmartTimeRange, timeRangeFromKeyword } from "@/utils/pricingFormatters";
+import { handleSmartTimeRange, timeRangeFromKeyword, normaliseTimeRange } from "@/utils/pricingFormatters";
 
 export function usePricingRules(initialRules: PricingRule[] = []) {
   // Sort rules: fixed rates first, then per-period rates
@@ -45,9 +45,9 @@ export function usePricingRules(initialRules: PricingRule[] = []) {
         if (field === 'time_range') {
           value = handleSmartTimeRange(value);
         }
-        // Handle time_keyword parsing (special case, not part of PricingRule interface)
+        // Handle time_keyword parsing using normaliseTimeRange
         if (field === 'time_keyword' && typeof value === 'string') {
-          const timeRange = timeRangeFromKeyword(value);
+          const timeRange = normaliseTimeRange(value, rule.time_range);
           return { ...rule, time_range: timeRange };
         }
         // Only update if field is a valid PricingRule key

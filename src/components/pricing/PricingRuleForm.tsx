@@ -92,20 +92,22 @@ export function PricingRuleForm({
 
         <span>is priced</span>
 
-        {/* Price Input with proper formatting */}
-        <span className="whitespace-nowrap flex items-center gap-1">
-          <span className="text-lg font-semibold text-blue-700">$</span>
-          <Input
+        {/* Price Input with formatted unit label as specified */}
+        <span className="whitespace-nowrap flex items-center gap-0.5">
+          $<input
             type="number"
             value={rule.rate?.amount || 25}
             onChange={e => onUpdateRateField(index, 'amount', e.target.value)}
-            className="border-0 p-0 h-auto w-[60px] text-blue-700 font-semibold focus:ring-0 bg-transparent"
+            className="w-16 text-right border-0 focus:ring-0 bg-transparent text-blue-700 font-semibold"
           />
-          
           <LinkSelect 
             value={rule.rate?.unit || 'per_hour'}
             onValueChange={v => onUpdateRateField(index, 'unit', v)}
+            width="w-fit"
           >
+            <SelectValue>
+              {formatUnit(rule.rate?.unit || 'per_hour')}
+            </SelectValue>
             {rateUnitOptions.map(u => 
               <SelectItem key={u} value={u}>{formatUnit(u)}</SelectItem>
             )}

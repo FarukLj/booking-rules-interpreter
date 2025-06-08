@@ -1,5 +1,10 @@
 
 export const formatTimeDisplay = (time: string) => {
+  // Handle special case for 24:00 -> 12:00 AM
+  if (time === "24:00") {
+    return "12:00 AM";
+  }
+  
   const hour = parseInt(time.split(':')[0]);
   const minute = time.split(':')[1];
   const period = hour >= 12 ? 'PM' : 'AM';
@@ -37,6 +42,16 @@ export const handleSmartTimeRange = (timeRange: string) => {
   }
   return timeRange;
 };
+
+// Add the normaliseTimeRange function as specified
+export function normaliseTimeRange(keyword?: string, current?: string): string {
+  if (!keyword) return current ?? "00:00–24:00";
+  const [dir, raw] = keyword.split(/\s+/);             // "after 18:00"
+  const hhmm = raw || "00:00";
+  return dir === "after"
+    ? `${hhmm}–24:00`
+    : `00:00–${hhmm}`;
+}
 
 /**  given "after 18:00" -> "18:00–24:00"
  *   given "before 08:00" -> "00:00–08:00"                       */

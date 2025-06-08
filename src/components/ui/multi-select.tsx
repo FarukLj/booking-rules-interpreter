@@ -63,10 +63,21 @@ export function MultiSelect({
       );
     }
 
+    // Add validation guard as specified
+    const safeSelected = triggerVariant === "link"
+      ? selected.filter(t => options.includes(t))
+      : selected;
+
+    // Log discarded values if any
+    if (safeSelected.length !== selected.length) {
+      const discarded = selected.filter(t => !options.includes(t));
+      console.warn('MultiSelect: Discarded invalid values:', discarded);
+    }
+
     // For link variant, display as clean text like LinkSelect
     if (triggerVariant === "link") {
-      const displayItems = getDisplayItems(selected);
-      if (selected.length === 1) {
+      const displayItems = getDisplayItems(safeSelected);
+      if (safeSelected.length === 1) {
         return <span className="text-blue-700 font-semibold">{displayItems[0]}</span>;
       }
       return <span className="text-blue-700 font-semibold">{displayItems.join(", ")}</span>;
@@ -75,26 +86,26 @@ export function MultiSelect({
     // For input variant, use the existing chip display logic
     const maxVisibleChips = 3;
 
-    if (selected.length === 1) {
+    if (safeSelected.length === 1) {
       return (
         <div className="flex items-center gap-1 min-w-0 flex-1">
           <span
             className="inline-flex items-center gap-0.5 rounded-full bg-link/10 text-link text-xs px-2 py-0.5 max-w-[160px] truncate"
           >
-            <span className="truncate">{selected[0]}</span>
+            <span className="truncate">{safeSelected[0]}</span>
             <X
               className="ml-1 h-3 w-3 cursor-pointer hover:text-destructive flex-shrink-0"
-              onClick={(e) => removeItem(selected[0], e)}
+              onClick={(e) => removeItem(safeSelected[0], e)}
             />
           </span>
         </div>
       );
     }
 
-    if (selected.length <= maxVisibleChips) {
+    if (safeSelected.length <= maxVisibleChips) {
       return (
         <div className="flex items-center gap-1 min-w-0 flex-1 flex-wrap">
-          {selected.slice(0, maxVisibleChips).map((item, index) => (
+          {safeSelected.slice(0, maxVisibleChips).map((item, index) => (
             <span
               key={item}
               className="inline-flex items-center gap-0.5 rounded-full bg-link/10 text-link text-xs px-2 py-0.5 max-w-[120px] truncate"
@@ -113,7 +124,7 @@ export function MultiSelect({
     // For many items, show first 2 chips + count
     return (
       <div className="flex items-center gap-1 min-w-0 flex-1">
-        {selected.slice(0, 2).map((item) => (
+        {safeSelected.slice(0, 2).map((item) => (
           <span
             key={item}
             className="inline-flex items-center gap-0.5 rounded-full bg-link/10 text-link text-xs px-2 py-0.5 max-w-[100px] truncate"
@@ -126,7 +137,7 @@ export function MultiSelect({
           </span>
         ))}
         <span className="text-xs text-slate-600 font-medium flex-shrink-0">
-          +{selected.length - 2} more
+          +{safeSelected.length - 2} more
         </span>
       </div>
     );
