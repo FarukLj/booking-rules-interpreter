@@ -39,26 +39,36 @@ export function usePricingRules(initialRules: PricingRule[] = []) {
     });
   }, [rules]);
 
-  const updateRule = (index: number, field: keyof PricingRule | 'time_keyword', value: any) => {
-    setRules(prev => prev.map((rule, i) => {
-      if (i === index) {
-        if (field === 'time_range') {
-          value = handleSmartTimeRange(value);
-        }
-        // Handle time_keyword parsing using normaliseTimeRange
-        if (field === 'time_keyword' && typeof value === 'string') {
-          const timeRange = normaliseTimeRange(value, rule.time_range);
-          return { ...rule, time_range: timeRange };
-        }
-        // Only update if field is a valid PricingRule key
-        if (field !== 'time_keyword') {
-          return { ...rule, [field]: value };
-        }
-        return rule;
-      }
-      return rule;
-    }));
-  };
+  // ───────────────────────────────────────────────────────────
+//  Updates a single field **or** handles our special keyword
+//  “after 18:00” → time_range = "18:00–24:00"
+import { normaliseTimeRange } from "@/utils/pricingFormatters";   //  add this to the imports at the top
+
+const updateRule = (
+  index: number,
+  field: keyof PricingRule | "time_keyword",
+  value: any
+) => {
+  // ••• 1) keyword branch — run before we touch state •••
+  if (field === "time_keyword") {
+    const range = normaliseTimeRange(String(value));
+    if (range) {
+      setRules(prev =>
+        prev.map((rule, i) =>
+          i === index ? { ...rule, time_range: range } : rule
+        )
+      );
+    }
+    return;                           // nothing else to do
+  }
+
+  // ••• 2) regular field update •••
+  setRules(prev =>
+    prev.map((rule, i) =>
+      i === index ? { ...rule, [field]: value } : rule
+    )
+  );
+};
 
   const updateRateField = (index: number, field: 'amount' | 'unit', value: any) => {
     setRules(prev => prev.map((rule, i) => 
