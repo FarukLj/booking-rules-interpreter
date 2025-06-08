@@ -74,6 +74,27 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
   
   const durationValues = ["15min", "30min", "45min", "1h", "1h15min", "1h30min", "2h", "3h", "4h", "6h", "8h"];
 
+  // Helper functions for proper formatting
+  const formatTimeDisplay = (time: string) => {
+    const hour = parseInt(time.split(':')[0]);
+    const minute = time.split(':')[1];
+    const period = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+    return `${displayHour}:${minute} ${period}`;
+  };
+
+  const formatRateUnit = (unit: string) => {
+    if (unit === "fixed") return "fixed";
+    return unit.replace('_', ' ');
+  };
+
+  const getRateDisplayText = (rate: { amount: number; unit: string }) => {
+    if (rate.unit === "fixed") {
+      return "fixed";
+    }
+    return formatRateUnit(rate.unit);
+  };
+
   const updateRule = (index: number, field: keyof PricingRule, value: any) => {
     setRules(prev => prev.map((rule, i) => 
       i === index ? { ...rule, [field]: value } : rule
@@ -130,14 +151,6 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
     ));
   };
 
-  const formatTimeDisplay = (time: string) => {
-    const hour = parseInt(time.split(':')[0]);
-    const minute = time.split(':')[1];
-    const period = hour >= 12 ? 'PM' : 'AM';
-    const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-    return `${displayHour}:${minute} ${period}`;
-  };
-
   const getPricingLogicText = (rule: PricingRule) => {
     if (rule.condition_type === "user_tags") {
       const operator = rule.operator === "contains_any_of" ? "with" : "without";
@@ -166,7 +179,7 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
 
               <LinkSelect 
                 value={rule.time_range?.split('–')[0] || '09:00'}
-                onValueChange={(v) => updateRule(index, 'time_range', `${v}–${rule.time_range?.split('–')[1]}`)}
+                onValueChange={(v) => updateRule(index, 'time_range', `${v}–${rule.time_range?.split('–')[1] || '17:00'}`)}
               >
                 {timeOptions.map(t => 
                   <SelectItem key={t} value={t}>{formatTimeDisplay(t)}</SelectItem>
@@ -177,7 +190,7 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
 
               <LinkSelect 
                 value={rule.time_range?.split('–')[1] || '17:00'}
-                onValueChange={(v) => updateRule(index, 'time_range', `${rule.time_range?.split('–')[0]}–${v}`)}
+                onValueChange={(v) => updateRule(index, 'time_range', `${rule.time_range?.split('–')[0] || '09:00'}–${v}`)}
               >
                 {timeOptions.map(t => 
                   <SelectItem key={t} value={t}>{formatTimeDisplay(t)}</SelectItem>
@@ -219,7 +232,7 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
                   onValueChange={v => updateRateField(index, 'unit', v)}
                 >
                   {rateUnitOptions.map(u => 
-                    <SelectItem key={u} value={u}>{u.replace('_', ' ')}</SelectItem>
+                    <SelectItem key={u} value={u}>{formatRateUnit(u)}</SelectItem>
                   )}
                 </LinkSelect>
               </div>
@@ -240,12 +253,12 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
               }}>
                 <SelectTrigger className="h-10">
                   <SelectValue>
-                    {rule.condition_type === "duration" ? "duration" : "user tags"}
+                    {rule.condition_type === "duration" ? "duration" : "the holder's set of tags"}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="duration">duration</SelectItem>
-                  <SelectItem value="user_tags">user tags</SelectItem>
+                  <SelectItem value="user_tags">the holder's set of tags</SelectItem>
                 </SelectContent>
               </Select>
               
