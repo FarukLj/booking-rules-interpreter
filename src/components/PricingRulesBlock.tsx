@@ -84,21 +84,41 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
   };
 
   const formatRateUnit = (unit: string) => {
-    if (unit === "fixed") return "fixed";
-    return unit.replace('_', ' ');
+    switch (unit) {
+      case "fixed": return "fixed rate";
+      case "per_15min": return "per 15min";
+      case "per_30min": return "per 30min";
+      case "per_hour": return "per hour";
+      case "per_2hours": return "per 2 hours";
+      case "per_day": return "per day";
+      default: return unit.replace('_', ' ');
+    }
   };
 
   const getRateDisplayText = (rate: { amount: number; unit: string }) => {
-    if (rate.unit === "fixed") {
-      return "fixed";
-    }
     return formatRateUnit(rate.unit);
   };
 
+  // Smart time range logic for "after X PM" scenarios
+  const handleSmartTimeRange = (timeRange: string) => {
+    // If only start time is provided (like "after 6 PM"), set end time to midnight
+    if (!timeRange.includes('–') && !timeRange.includes('-')) {
+      // Parse the time and set end to 00:00 (midnight)
+      return `${timeRange}–00:00`;
+    }
+    return timeRange;
+  };
+
   const updateRule = (index: number, field: keyof PricingRule, value: any) => {
-    setRules(prev => prev.map((rule, i) => 
-      i === index ? { ...rule, [field]: value } : rule
-    ));
+    setRules(prev => prev.map((rule, i) => {
+      if (i === index) {
+        if (field === 'time_range') {
+          value = handleSmartTimeRange(value);
+        }
+        return { ...rule, [field]: value };
+      }
+      return rule;
+    }));
   };
 
   const updateRateField = (index: number, field: 'amount' | 'unit', value: any) => {
@@ -218,7 +238,7 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
               <span>is priced</span>
 
               {/* Price Input Inline */}
-              <div className="flex items-center gap-0">
+              <div className="flex items-center gap-1">
                 <span className="text-lg font-semibold text-blue-700">$</span>
                 <Input
                   type="number"
