@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,11 @@ export const SetupGuideModal = ({
   mode = "ai"
 }: SetupGuideModalProps) => {
   
+  // Helper function to extract space name from space object or string
+  const getSpaceName = (space: string | { id: string; name: string }): string => {
+    return typeof space === 'string' ? space : space.name;
+  };
+
   // Build setup guide for AI mode only
   const buildSetupGuide = (data: RuleResult) => {
     const steps = [];
@@ -37,7 +43,7 @@ export const SetupGuideModal = ({
     data.booking_conditions?.forEach(rule => rule.space?.forEach(space => allSpaces.add(space)));
     data.pricing_rules?.forEach(rule => rule.space?.forEach(space => allSpaces.add(space)));
     data.quota_rules?.forEach(rule => rule.affected_spaces?.forEach(space => allSpaces.add(space)));
-    data.buffer_time_rules?.forEach(rule => rule.spaces?.forEach(space => allSpaces.add(space)));
+    data.buffer_time_rules?.forEach(rule => rule.spaces?.forEach(space => allSpaces.add(getSpaceName(space))));
     data.booking_window_rules?.forEach(rule => rule.spaces?.forEach(space => allSpaces.add(space)));
     data.space_sharing?.forEach(rule => {
       allSpaces.add(rule.from);

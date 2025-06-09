@@ -34,15 +34,16 @@ export function BufferTimeRulesBlock({ initialRules = [], ruleResult }: BufferTi
     return duration;
   };
 
+  // Helper function to extract space name from space object or string
+  const getSpaceName = (space: string | { id: string; name: string }): string => {
+    return typeof space === 'string' ? space : space.name;
+  };
+
   // Normalize space values to strings and filter valid ones
   const normalizeSpaces = (spaces: any[]): string[] => {
     if (!spaces) return [];
     
-    const normalized = spaces.map(space => {
-      if (typeof space === 'string') return space;
-      if (space?.name) return space.name;
-      return null;
-    }).filter(Boolean);
+    const normalized = spaces.map(space => getSpaceName(space)).filter(Boolean);
 
     // Filter out spaces that don't exist in our options
     const validSpaces = normalized.filter(space => spaceOptions.includes(space));
