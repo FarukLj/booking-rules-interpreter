@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -152,7 +153,7 @@ export const SetupGuideModal = ({
   const renderRuleBlocks = (ruleBlocks: any[], blockType: string) => {
     switch (blockType) {
       case 'booking_conditions':
-        return <BookingConditionsBlock initialConditions={ruleBlocks} />;
+        return <BookingConditionsBlock initialConditions={ruleBlocks} ruleResult={result} />;
       case 'pricing_rules':
         return <PricingRulesBlock initialRules={ruleBlocks} />;
       case 'quota_rules':
@@ -160,7 +161,7 @@ export const SetupGuideModal = ({
       case 'buffer_time_rules':
         return <BufferTimeRulesBlock initialRules={ruleBlocks} ruleResult={result} />;
       case 'booking_window_rules':
-        return <BookingWindowRulesBlock initialRules={ruleBlocks} />;
+        return <BookingWindowRulesBlock initialRules={ruleBlocks} ruleResult={result} />;
       case 'space_sharing':
         return <SpaceSharingRulesBlock initialRules={ruleBlocks} />;
       default:

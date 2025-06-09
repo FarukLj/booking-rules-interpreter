@@ -1,14 +1,16 @@
 
 import { useState } from "react";
-import { BookingWindowRule } from "@/types/RuleResult";
+import { BookingWindowRule, RuleResult } from "@/types/RuleResult";
 import { BookingWindowRuleItem } from "./BookingWindowRuleItem";
 import { LogicOperatorToggle } from "./LogicOperatorToggle";
+import { useSpaceOptions } from "@/hooks/useSpaceOptions";
 
 interface BookingWindowRulesBlockProps {
   initialRules?: BookingWindowRule[];
+  ruleResult?: RuleResult;
 }
 
-export function BookingWindowRulesBlock({ initialRules = [] }: BookingWindowRulesBlockProps) {
+export function BookingWindowRulesBlock({ initialRules = [], ruleResult }: BookingWindowRulesBlockProps) {
   const [rules, setRules] = useState<BookingWindowRule[]>(
     initialRules.length > 0 ? initialRules : [{
       user_scope: "all_users",
@@ -24,7 +26,8 @@ export function BookingWindowRulesBlock({ initialRules = [] }: BookingWindowRule
     new Array(Math.max(0, rules.length - 1)).fill("AND")
   );
 
-  const spaceOptions = ["Space 1", "Space 2", "Conference Room A", "Studio 1", "Studio 2", "Studio 3", "Meeting Room B", "Court A", "Gym"];
+  // Use dynamic space options from the hook
+  const { spaceOptions } = useSpaceOptions(ruleResult);
   const tagOptions = ["Public", "The Team", "Premium Members", "Gold Members", "Basic", "VIP", "Staff", "Instructor", "Pro Member", "Visitor"];
 
   const updateRule = (index: number, field: keyof BookingWindowRule, value: any) => {

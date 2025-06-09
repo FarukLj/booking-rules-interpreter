@@ -141,7 +141,10 @@ export function RuleModal({ result, isOpen, onClose }: RuleModalProps) {
             {/* Booking Conditions Block */}
             {(result.booking_conditions || !hasNewFormat) && (
               <div className="mb-8">
-                <BookingConditionsBlock initialConditions={result.booking_conditions} />
+                <BookingConditionsBlock 
+                  initialConditions={result.booking_conditions} 
+                  ruleResult={result}
+                />
               </div>
             )}
             
@@ -169,7 +172,10 @@ export function RuleModal({ result, isOpen, onClose }: RuleModalProps) {
             {/* Booking Window Rules Block */}
             {result.booking_window_rules && result.booking_window_rules.length > 0 && (
               <div className="mb-4">
-                <BookingWindowRulesBlock initialRules={result.booking_window_rules} />
+                <BookingWindowRulesBlock 
+                  initialRules={result.booking_window_rules}
+                  ruleResult={result}
+                />
               </div>
             )}
           </div>

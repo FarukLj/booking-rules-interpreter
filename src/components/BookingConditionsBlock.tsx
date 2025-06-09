@@ -1,16 +1,18 @@
 
 import { useState } from "react";
 import { Toggle } from "@/components/ui/toggle";
-import { BookingCondition } from "@/types/RuleResult";
+import { BookingCondition, RuleResult } from "@/types/RuleResult";
 import { Info } from "lucide-react";
 import { BookingConditionRow } from "./BookingConditionRow";
 import { useConditionValidation } from "@/hooks/useConditionValidation";
+import { useSpaceOptions } from "@/hooks/useSpaceOptions";
 
 interface BookingConditionsBlockProps {
   initialConditions?: BookingCondition[];
+  ruleResult?: RuleResult;
 }
 
-export function BookingConditionsBlock({ initialConditions = [] }: BookingConditionsBlockProps) {
+export function BookingConditionsBlock({ initialConditions = [], ruleResult }: BookingConditionsBlockProps) {
   const [conditions, setConditions] = useState<BookingCondition[]>(
     initialConditions.length > 0 ? initialConditions : [{
       space: ["Space 1"],
@@ -30,8 +32,10 @@ export function BookingConditionsBlock({ initialConditions = [] }: BookingCondit
   // Use the validation hook
   useConditionValidation(conditions);
 
+  // Use dynamic space options from the hook
+  const { spaceOptions } = useSpaceOptions(ruleResult);
+  
   // Static options
-  const spaceOptions = ["Space 1", "Space 2", "Conference Room A", "Studio 1", "Studio 2", "Studio 3", "Meeting Room B", "Court A", "Gym"];
   const timeOptions = Array.from({ length: 96 }, (_, i) => {
     const hour = Math.floor(i / 4);
     const minute = (i % 4) * 15;
