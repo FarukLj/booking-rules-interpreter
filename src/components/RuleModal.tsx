@@ -1,4 +1,3 @@
-
 import {
   Dialog,
   DialogContent,
@@ -151,14 +150,20 @@ export function RuleModal({ result, isOpen, onClose }: RuleModalProps) {
             {/* Pricing Rules Block */}
             {(result.pricing_rules || !hasNewFormat) && (
               <div className="mb-8">
-                <PricingRulesBlock initialRules={result.pricing_rules} />
+                <PricingRulesBlock 
+                  initialRules={result.pricing_rules} 
+                  ruleResult={result}
+                />
               </div>
             )}
 
             {/* Quota Rules Block */}
             {result.quota_rules && result.quota_rules.length > 0 && (
               <div className="mb-8">
-                <QuotaRulesBlock initialRules={result.quota_rules} />
+                <QuotaRulesBlock 
+                  initialRules={result.quota_rules} 
+                  ruleResult={result}
+                />
               </div>
             )}
 

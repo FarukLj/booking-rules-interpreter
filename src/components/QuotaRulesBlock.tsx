@@ -1,16 +1,17 @@
-
 import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { Toggle } from "@/components/ui/toggle";
-import { QuotaRule } from "@/types/RuleResult";
+import { QuotaRule, RuleResult } from "@/types/RuleResult";
 import { LinkSelect } from "@/components/ui/LinkSelect";
+import { useSpaceOptions } from "@/hooks/useSpaceOptions";
 
 interface QuotaRulesBlockProps {
   initialRules?: QuotaRule[];
+  ruleResult?: RuleResult;
 }
 
-export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
+export function QuotaRulesBlock({ initialRules = [], ruleResult }: QuotaRulesBlockProps) {
   const [rules, setRules] = useState<QuotaRule[]>(
     initialRules.length > 0 ? initialRules : [{
       target: "individuals",
@@ -29,7 +30,8 @@ export function QuotaRulesBlock({ initialRules = [] }: QuotaRulesBlockProps) {
     new Array(Math.max(0, rules.length - 1)).fill("AND")
   );
 
-  const spaceOptions = ["Space 1", "Space 2", "Conference Room A", "Studio 1", "Studio 2", "Studio 3", "Meeting Room B", "Court A", "Gym"];
+  // Use dynamic space options from the hook
+  const { spaceOptions } = useSpaceOptions(ruleResult);
   const tagOptions = ["Public", "The Team", "Premium Members", "Gold Members", "Basic", "VIP", "Staff", "Instructor", "Pro Member", "Visitor"];
   const dayOptions = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   

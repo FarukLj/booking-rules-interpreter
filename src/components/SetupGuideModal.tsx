@@ -155,9 +155,9 @@ export const SetupGuideModal = ({
       case 'booking_conditions':
         return <BookingConditionsBlock initialConditions={ruleBlocks} ruleResult={result} />;
       case 'pricing_rules':
-        return <PricingRulesBlock initialRules={ruleBlocks} />;
+        return <PricingRulesBlock initialRules={ruleBlocks} ruleResult={result} />;
       case 'quota_rules':
-        return <QuotaRulesBlock initialRules={ruleBlocks} />;
+        return <QuotaRulesBlock initialRules={ruleBlocks} ruleResult={result} />;
       case 'buffer_time_rules':
         return <BufferTimeRulesBlock initialRules={ruleBlocks} ruleResult={result} />;
       case 'booking_window_rules':

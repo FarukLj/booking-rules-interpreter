@@ -1,15 +1,17 @@
 
-import { PricingRule } from "@/types/RuleResult";
+import { PricingRule, RuleResult } from "@/types/RuleResult";
 import { PricingRuleHeader } from "./pricing/PricingRuleHeader";
 import { PricingRuleForm } from "./pricing/PricingRuleForm";
 import { LogicOperatorButtons } from "./pricing/LogicOperatorButtons";
 import { usePricingRules } from "./pricing/usePricingRules";
+import { useSpaceOptions } from "@/hooks/useSpaceOptions";
 
 interface PricingRulesBlockProps {
   initialRules?: PricingRule[];
+  ruleResult?: RuleResult;
 }
 
-export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps) {
+export function PricingRulesBlock({ initialRules = [], ruleResult }: PricingRulesBlockProps) {
   const {
     rules,
     logicOperators,
@@ -21,6 +23,9 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
     updateSubCondition
   } = usePricingRules(initialRules);
 
+  // Use dynamic space options from the hook
+  const { spaceOptions } = useSpaceOptions(ruleResult);
+
   const timeOptions = Array.from({ length: 96 }, (_, i) => {
     const hour = Math.floor(i / 4);
     const minute = (i % 4) * 15;
@@ -28,7 +33,6 @@ export function PricingRulesBlock({ initialRules = [] }: PricingRulesBlockProps)
   });
   
   const dayOptions = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-  const spaceOptions = ["Space 1", "Space 2", "Conference Room A", "Studio 1", "Studio 2", "Studio 3", "Meeting Room B", "Court A", "Gym"];
   const rateUnitOptions = ["fixed", "per_15min", "per_30min", "per_hour", "per_2hours", "per_day"];
   const tagOptions = ["Public", "The Team", "Premium Members", "Gold Members", "Basic", "VIP", "Staff", "Instructor", "Pro Member", "Visitor", "Coaches"];
   
