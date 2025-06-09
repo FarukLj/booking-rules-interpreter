@@ -99,7 +99,11 @@ export function BufferTimeRulesBlock({ initialRules = [], ruleResult }: BufferTi
         
         // Apply space filtering for spaces field
         if (field === 'spaces') {
-          updatedValue = value.filter((space: string) => spaceOptions.includes(space));
+          // Convert mixed space types to strings first, then filter
+          const normalizedSpaces = Array.isArray(value) 
+            ? value.map(space => getSpaceName(space))
+            : [];
+          updatedValue = normalizedSpaces.filter((space: string) => spaceOptions.includes(space));
         }
         
         const updatedRule = { ...rule, [field]: updatedValue };
