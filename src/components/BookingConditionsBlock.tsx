@@ -6,6 +6,7 @@ import { Info } from "lucide-react";
 import { BookingConditionRow } from "./BookingConditionRow";
 import { useConditionValidation } from "@/hooks/useConditionValidation";
 import { useSpaceOptions } from "@/hooks/useSpaceOptions";
+import { useTagOptions } from "@/hooks/useTagOptions";
 
 interface BookingConditionsBlockProps {
   initialConditions?: BookingCondition[];
@@ -32,8 +33,9 @@ export function BookingConditionsBlock({ initialConditions = [], ruleResult }: B
   // Use the validation hook
   useConditionValidation(conditions);
 
-  // Use dynamic space options from the hook
+  // Use dynamic space and tag options from the hooks
   const { spaceOptions } = useSpaceOptions(ruleResult);
+  const { tagOptions } = useTagOptions(ruleResult);
   
   // Static options
   const timeOptions = Array.from({ length: 96 }, (_, i) => {
@@ -42,7 +44,6 @@ export function BookingConditionsBlock({ initialConditions = [], ruleResult }: B
     return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
   });
   const dayOptions = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-  const tagOptions = ["Public", "The Team", "Premium Members", "Gold Members", "Basic", "VIP", "Staff", "Instructor", "Pro Member", "Visitor"];
   const durationValues = ["15min", "30min", "45min", "1h", "1h15min", "1h30min", "2h", "3h", "4h", "6h", "8h", "12h", "24h"];
 
   const updateCondition = (index: number, field: keyof BookingCondition, value: any) => {

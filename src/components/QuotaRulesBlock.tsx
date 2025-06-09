@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MultiSelect } from "@/components/ui/multi-select";
@@ -5,6 +6,7 @@ import { Toggle } from "@/components/ui/toggle";
 import { QuotaRule, RuleResult } from "@/types/RuleResult";
 import { LinkSelect } from "@/components/ui/LinkSelect";
 import { useSpaceOptions } from "@/hooks/useSpaceOptions";
+import { useTagOptions } from "@/hooks/useTagOptions";
 
 interface QuotaRulesBlockProps {
   initialRules?: QuotaRule[];
@@ -30,9 +32,9 @@ export function QuotaRulesBlock({ initialRules = [], ruleResult }: QuotaRulesBlo
     new Array(Math.max(0, rules.length - 1)).fill("AND")
   );
 
-  // Use dynamic space options from the hook
+  // Use dynamic space and tag options from the hooks
   const { spaceOptions } = useSpaceOptions(ruleResult);
-  const tagOptions = ["Public", "The Team", "Premium Members", "Gold Members", "Basic", "VIP", "Staff", "Instructor", "Pro Member", "Visitor"];
+  const { tagOptions } = useTagOptions(ruleResult);
   const dayOptions = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   
   const timeOptions = Array.from({ length: 96 }, (_, i) => {

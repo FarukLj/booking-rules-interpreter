@@ -5,6 +5,7 @@ import { PricingRuleForm } from "./pricing/PricingRuleForm";
 import { LogicOperatorButtons } from "./pricing/LogicOperatorButtons";
 import { usePricingRules } from "./pricing/usePricingRules";
 import { useSpaceOptions } from "@/hooks/useSpaceOptions";
+import { useTagOptions } from "@/hooks/useTagOptions";
 
 interface PricingRulesBlockProps {
   initialRules?: PricingRule[];
@@ -23,8 +24,9 @@ export function PricingRulesBlock({ initialRules = [], ruleResult }: PricingRule
     updateSubCondition
   } = usePricingRules(initialRules);
 
-  // Use dynamic space options from the hook
+  // Use dynamic space and tag options from the hooks
   const { spaceOptions } = useSpaceOptions(ruleResult);
+  const { tagOptions } = useTagOptions(ruleResult);
 
   const timeOptions = Array.from({ length: 96 }, (_, i) => {
     const hour = Math.floor(i / 4);
@@ -34,7 +36,6 @@ export function PricingRulesBlock({ initialRules = [], ruleResult }: PricingRule
   
   const dayOptions = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   const rateUnitOptions = ["fixed", "per_15min", "per_30min", "per_hour", "per_2hours", "per_day"];
-  const tagOptions = ["Public", "The Team", "Premium Members", "Gold Members", "Basic", "VIP", "Staff", "Instructor", "Pro Member", "Visitor", "Coaches"];
   
   const durationOperators = [
     "is less than",

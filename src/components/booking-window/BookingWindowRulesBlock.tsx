@@ -4,6 +4,7 @@ import { BookingWindowRule, RuleResult } from "@/types/RuleResult";
 import { BookingWindowRuleItem } from "./BookingWindowRuleItem";
 import { LogicOperatorToggle } from "./LogicOperatorToggle";
 import { useSpaceOptions } from "@/hooks/useSpaceOptions";
+import { useTagOptions } from "@/hooks/useTagOptions";
 
 interface BookingWindowRulesBlockProps {
   initialRules?: BookingWindowRule[];
@@ -26,9 +27,9 @@ export function BookingWindowRulesBlock({ initialRules = [], ruleResult }: Booki
     new Array(Math.max(0, rules.length - 1)).fill("AND")
   );
 
-  // Use dynamic space options from the hook
+  // Use dynamic space and tag options from the hooks
   const { spaceOptions } = useSpaceOptions(ruleResult);
-  const tagOptions = ["Public", "The Team", "Premium Members", "Gold Members", "Basic", "VIP", "Staff", "Instructor", "Pro Member", "Visitor"];
+  const { tagOptions } = useTagOptions(ruleResult);
 
   const updateRule = (index: number, field: keyof BookingWindowRule, value: any) => {
     setRules(prev => prev.map((rule, i) => {
