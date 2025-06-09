@@ -41,8 +41,14 @@ export interface QuotaRule {
   explanation: string;
 }
 
+export interface SpaceRef {
+  id: string;
+  name: string;
+}
+
 export interface BufferTimeRule {
-  spaces: (string | { id: string; name: string })[];
+  /** accepts legacy string names OR the new {id,name} objects */
+  spaces: (string | SpaceRef)[];
   buffer_duration: string;
   explanation: string;
 }

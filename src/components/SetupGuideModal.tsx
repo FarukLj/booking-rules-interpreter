@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -13,6 +12,7 @@ import { SpaceSharingRulesBlock } from "@/components/SpaceSharingRulesBlock";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, Clock, Users, DollarSign, Calendar, Shield, ArrowRight } from "lucide-react";
+import { spaceToName } from "@/utils/spaceHelpers";
 
 interface SetupGuideModalProps {
   result: RuleResult;
@@ -43,7 +43,7 @@ export const SetupGuideModal = ({
     data.booking_conditions?.forEach(rule => rule.space?.forEach(space => allSpaces.add(space)));
     data.pricing_rules?.forEach(rule => rule.space?.forEach(space => allSpaces.add(space)));
     data.quota_rules?.forEach(rule => rule.affected_spaces?.forEach(space => allSpaces.add(space)));
-    data.buffer_time_rules?.forEach(rule => rule.spaces?.forEach(space => allSpaces.add(getSpaceName(space))));
+    data.buffer_time_rules?.forEach(rule => rule.spaces?.forEach(space => allSpaces.add(spaceToName(space))));
     data.booking_window_rules?.forEach(rule => rule.spaces?.forEach(space => allSpaces.add(space)));
     data.space_sharing?.forEach(rule => {
       allSpaces.add(rule.from);

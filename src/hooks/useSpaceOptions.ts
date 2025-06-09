@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { RuleResult } from '@/types/RuleResult';
+import { spaceToName } from '@/utils/spaceHelpers';
 
 interface Space {
   id: string;
@@ -33,11 +34,7 @@ export function useSpaceOptions(ruleResult?: RuleResult) {
     // Buffer time rules
     ruleResult.buffer_time_rules?.forEach(rule => {
       rule.spaces?.forEach(space => {
-        if (typeof space === 'string') {
-          extractedSpaceNames.add(space);
-        } else if (space?.name) {
-          extractedSpaceNames.add(space.name);
-        }
+        extractedSpaceNames.add(spaceToName(space));
       });
     });
 
@@ -59,7 +56,7 @@ export function useSpaceOptions(ruleResult?: RuleResult) {
     });
   }
 
-  // Create comprehensive space options list
+  // Create comprehensive space options list - UI only needs the label, keep simple
   const spaceOptions = Array.from(new Set([
     ...dbSpaces.map(space => space.name),
     ...Array.from(extractedSpaceNames)

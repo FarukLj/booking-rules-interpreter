@@ -6,6 +6,7 @@ import { BufferTimeRule } from "@/types/RuleResult";
 import { LinkSelect } from "@/components/ui/LinkSelect";
 import { SelectItem } from "@/components/ui/select";
 import { useSpaceOptions } from "@/hooks/useSpaceOptions";
+import { spaceToName } from "@/utils/spaceHelpers";
 
 interface BufferTimeRulesBlockProps {
   initialRules?: BufferTimeRule[];
@@ -34,33 +35,17 @@ export function BufferTimeRulesBlock({ initialRules = [], ruleResult }: BufferTi
     return duration;
   };
 
-  // Helper function to extract space name from space object or string
-  const getSpaceName = (space: string | { id: string; name: string }): string => {
-    return typeof space === 'string' ? space : space.name;
-  };
-
   // Normalize space values to strings and filter valid ones
-  const normalizeSpaces = (spaces: any[]): string[] => {
-    if (!spaces) return [];
-    
-    const normalized = spaces.map(space => getSpaceName(space)).filter(Boolean);
-
-    // Filter out spaces that don't exist in our options
-    const validSpaces = normalized.filter(space => spaceOptions.includes(space));
-    const invalidSpaces = normalized.filter(space => !spaceOptions.includes(space));
-    
-    if (invalidSpaces.length > 0) {
-      console.warn('Filtered out invalid spaces:', invalidSpaces);
-    }
-    
-    return validSpaces;
-  };
+  const normalizeSpaces = (spaces: (string | {id:string;name:string})[]): string[] =>
+    (spaces ?? [])
+      .map(spaceToName)
+      .filter((n): n is string => typeof n === "string" && spaceOptions.includes(n));
 
   const [rules, setRules] = useState<BufferTimeRule[]>(() => {
     if (initialRules.length > 0) {
       return initialRules.map(rule => ({
         ...rule,
-        spaces: normalizeSpaces(rule.spaces),
+        spaces: rule.spaces, // Keep original mixed types
         buffer_duration: validateDuration(rule.buffer_duration)
       }));
     }
@@ -80,7 +65,7 @@ export function BufferTimeRulesBlock({ initialRules = [], ruleResult }: BufferTi
     if (spaceOptions.length > 0) {
       setRules(prev => prev.map(rule => ({
         ...rule,
-        spaces: normalizeSpaces(rule.spaces)
+        spaces: rule.spaces // Keep original mixed types, normalize in UI only
       })));
     }
   }, [spaceOptions]);
@@ -99,11 +84,7 @@ export function BufferTimeRulesBlock({ initialRules = [], ruleResult }: BufferTi
         
         // Apply space filtering for spaces field
         if (field === 'spaces') {
-          // Convert mixed space types to strings first, then filter
-          const normalizedSpaces = Array.isArray(value) 
-            ? value.map(space => getSpaceName(space))
-            : [];
-          updatedValue = normalizedSpaces.filter((space: string) => spaceOptions.includes(space));
+          updatedValue = normalizeSpaces(value);
         }
         
         const updatedRule = { ...rule, [field]: updatedValue };
@@ -155,7 +136,7 @@ export function BufferTimeRulesBlock({ initialRules = [], ruleResult }: BufferTi
               <MultiSelect
                 triggerVariant="link"
                 options={spaceOptions}
-                selected={rule.spaces || []}
+                selected={rule.spaces.map(spaceToName)}
                 onSelectionChange={(selected) => updateRule(index, 'spaces', selected)}
                 placeholder="Select spaces"
               />
