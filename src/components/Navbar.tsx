@@ -1,4 +1,3 @@
-
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { LogIn, Shield, User, LogOut } from 'lucide-react';
@@ -35,12 +34,15 @@ export function Navbar() {
                 </Button>
               </>
             ) : (
-              <Button variant="outline" size="sm" asChild>
-                <Link to="/auth">
-                  <LogIn className="w-4 h-4 mr-2" />
-                  Sign In
-                </Link>
-              </Button>
+              // Hidden sign in button - keeping the space but making it invisible
+              <div className="opacity-0 pointer-events-none">
+                <Button variant="outline" size="sm" asChild>
+                  <Link to="/auth">
+                    <LogIn className="w-4 h-4 mr-2" />
+                    Sign In
+                  </Link>
+                </Button>
+              </div>
             )}
           </div>
         </div>
