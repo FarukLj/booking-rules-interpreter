@@ -1,11 +1,21 @@
+export interface BookingConditionRule {
+  condition_type: "duration" | "user_tags" | "interval_start" | "interval_end";
+  operator: string;
+  value: string | string[];
+  explanation: string;
+}
 
 export interface BookingCondition {
   space: string[];
   time_range: string;
   days?: string[];
-  condition_type: "duration" | "user_tags" | "interval_start" | "interval_end";
-  operator: string;
-  value: string | string[];
+  // Legacy single condition support
+  condition_type?: "duration" | "user_tags" | "interval_start" | "interval_end";
+  operator?: string;
+  value?: string | string[];
+  // New multi-row support
+  rules?: BookingConditionRule[];
+  logic_operators?: string[];
   explanation: string;
 }
 

@@ -1,10 +1,10 @@
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getAvailableOperators, getOperatorDisplayText, getOperatorValue } from "@/utils/conditionFormatting";
-import { BookingCondition } from "@/types/RuleResult";
+import { BookingCondition, BookingConditionRule } from "@/types/RuleResult";
 
 interface OperatorSelectorProps {
-  condition: BookingCondition;
+  condition: BookingCondition | BookingConditionRule;
   onOperatorChange: (operator: string) => void;
 }
 

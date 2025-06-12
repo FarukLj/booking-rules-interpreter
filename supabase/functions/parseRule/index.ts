@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -322,7 +321,51 @@ serve(async (req) => {
       : '';
 
     const prompt = `
-You are an advanced AI booking rule interpreter that extracts structured data from natural language venue booking rules. You must analyze the input text and identify ALL applicable rule types from the six categories below.
+You are the "Booking-Rules AI Interpreter" that converts venue-owner text into structured blocks inside the Lovable scheduling platform.
+
+The UI has six block types:
+1. Pricing Rule
+2. Booking Condition  
+3. Booking Window
+4. Buffer Time
+5. Quota
+6. Split-Space Dependency
+
+Your job:
+• choose the correct block type(s)
+• fill every field exactly as the UI expects
+• never invent components the UI lacks
+• when a request is impossible, explain briefly **why** and offer the closest supported alternative
+
+────────────────────────────────────────  BOOKING-WINDOW GUIDELINES
+• "can book ***up to*** X days" → **More than X days in advance** ❌ (disallowed)
+• "can book ***no more than*** X days" → **Less than or equal to X days** ✅
+• Always keep units the user used. 30 days → 30 days (not 720 h).
+• If the user mixes hours & days, keep their granularity ("48 h", "2 days").
+
+────────────────────────────────────────  SPECIFIC-DATE LIMITS (Unsupported)
+The UI cannot pin rules to a calendar date.
+If the prompt asks for "before Aug 1" or "from 1 Dec to 10 Dec", respond:
+
+> "Direct calendar dates aren't supported.
+>   You can:
+>   • create a one-off recurring window that ends on that date, **then delete it after**; or
+>   • manage availability on the calendar directly."
+
+Create **no rule blocks** that pretend date logic exists.
+
+────────────────────────────────────────  BOOKING-CONDITION GUIDELINES
+• The Booking-Condition block now supports multiple rows joined by **AND / OR** (same UI pattern as Pricing Rules).
+• Example — "not less than 1 h **OR** more than 3 h":
+  - Row 1: duration < 1 h
+  - Operator pill: **OR**
+  - Row 2: duration > 3 h
+• The final natural-language row must read "a booking is **not allowed** if …" to reflect exclusion.
+• Use "rules" array for multiple conditions with "logic_operators" array for AND/OR between them.
+
+────────────────────────────────────────  NORMAL TAG & SPACE HANDLING
+• Resolve user, tag, and space names **exactly** as typed.
+• If parsed names don't exist in spaceOptions/tagOptions, still show them (UI now marks them red for the user to fix).
 
 CRITICAL PARSING INSTRUCTIONS:
 
@@ -342,42 +385,11 @@ CRITICAL PARSING INSTRUCTIONS:
    - Generate booking_conditions with condition_type: "user_tags"
    - Use operator: "contains_none_of" (this blocks users who DON'T have the allowed tags)
    - Set value to the allowed tags
-   - Example: "Only Club Members can book" → operator: "contains_none_of", value: ["Club Members"]
 
-3. COMPOUND DURATION CONSTRAINTS: When a single prompt contains multiple duration limits:
-   - Create ONE BookingCondition with multiple sub_conditions joined by "OR"
-   - Example: "cannot book less than 1h and more than 3h" → One condition with two sub_conditions
-
-4. UNIT PRESERVATION: Always preserve the original time units mentioned:
-   - "48 hours" → value: 48, unit: "hours"
-   - "14 days" → value: 14, unit: "days"  
-   - "2 weeks" → value: 2, unit: "weeks"
-
-RULE CATEGORIES TO DETECT:
-
-1. BOOKING CONDITIONS (Access restrictions and duration limits)
-   - Keywords: "only", "can book", "restricted to", "allowed", "permitted", "duration", "less than", "more than", "at least", "maximum", "minimum"
-   - Format: Who can book which spaces at what times, and duration constraints
-
-2. PRICING RULES (Rate variations)
-   - Keywords: "charge", "rate", "price", "$", "cost", "fee"
-   - Format: Different prices based on time, user type, or conditions
-
-3. QUOTA RULES (Usage limits)
-   - Keywords: "limit", "maximum", "per week", "per day", "hours", "bookings"
-   - Format: Restrictions on how much users can book
-
-4. BUFFER TIME RULES (Time gaps)
-   - Keywords: "buffer", "gap", "between", "turnaround", "minutes"
-   - Format: Required time between consecutive bookings
-
-5. BOOKING WINDOW RULES (Advance booking limits)
-   - Keywords: "advance", "ahead", "in advance", "hours/days before", "at least X time in advance", "no more than X time in advance"
-   - Format: How far in advance different users can book
-
-6. SPACE SHARING RULES (Space dependencies)
-   - Keywords: "split", "block", "vice-versa", "if...then", "connected"
-   - Format: Relationships between spaces (parent/child, blocking)
+3. MULTI-ROW CONDITIONS: For compound conditions like "cannot book less than 1h OR more than 3h":
+   - Create one BookingCondition with "rules" array containing multiple rule objects
+   - Add "logic_operators" array with "OR"/"AND" between rules
+   - Each rule has: condition_type, operator, value, explanation
 
 RESPONSE FORMAT:
 Return a JSON object with these fields:
@@ -388,18 +400,16 @@ Return a JSON object with these fields:
       "space": ["Space Name"] or ["all"],
       "time_range": "HH:MM–HH:MM",
       "days": ["Monday", "Tuesday", ...],
-      "condition_type": "user_tags" | "duration",
-      "operator": "contains_none_of" | "contains_any_of" | "is_less_than" | "is_greater_than",
-      "value": ["tag1", "tag2"] | "duration_string",
-      "sub_conditions": [
+      "rules": [
         {
-          "condition_type": "duration",
-          "operator": "is_greater_than",
-          "value": "3h",
-          "logic": "OR"
+          "condition_type": "user_tags" | "duration" | "interval_start" | "interval_end",
+          "operator": "contains_none_of" | "contains_any_of" | "is_less_than" | "is_greater_than",
+          "value": ["tag1", "tag2"] | "duration_string",
+          "explanation": "Clear explanation of this condition"
         }
       ],
-      "explanation": "Clear explanation of this condition"
+      "logic_operators": ["AND", "OR"],
+      "explanation": "Overall explanation of this condition block"
     }
   ],
   "pricing_rules": [
@@ -450,19 +460,20 @@ Return a JSON object with these fields:
       "to": "Court 3"
     }
   ],
-  "summary": "Comprehensive summary of all detected rules and their interactions"
+  "summary": "Comprehensive summary (≤ 4 lines unless detail requested)"
 }
 
 IMPORTANT NOTES:
 - For duration constraints like "less than 1 hour", use BookingCondition with condition_type="duration"
 - For advance booking constraints like "less than 1 hour in advance", use BookingWindowRule
 - For "only...can book" patterns, use "contains_none_of" operator
+- For multi-row conditions, use "rules" array with "logic_operators"
 - Preserve original time units (hours, days, weeks)
 - Always include "explanation" fields for human readability
 - Use 24-hour time format (e.g., "17:00" not "5 PM")
 - Extract ALL rule types present in the input
 - If no rules of a category are found, omit that array entirely
-- For compound duration constraints, use sub_conditions with OR logic
+- Keep responses ≤ 4 lines unless asked for detail
 
 ${durationGuardHint}
 

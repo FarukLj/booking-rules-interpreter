@@ -1,14 +1,17 @@
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatTimeDisplay, getLogicText } from "@/utils/conditionFormatting";
-import { BookingCondition } from "@/types/RuleResult";
+import { BookingCondition, BookingConditionRule } from "@/types/RuleResult";
 
 interface ConditionTypeSelectorProps {
-  condition: BookingCondition;
-  onConditionChange: (field: keyof BookingCondition, value: any) => void;
+  condition: BookingCondition | BookingConditionRule;
+  onConditionChange: (field: keyof (BookingCondition | BookingConditionRule), value: any) => void;
 }
 
 export function ConditionTypeSelector({ condition, onConditionChange }: ConditionTypeSelectorProps) {
+  // Handle time_range for legacy BookingCondition or default values for BookingConditionRule
+  const timeRange = 'time_range' in condition ? condition.time_range : "09:00–17:00";
+  
   return (
     <Select 
       value={getLogicText(condition)} 
@@ -32,10 +35,10 @@ export function ConditionTypeSelector({ condition, onConditionChange }: Conditio
       <SelectContent className="z-50">
         <SelectItem value="its duration">its duration</SelectItem>
         <SelectItem value="the interval from start time to its start">
-          the interval from {formatTimeDisplay(condition.time_range?.split('–')[0] || '09:00')} to its start
+          the interval from {formatTimeDisplay(timeRange?.split('–')[0] || '09:00')} to its start
         </SelectItem>
         <SelectItem value="the interval from its end to end time">
-          the interval from its end to {formatTimeDisplay(condition.time_range?.split('–')[1] || '17:00')}
+          the interval from its end to {formatTimeDisplay(timeRange?.split('–')[1] || '17:00')}
         </SelectItem>
         <SelectItem value="the holder's set of tags">the holder's set of tags</SelectItem>
       </SelectContent>

@@ -1,51 +1,68 @@
 
-export const formatTimeDisplay = (time: string) => {
-  const hour = parseInt(time.split(':')[0]);
-  const minute = time.split(':')[1];
-  const period = hour >= 12 ? 'PM' : 'AM';
+import { BookingCondition, BookingConditionRule } from "@/types/RuleResult";
+
+export function formatTimeDisplay(time: string): string {
+  const [hours, minutes] = time.split(':');
+  const hour = parseInt(hours);
+  const ampm = hour >= 12 ? 'PM' : 'AM';
   const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-  return `${displayHour}:${minute} ${period}`;
-};
+  return `${displayHour}:${minutes} ${ampm}`;
+}
 
-export const getLogicText = (condition: any) => {
-  const startTime = condition.time_range?.split('–')[0] || '09:00';
-  const endTime = condition.time_range?.split('–')[1] || '17:00';
-  
-  if (condition.condition_type === "interval_start") {
-    return `the interval from ${formatTimeDisplay(startTime)} to its start`;
-  } else if (condition.condition_type === "interval_end") {
-    return `the interval from its end to ${formatTimeDisplay(endTime)}`;
-  } else if (condition.condition_type === "user_tags") {
-    return "the holder's set of tags";
+export function getLogicText(condition: BookingCondition | BookingConditionRule): string {
+  switch (condition.condition_type) {
+    case "duration":
+      return "its duration";
+    case "interval_start":
+      return "the interval from start time to its start";
+    case "interval_end":
+      return "the interval from its end to end time";
+    case "user_tags":
+      return "the holder's set of tags";
+    default:
+      return "its duration";
   }
-  return "its duration";
-};
+}
 
-export const getAvailableOperators = (conditionType: string) => {
-  const durationOperators = [
-    "is less than",
-    "is less than or equal to", 
-    "is greater than",
-    "is greater than or equal to",
-    "is equal to",
-    "is not equal to",
-    "is not a multiple of"
-  ];
-  const intervalOperators = ["is not a multiple of"];
-  const tagOperators = ["contains any of", "contains none of"];
-  
-  if (conditionType === "interval_start" || conditionType === "interval_end") {
-    return intervalOperators;
-  } else if (conditionType === "user_tags") {
-    return tagOperators;
+export function getAvailableOperators(conditionType: string): string[] {
+  switch (conditionType) {
+    case "user_tags":
+      return ["contains any of", "contains none of"];
+    case "duration":
+    case "interval_start":
+    case "interval_end":
+      return ["is less than", "is greater than"];
+    default:
+      return ["is less than", "is greater than"];
   }
-  return durationOperators;
-};
+}
 
-export const getOperatorDisplayText = (operator: string) => {
-  return operator.replace(/_/g, ' ');
-};
+export function getOperatorDisplayText(operator: string): string {
+  switch (operator) {
+    case "contains_any_of":
+      return "contains any of";
+    case "contains_none_of":
+      return "contains none of";
+    case "is_less_than":
+      return "is less than";
+    case "is_greater_than":
+      return "is greater than";
+    default:
+      return operator;
+  }
+}
 
-export const getOperatorValue = (displayText: string) => {
-  return displayText.replace(/ /g, '_');
-};
+export function getOperatorValue(displayText: string): string {
+  switch (displayText) {
+    case "contains any of":
+      return "contains_any_of";
+    case "contains none of":
+      return "contains_none_of";
+    case "is less than":
+      return "is_less_than";
+    case "is greater than":
+      return "is_greater_than";
+    default:
+      return displayText;
+  }
+}

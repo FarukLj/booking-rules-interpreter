@@ -15,6 +15,7 @@ interface BookingConditionRowProps {
   dayOptions: string[];
   tagOptions: string[];
   durationValues: string[];
+  hideConditionLogic?: boolean;
   onConditionChange: (index: number, field: keyof BookingCondition, value: any) => void;
 }
 
@@ -26,6 +27,7 @@ export function BookingConditionRow({
   dayOptions,
   tagOptions,
   durationValues,
+  hideConditionLogic = false,
   onConditionChange
 }: BookingConditionRowProps) {
   const updateCondition = (field: keyof BookingCondition, value: any) => {
@@ -90,74 +92,78 @@ export function BookingConditionRow({
         <span className="text-slate-600">, a booking is not allowed if:</span>
       </div>
 
-      <div className="flex flex-col md:flex-row items-center gap-0 text-sm mb-3">
-        <div className="w-full md:flex-1">
-          <ConditionTypeSelector
-            condition={condition}
-            onConditionChange={updateCondition}
-          />
-        </div>
-        
-        <div className="w-full md:flex-1">
-          <OperatorSelector
-            condition={condition}
-            onOperatorChange={(operator) => updateCondition('operator', operator)}
-          />
-        </div>
-        
-        <div className="w-full md:flex-1">
-          {condition.condition_type === "user_tags" ? (
-            <MultiSelect
-              options={tagOptions}
-              selected={Array.isArray(condition.value) ? condition.value : []}
-              onSelectionChange={(selected) => updateCondition('value', selected)}
-              placeholder="Select tags"
-              className="w-full"
-            />
-          ) : (
-            <Select 
-              value={Array.isArray(condition.value) ? condition.value[0] : condition.value || '30min'} 
-              onValueChange={(value) => updateCondition('value', value)}
-            >
-              <SelectTrigger className="w-full h-10">
-                <SelectValue>
-                  {Array.isArray(condition.value) ? condition.value[0] : condition.value || '30min'}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent className="z-50">
-                {durationValues.map(value => (
-                  <SelectItem key={value} value={value}>{value}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+      {!hideConditionLogic && (
+        <>
+          <div className="flex flex-col md:flex-row items-center gap-0 text-sm mb-3">
+            <div className="w-full md:flex-1">
+              <ConditionTypeSelector
+                condition={condition}
+                onConditionChange={updateCondition}
+              />
+            </div>
+            
+            <div className="w-full md:flex-1">
+              <OperatorSelector
+                condition={condition}
+                onOperatorChange={(operator) => updateCondition('operator', operator)}
+              />
+            </div>
+            
+            <div className="w-full md:flex-1">
+              {condition.condition_type === "user_tags" ? (
+                <MultiSelect
+                  options={tagOptions}
+                  selected={Array.isArray(condition.value) ? condition.value : []}
+                  onSelectionChange={(selected) => updateCondition('value', selected)}
+                  placeholder="Select tags"
+                  className="w-full"
+                />
+              ) : (
+                <Select 
+                  value={Array.isArray(condition.value) ? condition.value[0] : condition.value || '30min'} 
+                  onValueChange={(value) => updateCondition('value', value)}
+                >
+                  <SelectTrigger className="w-full h-10">
+                    <SelectValue>
+                      {Array.isArray(condition.value) ? condition.value[0] : condition.value || '30min'}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent className="z-50">
+                    {durationValues.map(value => (
+                      <SelectItem key={value} value={value}>{value}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          </div>
+          
+          {condition.explanation && (
+            <div className="text-xs text-slate-600 bg-white p-2 rounded border">
+              <strong>Explanation:</strong> {condition.explanation}
+            </div>
           )}
-        </div>
-      </div>
-      
-      {condition.explanation && (
-        <div className="text-xs text-slate-600 bg-white p-2 rounded border">
-          <strong>Explanation:</strong> {condition.explanation}
-        </div>
-      )}
 
-      {/* Enhanced logic validation display */}
-      {condition.condition_type === "user_tags" && (
-        <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded border mt-2">
-          <strong>Logic:</strong> {
-            condition.operator === "contains_none_of" 
-              ? `Allows only users whose tag set contains any of: ${Array.isArray(condition.value) ? condition.value.join(', ') : condition.value} (blocks everyone else)`
-              : condition.operator === "contains_any_of"
-              ? `Blocks users whose tag set contains any of: ${Array.isArray(condition.value) ? condition.value.join(', ') : condition.value} (those users CANNOT book)`
-              : `Uses operator "${condition.operator}" with tags: ${Array.isArray(condition.value) ? condition.value.join(', ') : condition.value}`
-          }
-        </div>
-      )}
+          {/* Enhanced logic validation display */}
+          {condition.condition_type === "user_tags" && (
+            <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded border mt-2">
+              <strong>Logic:</strong> {
+                condition.operator === "contains_none_of" 
+                  ? `Allows only users whose tag set contains any of: ${Array.isArray(condition.value) ? condition.value.join(', ') : condition.value} (blocks everyone else)`
+                  : condition.operator === "contains_any_of"
+                  ? `Blocks users whose tag set contains any of: ${Array.isArray(condition.value) ? condition.value.join(', ') : condition.value} (those users CANNOT book)`
+                  : `Uses operator "${condition.operator}" with tags: ${Array.isArray(condition.value) ? condition.value.join(', ') : condition.value}`
+              }
+            </div>
+          )}
 
-      {/* Validation warning for potential logic inversions */}
-      {condition.condition_type === "user_tags" && condition.operator === "contains_any_of" && (
-        <div className="text-xs text-orange-600 bg-orange-50 p-2 rounded border mt-2">
-          <strong>Logic Warning:</strong> If this is for "only [users] can book" rules, consider using "contains none of" instead to create proper allowlist logic.
-        </div>
+          {/* Validation warning for potential logic inversions */}
+          {condition.condition_type === "user_tags" && condition.operator === "contains_any_of" && (
+            <div className="text-xs text-orange-600 bg-orange-50 p-2 rounded border mt-2">
+              <strong>Logic Warning:</strong> If this is for "only [users] can book" rules, consider using "contains none of" instead to create proper allowlist logic.
+            </div>
+          )}
+        </>
       )}
     </div>
   );
