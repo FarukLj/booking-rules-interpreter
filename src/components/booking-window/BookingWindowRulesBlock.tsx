@@ -1,4 +1,4 @@
-
+// Force rebuild after GitHub commit - 2025-06-13 14:35:00
 import { useState } from "react";
 import { BookingWindowRule, RuleResult } from "@/types/RuleResult";
 import { BookingWindowRuleItem } from "./BookingWindowRuleItem";
