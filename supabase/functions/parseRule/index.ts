@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -32,7 +31,7 @@ const DURATION_RX = /(\d+(?:\.\d+)?)(?:\s?)(min|minutes?|h|hr|hrs?|hour|hours?)/
 const DIR_RX = /(min(?:imum)?|at\s+least|under|below|less\s+than|shorter\s+than|max(?:imum)?|over|above|more\s+than|longer\s+than|≥|>=|≤|<=|<|>)/gi;
 const ADVANCE_CONTEXT_RX = /(?:in\s+advance|before|ahead\s+of|prior\s+to)/gi;
 
-// ────────────────────────────────────────── helper: builds the 2 booking-condition blocks
+// ────────────────────────────────────────── helper: builds booking condition for time blocks
 function buildTimeBlockConditions(
   spaceId: string,               // resolved id or raw name
   nHours: number,                // size of each allowed block (1 → 60 min)
@@ -43,49 +42,33 @@ function buildTimeBlockConditions(
   const days = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"];
 
   return [
-    {   // Condition 1 – time-block validation (OR)
+    {
       id: uuid(),
       spaceIds: [spaceId],
       days,
-      condition: "OR",
+      condition: "AND" as const,
       isActive: true,
       rules: [
         { 
           id: uuid(), 
-          type: "time_interval", 
-          operator: "not_equals",
-          value: (nHours * 60).toString(),
-          unit: "minutes" 
+          type: "duration" as const, 
+          operator: "greater_than_or_equal" as const,
+          value: { value: minHrs * 60, unit: "minutes" as const },
+          unit: "minutes" as const
         },
         { 
           id: uuid(), 
-          type: "time_interval", 
-          operator: "not_equals",
-          value: (nHours * 60).toString(),
-          unit: "minutes" 
-        }
-      ]
-    },
-    {   // Condition 2 – min / max duration (AND)
-      id: uuid(),
-      spaceIds: [spaceId],
-      days,
-      condition: "AND",
-      isActive: true,
-      rules: [
-        { 
-          id: uuid(), 
-          type: "duration", 
-          operator: "less_than",
-          value: (minHrs * 60).toString(),
-          unit: "minutes" 
+          type: "duration" as const, 
+          operator: "less_than_or_equal" as const,
+          value: { value: maxHrs * 60, unit: "minutes" as const },
+          unit: "minutes" as const
         },
         { 
           id: uuid(), 
-          type: "duration", 
-          operator: "greater_than",
-          value: (maxHrs * 60).toString(),
-          unit: "minutes" 
+          type: "time_interval" as const, 
+          operator: "multiple_of" as const,
+          value: { value: nHours * 60, unit: "minutes" as const },
+          unit: "minutes" as const
         }
       ]
     }
