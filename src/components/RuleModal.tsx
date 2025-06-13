@@ -178,7 +178,7 @@ export function RuleModal({ result, isOpen, onClose }: RuleModalProps) {
             {result.booking_window_rules && result.booking_window_rules.length > 0 && (
               <div className="mb-4">
                 <BookingWindowRulesBlock 
-                  initialRules={result.booking_window_rules}
+                  rules={result.booking_window_rules}
                   ruleResult={result}
                 />
               </div>
