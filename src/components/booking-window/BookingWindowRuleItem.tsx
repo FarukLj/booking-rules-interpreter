@@ -1,3 +1,4 @@
+import { normalizeTags } from "@/utils/tagHelpers";
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MultiSelect } from "@/components/ui/multi-select";
@@ -54,7 +55,7 @@ export function BookingWindowRuleItem({
       {(rule.user_scope === "users_with_tags" || rule.user_scope === "users_with_no_tags") && (
         <MultiSelect
           options={tagOptions}
-          selected={rule.tags || []}
+          selected={normalizeTags(rule.tags)}
           onSelectionChange={(selected) => onRuleUpdate('tags', selected)}
           placeholder="Select tags"
           className="min-w-0 max-w-[200px]"
