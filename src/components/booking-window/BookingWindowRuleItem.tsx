@@ -1,5 +1,4 @@
 import { normalizeTags } from "@/utils/tagHelpers";
-
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -9,6 +8,7 @@ import { normalizeAdvanceUnit, convertFromHours, getTimeDisplayHelper } from "./
 import { getLogicValidation, getConstraintExplanation } from "./utils/validation";
 import { getUserGroupText, getConstraintText } from "./utils/textHelpers";
 import { BookingWindowRow } from "./BookingWindowRow";
+import { useEffect, useState } from "react";
 
 interface BookingWindowRuleItemProps {
   rule: BookingWindowRule;
@@ -23,15 +23,46 @@ export function BookingWindowRuleItem({
   spaceOptions, 
   tagOptions 
 }: BookingWindowRuleItemProps) {
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const validation = getLogicValidation(rule);
 
+  // Update selected tags and user_scope when rule.tags or tagOptions changes
+  useEffect(() => {
+    if (rule.tags && rule.tags.length > 0) {
+      const normalized = normalizeTags(rule.tags);
+      const validTags = normalized.filter(tag => 
+        tagOptions.some(option => 
+          typeof option === 'string' && option.toLowerCase() === tag.toLowerCase()
+        )
+      );
+      setSelectedTags(validTags);
+      
+      // If we have valid tags but the scope is not set to users_with_tags, update it
+      if (validTags.length > 0 && rule.user_scope !== 'users_with_tags') {
+        onRuleUpdate('user_scope', 'users_with_tags');
+      }
+      
+      // If we have invalid tags, update the rule
+      if (validTags.length !== normalized.length) {
+        onRuleUpdate('tags', validTags);
+      }
+    } else {
+      setSelectedTags([]);
+      // If no tags but scope was set to users_with_tags, reset to all_users
+      if (rule.user_scope === 'users_with_tags') {
+        onRuleUpdate('user_scope', 'all_users');
+      }
+    }
+  }, [rule.tags, tagOptions, onRuleUpdate, rule.user_scope]);
+
+  const handleTagSelection = (selected: string[]) => {
+    setSelectedTags(selected);
+    onRuleUpdate('tags', selected);
+  };
+
   const handleUnitChange = (newUnit: "hours" | "days" | "weeks") => {
-    // Convert current value to hours, then to new unit
     const valueInHours = normalizeAdvanceUnit(rule.value || 72, rule.unit || 'hours');
     const newValue = convertFromHours(valueInHours, newUnit);
-    
-    console.log(`[Unit Conversion] ${rule.value} ${rule.unit} -> ${newValue} ${newUnit} (${valueInHours}h internal)`);
-    
     onRuleUpdate('value', newValue);
     onRuleUpdate('unit', newUnit);
   };
@@ -55,19 +86,18 @@ export function BookingWindowRuleItem({
       {(rule.user_scope === "users_with_tags" || rule.user_scope === "users_with_no_tags") && (
         <MultiSelect
           options={tagOptions}
-          selected={normalizeTags(rule.tags)}
-          onSelectionChange={(selected) => onRuleUpdate('tags', selected)}
+          selected={selectedTags}
+          onSelectionChange={handleTagSelection}
           placeholder="Select tags"
-          className="min-w-0 max-w-[200px]"
+          className="min-w-0 max-w-[200px] flex-1"
         />
       )}
     </div>
   );
 
-  // Row 3 Content: All 4 components in a single flex container with equal width
+  // Rest of the component remains the same...
   const row3Content = (
     <div className="flex gap-2 items-center w-full">
-      {/* Spaces selector */}
       <div className="flex-1">
         <MultiSelect
           options={spaceOptions}
@@ -78,7 +108,6 @@ export function BookingWindowRuleItem({
         />
       </div>
       
-      {/* Operator selector with help icon */}
       <div className="flex-1 flex items-center gap-1">
         <Select value={rule.constraint || 'less_than'} onValueChange={(value) => onRuleUpdate('constraint', value)}>
           <SelectTrigger className="w-full h-10">
@@ -111,7 +140,6 @@ export function BookingWindowRuleItem({
         </TooltipProvider>
       </div>
 
-      {/* Number input with time helper */}
       <div className="flex-1 flex items-center gap-1">
         <input 
           type="number" 
@@ -139,7 +167,6 @@ export function BookingWindowRuleItem({
         )}
       </div>
 
-      {/* Unit selector */}
       <div className="flex-1">
         <Select 
           value={rule.unit || 'hours'} 
@@ -173,7 +200,6 @@ export function BookingWindowRuleItem({
         </div>
       )}
 
-      {/* Enhanced validation feedback */}
       {validation && (
         <div className={`text-xs p-2 rounded border mt-2 flex items-center gap-2 ${
           validation.type === 'warning' 
@@ -185,7 +211,6 @@ export function BookingWindowRuleItem({
         </div>
       )}
 
-      {/* Semantic explanation */}
       <div className="text-xs text-slate-500 bg-slate-100 p-2 rounded border mt-2">
         <strong>Rule Logic:</strong> {getConstraintExplanation(rule.constraint || 'less_than')}
       </div>
