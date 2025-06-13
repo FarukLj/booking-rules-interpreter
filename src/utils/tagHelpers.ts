@@ -16,3 +16,13 @@ export function normalizeTags(tags: (string | { id: string; name: string })[] = 
     .filter(Boolean)
     .filter((tag, index, self) => self.indexOf(tag) === index);
 }
+
+/**
+ * Finds a tag by name in the available options
+ */
+export function findTagByName(tagName: string, options: string[]): string | undefined {
+  return options.find(option => 
+    typeof option === 'string' && 
+    option.toLowerCase() === tagName.toLowerCase()
+  );
+}
