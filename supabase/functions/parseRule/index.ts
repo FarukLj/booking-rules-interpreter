@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -30,6 +31,66 @@ const SPECIFIC_DATE_PATTERNS = [
 const DURATION_RX = /(\d+(?:\.\d+)?)(?:\s?)(min|minutes?|h|hr|hrs?|hour|hours?)/gi;
 const DIR_RX = /(min(?:imum)?|at\s+least|under|below|less\s+than|shorter\s+than|max(?:imum)?|over|above|more\s+than|longer\s+than|≥|>=|≤|<=|<|>)/gi;
 const ADVANCE_CONTEXT_RX = /(?:in\s+advance|before|ahead\s+of|prior\s+to)/gi;
+
+// ────────────────────────────────────────── helper: builds the 2 booking-condition blocks
+function buildTimeBlockConditions(
+  spaceId: string,               // resolved id or raw name
+  nHours: number,                // size of each allowed block (1 → 60 min)
+  minHrs: number,                // minimum duration (in hours)
+  maxHrs: number                 // maximum duration (in hours)
+) {
+  const uuid = () => crypto.randomUUID();
+  const days = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"];
+
+  return [
+    {   // Condition 1 – time-block validation (OR)
+      id: uuid(),
+      spaceIds: [spaceId],
+      days,
+      condition: "OR",
+      isActive: true,
+      rules: [
+        { 
+          id: uuid(), 
+          type: "time_interval", 
+          operator: "not_equals",
+          value: (nHours * 60).toString(),
+          unit: "minutes" 
+        },
+        { 
+          id: uuid(), 
+          type: "time_interval", 
+          operator: "not_equals",
+          value: (nHours * 60).toString(),
+          unit: "minutes" 
+        }
+      ]
+    },
+    {   // Condition 2 – min / max duration (AND)
+      id: uuid(),
+      spaceIds: [spaceId],
+      days,
+      condition: "AND",
+      isActive: true,
+      rules: [
+        { 
+          id: uuid(), 
+          type: "duration", 
+          operator: "less_than",
+          value: (minHrs * 60).toString(),
+          unit: "minutes" 
+        },
+        { 
+          id: uuid(), 
+          type: "duration", 
+          operator: "greater_than",
+          value: (maxHrs * 60).toString(),
+          unit: "minutes" 
+        }
+      ]
+    }
+  ];
+}
 
 // Duration Guard Detection Function
 function detectDurationGuard(text: string): { hasDurationConstraints: boolean; details: any[] } {
@@ -212,6 +273,20 @@ async function resolveSpaces(spaceNames: string[]) {
 // Enhanced post-processing sanitization layer with improved pattern detection
 async function sanitizeRules(parsedResponse: any, originalRule: string): Promise<any> {
   console.log('Starting enhanced rule sanitization with improved pattern detection...');
+  
+  // Check for time-block + min/max duration pattern first
+  const tbMatch = originalRule.match(/(.*?)\s+must\s+be\s+booked\s+in\s+(\d+)\s*-?\s*hour\s+blocks?\s+only.*minimum\s+(\d+)\s*hours?.*maximum\s+(\d+)\s*hours?/i);
+  if (tbMatch) {
+    const spaceRaw = tbMatch[1].trim();
+    const blockHrs = parseInt(tbMatch[2], 10);
+    const minHrs   = parseInt(tbMatch[3], 10);
+    const maxHrs   = parseInt(tbMatch[4], 10);
+    const resolved   = await resolveSpaces([spaceRaw]);
+    const spaceId    = Array.isArray(resolved) && resolved[0]?.id ? resolved[0].id : spaceRaw;
+    parsedResponse.booking_conditions = buildTimeBlockConditions(spaceId, blockHrs, minHrs, maxHrs);
+    delete parsedResponse.booking_window_rules;
+    console.log("[SANITIZE] Applied time-block + min/max duration override for", spaceRaw);
+  }
   
   // Enhanced booking window detection
   const bookingWindowAnalysis = detectBookingWindowType(originalRule);
