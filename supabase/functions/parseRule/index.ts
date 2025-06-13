@@ -9,6 +9,23 @@ const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
 // Rate limiting store (in production, use Redis or similar)
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
 
+// Enhanced pattern detection for booking windows
+const HORIZON_CAP_PATTERNS = [
+  /(?:up\s+to|within|in\s+the\s+next|for\s+the\s+next|no\s+more\s+than|maximum\s+of|max)\s+(\d+)\s*(day|days|week|weeks|hour|hours)/gi,
+  /(?:can\s+book|book)\s+(?:up\s+to|within|for\s+the\s+next)\s+(\d+)\s*(day|days|week|weeks|hour|hours)/gi
+];
+
+const MINIMUM_NOTICE_PATTERNS = [
+  /(?:at\s+least|minimum|min\.?|not\s+less\s+than|must\s+book\s+at\s+least)\s+(\d+)\s*(day|days|week|weeks|hour|hours)\s+(?:in\s+advance|ahead|before|prior)/gi,
+  /(?:need|require)\s+(\d+)\s*(day|days|week|weeks|hour|hours)\s+(?:notice|advance|ahead)/gi
+];
+
+const SPECIFIC_DATE_PATTERNS = [
+  /(?:before|after|from|until|by)\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{1,2}(?:st|nd|rd|th)?/gi,
+  /(?:before|after|from|until|by)\s+\d{1,2}\/\d{1,2}\/?\d{0,4}/gi,
+  /(?:before|after|from|until|by)\s+\d{4}-\d{2}-\d{2}/gi
+];
+
 // Duration Guard Pattern Detection
 const DURATION_RX = /(\d+(?:\.\d+)?)(?:\s?)(min|minutes?|h|hr|hrs?|hour|hours?)/gi;
 const DIR_RX = /(min(?:imum)?|at\s+least|under|below|less\s+than|shorter\s+than|max(?:imum)?|over|above|more\s+than|longer\s+than|≥|>=|≤|<=|<|>)/gi;
@@ -46,11 +63,78 @@ function detectDurationGuard(text: string): { hasDurationConstraints: boolean; d
   return { hasDurationConstraints: false, details: [] };
 }
 
+// Enhanced booking window pattern detection
+function detectBookingWindowType(text: string): { 
+  isHorizonCap: boolean; 
+  isMinimumNotice: boolean; 
+  hasSpecificDates: boolean;
+  values: Array<{ value: number; unit: string; type: string }>;
+  specificDateMatches: string[];
+} {
+  const lowerText = text.toLowerCase();
+  const values: Array<{ value: number; unit: string; type: string }> = [];
+  const specificDateMatches: string[] = [];
+  
+  // Check for horizon caps (up to X days)
+  let isHorizonCap = false;
+  for (const pattern of HORIZON_CAP_PATTERNS) {
+    const matches = [...lowerText.matchAll(pattern)];
+    if (matches.length > 0) {
+      isHorizonCap = true;
+      matches.forEach(match => {
+        values.push({
+          value: parseInt(match[1]),
+          unit: normalizeBookingUnit(match[2]),
+          type: 'horizon_cap'
+        });
+      });
+    }
+  }
+  
+  // Check for minimum notice (at least X days in advance)
+  let isMinimumNotice = false;
+  for (const pattern of MINIMUM_NOTICE_PATTERNS) {
+    const matches = [...lowerText.matchAll(pattern)];
+    if (matches.length > 0) {
+      isMinimumNotice = true;
+      matches.forEach(match => {
+        values.push({
+          value: parseInt(match[1]),
+          unit: normalizeBookingUnit(match[2]),
+          type: 'minimum_notice'
+        });
+      });
+    }
+  }
+  
+  // Check for specific dates
+  let hasSpecificDates = false;
+  for (const pattern of SPECIFIC_DATE_PATTERNS) {
+    const matches = [...lowerText.matchAll(pattern)];
+    if (matches.length > 0) {
+      hasSpecificDates = true;
+      matches.forEach(match => {
+        specificDateMatches.push(match[0]);
+      });
+    }
+  }
+  
+  return { isHorizonCap, isMinimumNotice, hasSpecificDates, values, specificDateMatches };
+}
+
 // Unit normalization utility
 function normalizeUnit(unit: string): string {
   const normalized = unit.toLowerCase();
   if (['min', 'minutes', 'minute'].includes(normalized)) return 'min';
   if (['h', 'hr', 'hrs', 'hour', 'hours'].includes(normalized)) return 'h';
+  return normalized;
+}
+
+function normalizeBookingUnit(unit: string): string {
+  const normalized = unit.toLowerCase();
+  if (['day', 'days'].includes(normalized)) return 'days';
+  if (['week', 'weeks'].includes(normalized)) return 'weeks';
+  if (['hour', 'hours', 'h', 'hr', 'hrs'].includes(normalized)) return 'hours';
   return normalized;
 }
 
@@ -68,26 +152,6 @@ function mapDirectionToOperator(direction: string | null): string {
   }
   
   return 'is_less_than'; // default
-}
-
-// Enhanced pattern detection for post-processing
-const allowlistPatterns = /(only|just|exclusively)\s+([\w\s,&]+?)\s+can\s+book/i;
-const noMoreThanPatterns = /(no more than|at most|up to)\s+(\d+)\s*(hour|hours|day|days|week|weeks)\s+in advance/i;
-const atLeastPatterns = /(at\s+least|least|minimum|min\.?|not\s+less\s+than|must\s+book\s+at\s+least|≥|>=)\s+(\d+)\s*(hour|hours|day|days|week|weeks)/i;
-
-function normalizeAdvanceUnit(value: number, unit: string): number {
-  switch(unit.toLowerCase()) {
-    case 'day':
-    case 'days':
-      return value * 24;
-    case 'week':
-    case 'weeks':
-      return value * 24 * 7;
-    case 'hour':
-    case 'hours':
-    default:
-      return value;
-  }
 }
 
 // Space resolution utility
@@ -145,9 +209,23 @@ async function resolveSpaces(spaceNames: string[]) {
   }
 }
 
-// Enhanced post-processing sanitization layer with Duration Guard
+// Enhanced post-processing sanitization layer with improved pattern detection
 async function sanitizeRules(parsedResponse: any, originalRule: string): Promise<any> {
-  console.log('Starting enhanced rule sanitization with Duration Guard...');
+  console.log('Starting enhanced rule sanitization with improved pattern detection...');
+  
+  // Enhanced booking window detection
+  const bookingWindowAnalysis = detectBookingWindowType(originalRule);
+  
+  // Check for specific dates first
+  if (bookingWindowAnalysis.hasSpecificDates) {
+    console.log('[SPECIFIC DATES] Detected unsupported calendar dates:', bookingWindowAnalysis.specificDateMatches);
+    
+    // Return guidance instead of rules
+    return {
+      summary: `Direct calendar dates aren't supported. Found: ${bookingWindowAnalysis.specificDateMatches.join(', ')}. You can: create a recurring booking window that ends on that date, then delete it manually; or manage availability on the calendar directly.`,
+      explanation: "The booking system doesn't support hardcoded calendar dates. Use recurring time windows instead."
+    };
+  }
   
   // Duration Guard: Check if booking_window_rules should be booking_conditions
   const durationGuard = detectDurationGuard(originalRule);
@@ -170,30 +248,50 @@ async function sanitizeRules(parsedResponse: any, originalRule: string): Promise
       };
     });
     
-    // If multiple duration constraints in same sentence, create OR-chained sub_conditions
-    if (durationGuard.details.length > 1) {
-      const mainCondition = convertedConditions[0];
-      mainCondition.sub_conditions = durationGuard.details.slice(1).map((detail: any) => ({
-        condition_type: "duration",
-        operator: detail.operator,
-        value: detail.value,
-        logic: "OR"
-      }));
-      
-      parsedResponse.booking_conditions = [
-        ...(parsedResponse.booking_conditions || []),
-        mainCondition
-      ];
-    } else {
-      parsedResponse.booking_conditions = [
-        ...(parsedResponse.booking_conditions || []),
-        ...convertedConditions
-      ];
-    }
+    parsedResponse.booking_conditions = [
+      ...(parsedResponse.booking_conditions || []),
+      ...convertedConditions
+    ];
     
     // Remove the misclassified booking window rules
     delete parsedResponse.booking_window_rules;
     console.log('[DURATION GUARD] Successfully converted to booking conditions');
+  }
+  
+  // Enhanced booking window rule corrections
+  if (parsedResponse.booking_window_rules) {
+    parsedResponse.booking_window_rules.forEach((rule: any, index: number) => {
+      const ruleAnalysis = bookingWindowAnalysis.values[index];
+      
+      if (ruleAnalysis) {
+        // Fix operator based on detected pattern type
+        if (ruleAnalysis.type === 'horizon_cap') {
+          // "up to X days" should be "more_than" (blocks beyond X days)
+          if (rule.constraint === 'less_than') {
+            console.log(`[SANITIZE] Fixing horizon cap operator ${index}: less_than -> more_than (${ruleAnalysis.value} ${ruleAnalysis.unit})`);
+            rule.constraint = 'more_than';
+            rule.__corrected = true;
+          }
+        } else if (ruleAnalysis.type === 'minimum_notice') {
+          // "at least X days in advance" should be "less_than" (blocks within X days)
+          if (rule.constraint === 'more_than') {
+            console.log(`[SANITIZE] Fixing minimum notice operator ${index}: more_than -> less_than (${ruleAnalysis.value} ${ruleAnalysis.unit})`);
+            rule.constraint = 'less_than';
+            rule.__corrected = true;
+          }
+        }
+        
+        // Preserve original units unless user explicitly used hours
+        if (rule.unit !== ruleAnalysis.unit && ruleAnalysis.unit !== 'hours') {
+          const originalValue = rule.value;
+          const originalUnit = rule.unit;
+          rule.value = ruleAnalysis.value;
+          rule.unit = ruleAnalysis.unit;
+          console.log(`[SANITIZE] Preserving user units ${index}: ${originalValue} ${originalUnit} -> ${rule.value} ${rule.unit}`);
+          rule.__unit_preserved = true;
+        }
+      }
+    });
   }
   
   // Resolve spaces in buffer_time_rules
@@ -207,6 +305,7 @@ async function sanitizeRules(parsedResponse: any, originalRule: string): Promise
   }
   
   // Fix booking conditions - handle "only...can book" patterns
+  const allowlistPatterns = /(only|just|exclusively)\s+([\w\s,&]+?)\s+can\s+book/i;
   if (parsedResponse.booking_conditions) {
     parsedResponse.booking_conditions.forEach((condition: any, index: number) => {
       // Check if this is an allowlist pattern that got parsed as deny rule
@@ -214,41 +313,6 @@ async function sanitizeRules(parsedResponse: any, originalRule: string): Promise
         console.log(`[SANITIZE] Fixing logic inversion in booking condition ${index}: contains_any_of -> contains_none_of`);
         condition.operator = 'contains_none_of';
         condition.__corrected = true;
-      }
-    });
-  }
-
-  // Enhanced booking window rules - handle both advance booking constraint types
-  if (parsedResponse.booking_window_rules) {
-    parsedResponse.booking_window_rules.forEach((rule: any, index: number) => {
-      // Fix operator for "no more than" patterns
-      if (rule.constraint === 'less_than') {
-        const noMoreThanMatch = originalRule.match(noMoreThanPatterns);
-        if (noMoreThanMatch) {
-          console.log(`[SANITIZE] Fixing booking window operator ${index}: less_than -> more_than (detected: ${noMoreThanMatch[0]})`);
-          rule.constraint = 'more_than';
-          rule.__corrected = true;
-        }
-      }
-
-      // Fix operator for "at least" patterns
-      if (rule.constraint === 'more_than') {
-        const atLeastMatch = originalRule.match(atLeastPatterns);
-        if (atLeastMatch) {
-          console.log(`[SANITIZE] Fixing booking window operator ${index}: more_than -> less_than (detected: ${atLeastMatch[0]})`);
-          rule.constraint = 'less_than';
-          rule.__corrected = true;
-        }
-      }
-
-      // Normalize units to hours
-      if (rule.unit && rule.unit !== 'hours') {
-        const originalValue = rule.value;
-        const originalUnit = rule.unit;
-        rule.value = normalizeAdvanceUnit(rule.value, rule.unit);
-        rule.unit = 'hours';
-        console.log(`[SANITIZE] Unit conversion ${index}: ${originalValue} ${originalUnit} -> ${rule.value} hours`);
-        rule.__unit_converted = true;
       }
     });
   }
@@ -314,10 +378,16 @@ serve(async (req) => {
 
     console.log('Processing rule:', rule.substring(0, 100) + '...')
 
-    // Pre-process for Duration Guard detection
+    // Enhanced pre-processing analysis
     const durationGuard = detectDurationGuard(rule);
+    const bookingWindowAnalysis = detectBookingWindowType(rule);
+    
     const durationGuardHint = durationGuard.hasDurationConstraints 
       ? `\n\nDURATION GUARD DETECTED: This prompt contains duration constraints (${durationGuard.details.map(d => d.raw).join(', ')}). These should be parsed as BOOKING CONDITIONS with condition_type="duration", NOT as booking window rules.`
+      : '';
+      
+    const specificDateHint = bookingWindowAnalysis.hasSpecificDates
+      ? `\n\nSPECIFIC DATE DETECTED: This prompt contains calendar dates (${bookingWindowAnalysis.specificDateMatches.join(', ')}). The UI doesn't support hardcoded dates. Return guidance message explaining limitations and alternatives.`
       : '';
 
     const prompt = `
@@ -337,145 +407,90 @@ Your job:
 • never invent components the UI lacks
 • when a request is impossible, explain briefly **why** and offer the closest supported alternative
 
-────────────────────────────────────────  BOOKING-WINDOW GUIDELINES
-• "can book ***up to*** X days" → **More than X days in advance** ❌ (disallowed)
-• "can book ***no more than*** X days" → **Less than or equal to X days** ✅
-• Always keep units the user used. 30 days → 30 days (not 720 h).
-• If the user mixes hours & days, keep their granularity ("48 h", "2 days").
+────────────────────────────────────────  BOOKING-WINDOW GUIDELINES (CRITICAL)
+
+**HORIZON CAPS vs MINIMUM NOTICE - OPERATOR MAPPING:**
+
+1. **HORIZON CAPS** (limits how far ahead users can book):
+   • "can book ***up to*** X days" → constraint: "more_than" (blocks beyond X days)
+   • "book for the ***next*** X days" → constraint: "more_than" (blocks beyond X days)
+   • "no more than X days in advance" → constraint: "more_than" (blocks beyond X days)
+   • Keywords: "up to", "next", "within", "no more than", "maximum"
+
+2. **MINIMUM NOTICE** (requires advance booking):
+   • "must book ***at least*** X days in advance" → constraint: "less_than" (blocks within X days)
+   • "need X days notice" → constraint: "less_than" (blocks within X days)
+   • Keywords: "at least", "minimum", "notice", "in advance"
+
+**UNIT PRESERVATION:**
+• Keep user's original units: "30 days" stays "30 days" (NOT 720 hours)
+• Only convert if user explicitly used hours
+• Preserve: days, weeks, hours as user intended
+
+**EXAMPLES:**
+- "Sales team can book up to 30 days" → constraint: "more_than", value: 30, unit: "days"
+- "Everyone else only 3 days" → constraint: "more_than", value: 3, unit: "days"
+- "Must book 48 hours in advance" → constraint: "less_than", value: 48, unit: "hours"
 
 ────────────────────────────────────────  SPECIFIC-DATE LIMITS (Unsupported)
 The UI cannot pin rules to a calendar date.
-If the prompt asks for "before Aug 1" or "from 1 Dec to 10 Dec", respond:
+If the prompt asks for "before Aug 1", "from 1 Dec to 10 Dec", or any calendar dates, respond:
 
-> "Direct calendar dates aren't supported.
->   You can:
->   • create a one-off recurring window that ends on that date, **then delete it after**; or
->   • manage availability on the calendar directly."
+> "Direct calendar dates aren't supported. You can: create a recurring booking window that ends on that date, then delete it manually; or manage availability on the calendar directly."
 
 Create **no rule blocks** that pretend date logic exists.
 
 ────────────────────────────────────────  BOOKING-CONDITION GUIDELINES
-• The Booking-Condition block now supports multiple rows joined by **AND / OR** (same UI pattern as Pricing Rules).
-• Example — "not less than 1 h **OR** more than 3 h":
-  - Row 1: duration < 1 h
-  - Operator pill: **OR**
-  - Row 2: duration > 3 h
-• The final natural-language row must read "a booking is **not allowed** if …" to reflect exclusion.
-• Use "rules" array for multiple conditions with "logic_operators" array for AND/OR between them.
+• The Booking-Condition block supports multiple rows joined by **AND / OR**.
+• For compound conditions like "cannot book less than 1h AND max 3h":
+  - Use "rules" array with multiple rule objects
+  - Add "logic_operators" array with "AND"/"OR" between rules
+• For "cannot book less than 1h OR more than 3h":
+  - Row 1: condition_type="duration", operator="is_less_than", value="1h"
+  - Operator: "OR"  
+  - Row 2: condition_type="duration", operator="is_greater_than", value="3h"
+• Final explanation must read "a booking is **not allowed** if …"
 
-────────────────────────────────────────  NORMAL TAG & SPACE HANDLING
+────────────────────────────────────────  TAG & SPACE HANDLING
 • Resolve user, tag, and space names **exactly** as typed.
-• If parsed names don't exist in spaceOptions/tagOptions, still show them (UI now marks them red for the user to fix).
+• If names don't exist, still show them (UI marks them red for user to fix).
 
 CRITICAL PARSING INSTRUCTIONS:
 
-1. DURATION CONSTRAINTS vs ADVANCE BOOKING CONSTRAINTS:
-   a) DURATION CONSTRAINTS (use BOOKING CONDITIONS):
-      - "cannot book anything less than 1 hour" → BookingCondition with condition_type="duration", operator="is_less_than", value="1h"
-      - "max 3 hours per session" → BookingCondition with condition_type="duration", operator="is_greater_than", value="3h"
-      - "bookings must be at least 30 minutes" → BookingCondition with condition_type="duration", operator="is_less_than", value="30min"
-      - Keywords: duration, session length, booking length, "less/more than X hours/minutes" WITHOUT "in advance"
-   
-   b) ADVANCE BOOKING CONSTRAINTS (use BOOKING WINDOW RULES):
-      - "cannot book more than 48 hours in advance" → BookingWindowRule with constraint="more_than", value=48, unit="hours"
-      - "must book at least 24 hours ahead" → BookingWindowRule with constraint="less_than", value=24, unit="hours"
-      - Keywords: "in advance", "ahead of time", "before", "prior to"
+1. **BOOKING WINDOW LOGIC (MOST CRITICAL)**:
+   a) **HORIZON CAPS** (use constraint: "more_than"):
+      - "up to 30 days" → more_than 30 days (blocks beyond 30 days)
+      - "next 3 days" → more_than 3 days (blocks beyond 3 days)
+      - "within 1 week" → more_than 1 week (blocks beyond 1 week)
+      
+   b) **MINIMUM NOTICE** (use constraint: "less_than"):
+      - "at least 24 hours in advance" → less_than 24 hours (blocks within 24 hours)
+      - "need 2 days notice" → less_than 2 days (blocks within 2 days)
 
-2. "ONLY" PATTERNS: When you see "only [users] can book", this means ONLY those users are allowed, everyone else is blocked.
-   - Generate booking_conditions with condition_type: "user_tags"
-   - Use operator: "contains_none_of" (this blocks users who DON'T have the allowed tags)
-   - Set value to the allowed tags
+2. **UNIT PRESERVATION**: Keep user units unless they explicitly used hours.
 
-3. MULTI-ROW CONDITIONS: For compound conditions like "cannot book less than 1h OR more than 3h":
-   - Create one BookingCondition with "rules" array containing multiple rule objects
-   - Add "logic_operators" array with "OR"/"AND" between rules
-   - Each rule has: condition_type, operator, value, explanation
+3. **SPECIFIC DATES**: If you detect calendar dates, return guidance message only.
+
+4. **DURATION CONSTRAINTS**: Session length limits go to booking_conditions, not booking_window_rules.
+
+5. **"ONLY" PATTERNS**: "only [users] can book" → operator: "contains_none_of" with allowed tags.
+
+6. **MULTI-ROW CONDITIONS**: Use "rules" array with "logic_operators" for compound conditions.
 
 RESPONSE FORMAT:
-Return a JSON object with these fields:
-
+Return a JSON object with appropriate rule arrays. If specific dates detected, return only:
 {
-  "booking_conditions": [
-    {
-      "space": ["Space Name"] or ["all"],
-      "time_range": "HH:MM–HH:MM",
-      "days": ["Monday", "Tuesday", ...],
-      "rules": [
-        {
-          "condition_type": "user_tags" | "duration" | "interval_start" | "interval_end",
-          "operator": "contains_none_of" | "contains_any_of" | "is_less_than" | "is_greater_than",
-          "value": ["tag1", "tag2"] | "duration_string",
-          "explanation": "Clear explanation of this condition"
-        }
-      ],
-      "logic_operators": ["AND", "OR"],
-      "explanation": "Overall explanation of this condition block"
-    }
-  ],
-  "pricing_rules": [
-    {
-      "space": ["Space Name"],
-      "time_range": "HH:MM–HH:MM",
-      "days": ["Monday", "Tuesday", ...],
-      "rate": {"amount": 25, "unit": "hour"},
-      "condition_type": "user_tags" | "duration",
-      "operator": "contains_any_of" | "greater_than",
-      "value": ["tag"] | "duration_string",
-      "explanation": "Clear explanation of this pricing rule"
-    }
-  ],
-  "quota_rules": [
-    {
-      "target": "individuals_with_tags",
-      "tags": ["Coach"],
-      "quota_type": "time",
-      "value": "12h",
-      "period": "week",
-      "affected_spaces": ["Court 1", "Court 2"],
-      "consideration_time": "any_time",
-      "explanation": "Clear explanation of this quota"
-    }
-  ],
-  "buffer_time_rules": [
-    {
-      "spaces": ["PB A", "PB B"],
-      "buffer_duration": "15m",
-      "explanation": "Clear explanation of this buffer rule"
-    }
-  ],
-  "booking_window_rules": [
-    {
-      "user_scope": "users_with_tags",
-      "tags": ["Public"],
-      "constraint": "more_than" | "less_than",
-      "value": 48,
-      "unit": "hours",
-      "spaces": ["Court 1", "Court 2"],
-      "explanation": "Clear explanation of this booking window rule"
-    }
-  ],
-  "space_sharing": [
-    {
-      "from": "PB A",
-      "to": "Court 3"
-    }
-  ],
-  "summary": "Comprehensive summary (≤ 4 lines unless detail requested)"
+  "summary": "Direct calendar dates aren't supported. Found: [dates]. You can: create a recurring booking window that ends on that date, then delete it manually; or manage availability on the calendar directly.",
+  "explanation": "The booking system doesn't support hardcoded calendar dates. Use recurring time windows instead."
 }
 
-IMPORTANT NOTES:
-- For duration constraints like "less than 1 hour", use BookingCondition with condition_type="duration"
-- For advance booking constraints like "less than 1 hour in advance", use BookingWindowRule
-- For "only...can book" patterns, use "contains_none_of" operator
-- For multi-row conditions, use "rules" array with "logic_operators"
-- Preserve original time units (hours, days, weeks)
-- Always include "explanation" fields for human readability
-- Use 24-hour time format (e.g., "17:00" not "5 PM")
-- Extract ALL rule types present in the input
-- If no rules of a category are found, omit that array entirely
-- Keep responses ≤ 4 lines unless asked for detail
+Otherwise, return full rule structure with:
+- booking_conditions: [rules with multi-row support]
+- booking_window_rules: [with correct operators and preserved units]
+- pricing_rules, quota_rules, buffer_time_rules, space_sharing as needed
+- summary: "Comprehensive summary (≤ 4 lines)"
 
-${durationGuardHint}
+${durationGuardHint}${specificDateHint}
 
 Now analyze this booking rule and extract ALL applicable rule structures:
 
@@ -527,12 +542,14 @@ Rule: ${rule}
       throw new Error('Invalid response structure from AI')
     }
 
-    // Apply enhanced post-processing sanitization with Duration Guard
+    // Apply enhanced post-processing sanitization
     parsedResponse = await sanitizeRules(parsedResponse, rule);
 
-    // Add setup guide generation
-    const setupGuide = generateSetupGuide(parsedResponse)
-    parsedResponse.setup_guide = setupGuide
+    // Add setup guide generation only if we have actual rules
+    if (parsedResponse.booking_conditions || parsedResponse.booking_window_rules || parsedResponse.pricing_rules || parsedResponse.quota_rules || parsedResponse.buffer_time_rules || parsedResponse.space_sharing) {
+      const setupGuide = generateSetupGuide(parsedResponse)
+      parsedResponse.setup_guide = setupGuide
+    }
 
     return new Response(
       JSON.stringify(parsedResponse),
