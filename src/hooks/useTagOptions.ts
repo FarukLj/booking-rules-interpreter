@@ -69,7 +69,7 @@ export function useTagOptions(ruleResult?: RuleResult) {
       });
     }
 
-    // Extract tags from booking window rules - WITH PROPER TYPE GUARDS
+    // Extract tags from booking window rules - THIS IS THE KEY FIX
     if (ruleResult.booking_window_rules) {
       console.log('[useTagOptions] Extracting from booking_window_rules:', ruleResult.booking_window_rules);
       ruleResult.booking_window_rules.forEach(rule => {
@@ -79,8 +79,8 @@ export function useTagOptions(ruleResult?: RuleResult) {
             console.log('[useTagOptions] Found tag in booking window rule:', tag);
             if (typeof tag === 'string') {
               extractedTags.add(tag);
-            } else if (tag && typeof tag === 'object' && tag !== null && 'name' in tag && typeof tag.name === 'string') {
-              // Proper type guard for {id, name} format
+            } else if (tag && typeof tag === 'object' && 'name' in tag) {
+              // Handle {id, name} format
               extractedTags.add(tag.name);
             }
           });
