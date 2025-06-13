@@ -1,4 +1,29 @@
-// ... (keep all the existing imports) ...
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { MultiSelect } from "@/components/ui/multi-select";
+import { Button } from "@/components/ui/button";
+import { LinkSelect } from "@/components/ui/LinkSelect";
+import { Plus, X } from "lucide-react";
+import { PricingRule } from "@/types/RuleResult";
+import { formatTimeDisplay, formatUnit, getPricingLogicText } from "@/utils/pricingFormatters";
+
+interface PricingRuleFormProps {
+  rule: PricingRule;
+  index: number;
+  timeOptions: string[];
+  dayOptions: string[];
+  spaceOptions: string[];
+  rateUnitOptions: string[];
+  tagOptions: string[];
+  durationOperators: string[];
+  tagOperators: string[];
+  durationValues: string[];
+  onUpdateRule: (index: number, field: keyof PricingRule, value: any) => void;
+  onUpdateRateField: (index: number, field: 'amount' | 'unit', value: any) => void;
+  onAddSubCondition: (ruleIndex: number) => void;
+  onRemoveSubCondition: (ruleIndex: number, subIndex: number) => void;
+  onUpdateSubCondition: (ruleIndex: number, subIndex: number, field: string, value: any) => void;
+}
 
 export function PricingRuleForm({
   rule,
@@ -23,10 +48,8 @@ export function PricingRuleForm({
     ? timeRange.split('–') 
     : ['09:00', '24:00'];
 
-  // Rest of your component remains the same...
   return (
     <div className="bg-[#F1F3F5] p-4 sm:p-3 rounded-lg dark:bg-slate-800">
-      {/* Existing JSX remains the same */}
       <div className="flex flex-wrap items-center gap-1 text-sm font-medium mb-3 leading-6">
         <span>Between</span>
 
@@ -50,9 +73,95 @@ export function PricingRuleForm({
           )}
         </LinkSelect>
 
-        {/* Rest of your component remains the same */}
+        <span>on</span>
+
+        <MultiSelect
+          triggerVariant="link"
+          options={dayOptions}
+          selected={rule.days || []}
+          onSelectionChange={sel => onUpdateRule(index, 'days', sel)}
+          abbreviateDays={true}
+        />
+        ,
+
+        <MultiSelect
+          triggerVariant="link"
+          options={spaceOptions}
+          selected={rule.space || []}
+          onSelectionChange={sel => onUpdateRule(index, 'space', sel)}
+        />
+
+        <span>is priced</span>
+
+        <span>$</span>
+        <Input
+          type="number"
+          value={rule.rate?.amount ?? ''}
+          onChange={e => onUpdateRateField(index, 'amount', e.target.value)}
+          className="w-20 h-6 px-1 text-right"
+        />
+
+        <span>per</span>
+
+        <LinkSelect
+          value={rule.rate?.unit || 'per_hour'}
+          onValueChange={v => onUpdateRateField(index, 'unit', v)}
+        >
+          {rateUnitOptions.map(unit => (
+            <SelectItem key={unit} value={unit}>
+              {formatUnit(unit)}
+            </SelectItem>
+          ))}
+        </LinkSelect>
+
+        {rule.condition_type === 'duration' && (
+          <>
+            <span>if the duration</span>
+            <LinkSelect
+              value={rule.operator || 'is_greater_than'}
+              onValueChange={v => onUpdateRule(index, 'operator', v)}
+            >
+              {durationOperators.map(op => (
+                <SelectItem key={op} value={op.split(' ').join('_')}>
+                  {op}
+                </SelectItem>
+              ))}
+            </LinkSelect>
+            <LinkSelect
+              value={rule.value as string || '1h'}
+              onValueChange={v => onUpdateRule(index, 'value', v)}
+            >
+              {durationValues.map(val => (
+                <SelectItem key={val} value={val}>
+                  {val}
+                </SelectItem>
+              ))}
+            </LinkSelect>
+          </>
+        )}
+
+        {rule.condition_type === 'user_tags' && (
+          <>
+            <span>for users with</span>
+            <LinkSelect
+              value={rule.operator || 'contains_any_of'}
+              onValueChange={v => onUpdateRule(index, 'operator', v)}
+            >
+              {tagOperators.map(op => (
+                <SelectItem key={op} value={op.split(' ').join('_')}>
+                  {op}
+                </SelectItem>
+              ))}
+            </LinkSelect>
+            <MultiSelect
+              triggerVariant="link"
+              options={tagOptions}
+              selected={Array.isArray(rule.value) ? rule.value : []}
+              onSelectionChange={sel => onUpdateRule(index, 'value', sel)}
+            />
+          </>
+        )}
       </div>
-      {/* ... rest of the component ... */}
     </div>
   );
 }
