@@ -14,8 +14,6 @@ export function useTagOptions(ruleResult?: RuleResult) {
       return hardcodedTags;
     }
 
-    console.log('[useTagOptions] Processing ruleResult:', ruleResult);
-
     const extractedTags = new Set<string>();
 
     // Extract tags from booking conditions
@@ -69,22 +67,13 @@ export function useTagOptions(ruleResult?: RuleResult) {
       });
     }
 
-    // Extract tags from booking window rules - WITH PROPER TYPE GUARDS
+    // Extract tags from booking window rules
     if (ruleResult.booking_window_rules) {
-      console.log('[useTagOptions] Extracting from booking_window_rules:', ruleResult.booking_window_rules);
       ruleResult.booking_window_rules.forEach(rule => {
-        console.log('[useTagOptions] Processing booking window rule:', rule);
         if (rule.tags && Array.isArray(rule.tags)) {
-          rule.tags.forEach((tag: any) => {
-            console.log('[useTagOptions] Found tag in booking window rule:', tag);
+          rule.tags.forEach(tag => {
             if (typeof tag === 'string') {
               extractedTags.add(tag);
-            } else if (tag && typeof tag === 'object' && tag !== null) {
-              // Type assertion with runtime check
-              const tagObj = tag as { name?: string };
-              if ('name' in tagObj && typeof tagObj.name === 'string') {
-                extractedTags.add(tagObj.name);
-              }
             }
           });
         }

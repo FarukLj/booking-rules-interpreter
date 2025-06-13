@@ -161,7 +161,7 @@ export const SetupGuideModal = ({
       case 'buffer_time_rules':
         return <BufferTimeRulesBlock initialRules={ruleBlocks} ruleResult={result} />;
       case 'booking_window_rules':
-        return <BookingWindowRulesBlock rules={ruleBlocks} ruleResult={result} />;
+        return <BookingWindowRulesBlock initialRules={ruleBlocks} ruleResult={result} />;
       case 'space_sharing':
         return <SpaceSharingRulesBlock initialRules={ruleBlocks} />;
       default:
