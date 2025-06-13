@@ -77,9 +77,9 @@ export function BookingWindowRuleItem({
           <div className="space-y-2">
             <Label className="text-sm font-medium">Select Tags</Label>
             <MultiSelect
-              options={availableTagOptions.map(tag => ({ label: tag, value: tag }))}
-              value={rule.tags || []}
-              onValueChange={(tags) => updateRule({ tags })}
+              options={availableTagOptions}
+              selected={rule.tags || []}
+              onSelectionChange={(tags) => updateRule({ tags })}
               placeholder="Select tags..."
               className="w-full"
             />
@@ -149,12 +149,9 @@ export function BookingWindowRuleItem({
         <div className="space-y-2">
           <Label className="text-sm font-medium">Applies to spaces</Label>
           <MultiSelect
-            options={[
-              { label: "All spaces", value: "all" },
-              // Add more space options here as needed
-            ]}
-            value={rule.spaces || ["all"]}
-            onValueChange={(spaces) => updateRule({ spaces })}
+            options={["all"]}
+            selected={rule.spaces || ["all"]}
+            onSelectionChange={(spaces) => updateRule({ spaces })}
             placeholder="Select spaces..."
             className="w-full"
           />
