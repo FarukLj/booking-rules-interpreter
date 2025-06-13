@@ -41,23 +41,40 @@ export function BookingConditionRow({
     onConditionChange(index, field, value);
   };
 
+  // Safe time range parsing with defensive checks
+  const getTimeRangeParts = (timeRange: string | undefined) => {
+    if (!timeRange || typeof timeRange !== 'string') {
+      console.warn('[BookingConditionRow] Invalid time_range:', timeRange);
+      return { startTime: '09:00', endTime: '17:00' };
+    }
+    
+    const parts = timeRange.split('–');
+    if (parts.length === 2) {
+      return { startTime: parts[0] || '09:00', endTime: parts[1] || '17:00' };
+    }
+    
+    console.warn('[BookingConditionRow] Could not parse time_range:', timeRange);
+    return { startTime: '09:00', endTime: '17:00' };
+  };
+
+  const { startTime, endTime } = getTimeRangeParts(condition.time_range);
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2 text-sm mb-3">
         <span className="text-slate-600">For</span>
         <MultiSelect
           triggerVariant="link"
-          options={spaceOptions}
-          selected={condition.space || []}
+          options={spaceOptions.filter(option => typeof option === 'string')}
+          selected={(condition.space || []).filter(space => typeof space === 'string')}
           onSelectionChange={(selected) => updateCondition('space', selected)}
           placeholder="Select spaces"
         />
         
         <span className="text-slate-600">between</span>
         <LinkSelect 
-          value={condition.time_range?.split('–')[0] || '09:00'}
+          value={startTime}
           onValueChange={(value) => {
-            const endTime = condition.time_range?.split('–')[1] || '17:00';
             updateCondition('time_range', `${value}–${endTime}`);
           }}
         >
@@ -68,9 +85,8 @@ export function BookingConditionRow({
         
         <span className="text-slate-600">and</span>
         <LinkSelect 
-          value={condition.time_range?.split('–')[1] || '17:00'}
+          value={endTime}
           onValueChange={(value) => {
-            const startTime = condition.time_range?.split('–')[0] || '09:00';
             updateCondition('time_range', `${startTime}–${value}`);
           }}
         >
@@ -82,8 +98,8 @@ export function BookingConditionRow({
         <span className="text-slate-600">on</span>
         <MultiSelect
           triggerVariant="link"
-          options={dayOptions}
-          selected={condition.days || []}
+          options={dayOptions.filter(option => typeof option === 'string')}
+          selected={(condition.days || []).filter(day => typeof day === 'string')}
           onSelectionChange={(selected) => updateCondition('days', selected)}
           placeholder="Select days"
           abbreviateDays={true}
@@ -112,8 +128,8 @@ export function BookingConditionRow({
             <div className="w-full md:flex-1">
               {condition.condition_type === "user_tags" ? (
                 <MultiSelect
-                  options={tagOptions}
-                  selected={Array.isArray(condition.value) ? condition.value : []}
+                  options={tagOptions.filter(option => typeof option === 'string')}
+                  selected={Array.isArray(condition.value) ? condition.value.filter(v => typeof v === 'string') : []}
                   onSelectionChange={(selected) => updateCondition('value', selected)}
                   placeholder="Select tags"
                   className="w-full"

@@ -39,16 +39,44 @@ export function MultiSelect({
   triggerVariant = "input",
   abbreviateDays: shouldAbbreviateDays = false
 }: MultiSelectProps) {
+  
+  // Defensive validation for props
+  const safeOptions = React.useMemo(() => {
+    if (!Array.isArray(options)) {
+      console.warn('[MultiSelect] Invalid options - expected array, got:', typeof options, options);
+      return [];
+    }
+    return options.filter(option => typeof option === 'string' && option.length > 0);
+  }, [options]);
+
+  const safeSelected = React.useMemo(() => {
+    if (!Array.isArray(selected)) {
+      console.warn('[MultiSelect] Invalid selected - expected array, got:', typeof selected, selected);
+      return [];
+    }
+    return selected.filter(item => typeof item === 'string' && safeOptions.includes(item));
+  }, [selected, safeOptions]);
+
   const toggleItem = (item: string) => {
-    const newSelected = selected.includes(item)
-      ? selected.filter(s => s !== item)
-      : [...selected, item];
+    if (typeof item !== 'string') {
+      console.warn('[MultiSelect] Invalid item type:', typeof item, item);
+      return;
+    }
+    
+    const newSelected = safeSelected.includes(item)
+      ? safeSelected.filter(s => s !== item)
+      : [...safeSelected, item];
     onSelectionChange(newSelected);
   };
 
   const removeItem = (item: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    const newSelected = selected.filter(s => s !== item);
+    if (typeof item !== 'string') {
+      console.warn('[MultiSelect] Invalid item type for removal:', typeof item, item);
+      return;
+    }
+    
+    const newSelected = safeSelected.filter(s => s !== item);
     onSelectionChange(newSelected);
   };
 
@@ -57,26 +85,16 @@ export function MultiSelect({
   };
 
   const renderDisplayValue = () => {
-    if (!selected || selected.length === 0) {
+    if (!safeSelected || safeSelected.length === 0) {
       return (
         <span className="text-muted-foreground text-sm truncate">{placeholder}</span>
       );
     }
 
-    // Ensure all selected items are strings and filter out invalid values
-    const validSelected = selected.filter(s => 
-      typeof s === "string" && options.includes(s)
-    );
-
-    // Silently fix the selection if needed
-    if (validSelected.length !== selected.length) {
-      onSelectionChange(validSelected);
-    }
-
     // For link variant, display as clean text like LinkSelect
     if (triggerVariant === "link") {
-      const displayItems = getDisplayItems(validSelected);
-      if (validSelected.length === 1) {
+      const displayItems = getDisplayItems(safeSelected);
+      if (safeSelected.length === 1) {
         return <span className="text-blue-700 font-semibold">{displayItems[0]}</span>;
       }
       return <span className="text-blue-700 font-semibold">{displayItems.join(", ")}</span>;
@@ -85,26 +103,26 @@ export function MultiSelect({
     // For input variant, use the existing chip display logic
     const maxVisibleChips = 3;
 
-    if (validSelected.length === 1) {
+    if (safeSelected.length === 1) {
       return (
         <div className="flex items-center gap-1 min-w-0 flex-1">
           <span
             className="inline-flex items-center gap-0.5 rounded-full bg-link/10 text-link text-xs px-2 py-0.5 max-w-[160px] truncate"
           >
-            <span className="truncate">{validSelected[0]}</span>
+            <span className="truncate">{safeSelected[0]}</span>
             <X
               className="ml-1 h-3 w-3 cursor-pointer hover:text-destructive flex-shrink-0"
-              onClick={(e) => removeItem(validSelected[0], e)}
+              onClick={(e) => removeItem(safeSelected[0], e)}
             />
           </span>
         </div>
       );
     }
 
-    if (validSelected.length <= maxVisibleChips) {
+    if (safeSelected.length <= maxVisibleChips) {
       return (
         <div className="flex items-center gap-1 min-w-0 flex-1 flex-wrap">
-          {validSelected.slice(0, maxVisibleChips).map((item, index) => (
+          {safeSelected.slice(0, maxVisibleChips).map((item, index) => (
             <span
               key={item}
               className="inline-flex items-center gap-0.5 rounded-full bg-link/10 text-link text-xs px-2 py-0.5 max-w-[120px] truncate"
@@ -123,7 +141,7 @@ export function MultiSelect({
     // For many items, show first 2 chips + count
     return (
       <div className="flex items-center gap-1 min-w-0 flex-1">
-        {validSelected.slice(0, 2).map((item) => (
+        {safeSelected.slice(0, 2).map((item) => (
           <span
             key={item}
             className="inline-flex items-center gap-0.5 rounded-full bg-link/10 text-link text-xs px-2 py-0.5 max-w-[100px] truncate"
@@ -136,7 +154,7 @@ export function MultiSelect({
           </span>
         ))}
         <span className="text-xs text-slate-600 font-medium flex-shrink-0">
-          +{validSelected.length - 2} more
+          +{safeSelected.length - 2} more
         </span>
       </div>
     );
@@ -164,7 +182,7 @@ export function MultiSelect({
             variant="outline"
             className={cn(
               triggerStyles.input,
-              selected.length === 0 && "text-muted-foreground",
+              safeSelected.length === 0 && "text-muted-foreground",
               "min-w-[240px] max-w-[280px] md:max-w-[280px] sm:min-w-[180px]",
               className
             )}
@@ -177,7 +195,7 @@ export function MultiSelect({
         )}
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56 max-h-64 overflow-y-auto z-50" align="start">
-        {options.map((option) => (
+        {safeOptions.map((option) => (
           <DropdownMenuItem
             key={option}
             onClick={() => toggleItem(option)}
@@ -185,7 +203,7 @@ export function MultiSelect({
           >
             <div className="flex items-center space-x-2 w-full">
               <div className="flex h-4 w-4 items-center justify-center">
-                {selected.includes(option) && (
+                {safeSelected.includes(option) && (
                   <Check className="h-4 w-4 text-primary" />
                 )}
               </div>
