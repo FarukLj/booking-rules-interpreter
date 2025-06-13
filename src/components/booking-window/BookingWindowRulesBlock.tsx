@@ -25,25 +25,19 @@ export function BookingWindowRulesBlock({
     if (rules.length > 0 && onRulesChange) {
       let needsUpdate = false;
       const correctedRules = rules.map(rule => {
-        // Type guard to ensure user_scope is valid
-        const validUserScope = ["all_users", "users_with_tags", "users_with_no_tags"];
-        const userScope = validUserScope.includes(rule.user_scope) 
-          ? rule.user_scope 
-          : "all_users";
-
         // If rule has tags but user_scope is not set correctly, fix it
-        if (rule.tags && rule.tags.length > 0 && userScope !== "users_with_tags") {
+        if (rule.tags && rule.tags.length > 0 && rule.user_scope !== "users_with_tags") {
           console.log('[BookingWindowRulesBlock] Auto-correcting user_scope for rule with tags:', rule.tags);
           needsUpdate = true;
-          return { ...rule, user_scope: "users_with_tags" as const };
+          return { ...rule, user_scope: "users_with_tags" };
         }
         // If rule has no tags but user_scope is not all_users, fix it
-        if ((!rule.tags || rule.tags.length === 0) && userScope !== "all_users") {
+        if ((!rule.tags || rule.tags.length === 0) && rule.user_scope !== "all_users") {
           console.log('[BookingWindowRulesBlock] Auto-correcting user_scope for rule without tags');
           needsUpdate = true;
-          return { ...rule, user_scope: "all_users" as const };
+          return { ...rule, user_scope: "all_users" };
         }
-        return { ...rule, user_scope: userScope };
+        return rule;
       });
 
       if (needsUpdate) {
@@ -60,8 +54,7 @@ export function BookingWindowRulesBlock({
       unit: "hours",
       user_scope: "all_users",
       tags: [],
-      spaces: ["all"],
-      explanation: "Default booking window rule"
+      spaces: ["all"]
     };
 
     if (onRulesChange) {
