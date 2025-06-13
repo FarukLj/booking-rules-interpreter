@@ -8,6 +8,7 @@ import { normalizeAdvanceUnit, convertFromHours, getTimeDisplayHelper } from "./
 import { getLogicValidation, getConstraintExplanation } from "./utils/validation";
 import { getUserGroupText, getConstraintText } from "./utils/textHelpers";
 import { BookingWindowRow } from "./BookingWindowRow";
+import { normalizeTagsToNames, validateSelectedTags } from "@/utils/tagHelpers";
 
 interface BookingWindowRuleItemProps {
   rule: BookingWindowRule;
@@ -24,6 +25,17 @@ export function BookingWindowRuleItem({
 }: BookingWindowRuleItemProps) {
   const validation = getLogicValidation(rule);
 
+  console.log('[BookingWindowRuleItem] Rendering rule:', rule);
+  console.log('[BookingWindowRuleItem] Available tag options:', tagOptions);
+  console.log('[BookingWindowRuleItem] Rule tags raw:', rule.tags);
+
+  // Normalize tags to string names and validate them
+  const normalizedTags = rule.tags ? normalizeTagsToNames(rule.tags) : [];
+  const validatedTags = validateSelectedTags(normalizedTags, tagOptions);
+  
+  console.log('[BookingWindowRuleItem] Normalized tags:', normalizedTags);
+  console.log('[BookingWindowRuleItem] Validated tags:', validatedTags);
+
   const handleUnitChange = (newUnit: "hours" | "days" | "weeks") => {
     // Convert current value to hours, then to new unit
     const valueInHours = normalizeAdvanceUnit(rule.value || 72, rule.unit || 'hours');
@@ -33,6 +45,11 @@ export function BookingWindowRuleItem({
     
     onRuleUpdate('value', newValue);
     onRuleUpdate('unit', newUnit);
+  };
+
+  const handleTagSelectionChange = (selected: string[]) => {
+    console.log('[BookingWindowRuleItem] Tag selection changed:', selected);
+    onRuleUpdate('tags', selected);
   };
 
   // Row 1 Content: User scope selector and tags (if applicable)
@@ -54,8 +71,8 @@ export function BookingWindowRuleItem({
       {(rule.user_scope === "users_with_tags" || rule.user_scope === "users_with_no_tags") && (
         <MultiSelect
           options={tagOptions}
-          selected={rule.tags || []}
-          onSelectionChange={(selected) => onRuleUpdate('tags', selected)}
+          selected={validatedTags}
+          onSelectionChange={handleTagSelectionChange}
           placeholder="Select tags"
           className="min-w-0 max-w-[200px]"
         />
@@ -188,6 +205,13 @@ export function BookingWindowRuleItem({
       <div className="text-xs text-slate-500 bg-slate-100 p-2 rounded border mt-2">
         <strong>Rule Logic:</strong> {getConstraintExplanation(rule.constraint || 'less_than')}
       </div>
+
+      {/* Debug information for missing tags */}
+      {normalizedTags.length !== validatedTags.length && (
+        <div className="text-xs text-orange-600 bg-orange-50 p-2 rounded border mt-2">
+          <strong>Debug:</strong> Some tags were not found in options. Raw tags: {JSON.stringify(rule.tags)}, Available: {JSON.stringify(tagOptions)}
+        </div>
+      )}
     </div>
   );
 }

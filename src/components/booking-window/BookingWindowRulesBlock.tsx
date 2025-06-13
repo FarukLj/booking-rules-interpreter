@@ -12,6 +12,9 @@ interface BookingWindowRulesBlockProps {
 }
 
 export function BookingWindowRulesBlock({ initialRules = [], ruleResult }: BookingWindowRulesBlockProps) {
+  console.log('[BookingWindowRulesBlock] Received ruleResult:', ruleResult);
+  console.log('[BookingWindowRulesBlock] Initial rules:', initialRules);
+
   const [rules, setRules] = useState<BookingWindowRule[]>(
     initialRules.length > 0 ? initialRules : [{
       user_scope: "all_users",
@@ -31,10 +34,22 @@ export function BookingWindowRulesBlock({ initialRules = [], ruleResult }: Booki
   const { spaceOptions } = useSpaceOptions(ruleResult);
   const { tagOptions } = useTagOptions(ruleResult);
 
+  console.log('[BookingWindowRulesBlock] Tag options from hook:', tagOptions);
+  console.log('[BookingWindowRulesBlock] Current rules with tags:', rules.map(r => ({ 
+    user_scope: r.user_scope, 
+    tags: r.tags,
+    constraint: r.constraint,
+    value: r.value,
+    unit: r.unit
+  })));
+
   const updateRule = (index: number, field: keyof BookingWindowRule, value: any) => {
+    console.log(`[BookingWindowRulesBlock] Updating rule ${index}, field ${field}, value:`, value);
     setRules(prev => prev.map((rule, i) => {
       if (i === index) {
-        return { ...rule, [field]: value };
+        const updatedRule = { ...rule, [field]: value };
+        console.log(`[BookingWindowRulesBlock] Updated rule ${index}:`, updatedRule);
+        return updatedRule;
       }
       return rule;
     }));
