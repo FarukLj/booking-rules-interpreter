@@ -11,8 +11,8 @@ const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
 
 // Enhanced pattern detection for booking windows
 const HORIZON_CAP_PATTERNS = [
-  /(?:up\s+to|within|in\s+the\s+next|for\s+the\s+next|no\s+more\s+than|maximum\s+of|max)\s+(\d+)\s*(day|days|week|weeks|hour|hours)/gi,
-  /(?:can\s+book|book)\s+(?:up\s+to|within|for\s+the\s+next)\s+(\d+)\s*(day|days|week|weeks|hour|hours)/gi
+  /(?:can\s+book|book)\s+(?:up\s+to|within|for\s+the\s+next|no\s+more\s+than|maximum\s+of|max)\s+(\d+)\s*(day|days|week|weeks|hour|hours)/gi,
+  /(?:up\s+to|within|in\s+the\s+next|for\s+the\s+next|no\s+more\s+than|maximum\s+of|max)\s+(\d+)\s*(day|days|week|weeks|hour|hours)(?:\s+in\s+advance)?/gi
 ];
 
 const MINIMUM_NOTICE_PATTERNS = [
@@ -291,6 +291,20 @@ async function sanitizeRules(parsedResponse: any, originalRule: string): Promise
           rule.__unit_preserved = true;
         }
       }
+      
+      // CRITICAL FIX: Auto-set user_scope when tags are present
+      if (rule.tags && Array.isArray(rule.tags) && rule.tags.length > 0) {
+        if (!rule.user_scope || rule.user_scope === 'all_users') {
+          console.log(`[SANITIZE] Auto-setting user_scope for rule ${index} with tags:`, rule.tags);
+          rule.user_scope = 'users_with_tags';
+          rule.__user_scope_corrected = true;
+        }
+      } else {
+        // If no tags, ensure user_scope is all_users
+        if (!rule.user_scope) {
+          rule.user_scope = 'all_users';
+        }
+      }
     });
   }
   
@@ -415,22 +429,27 @@ Your job:
    • "can book ***up to*** X days" → constraint: "more_than" (blocks beyond X days)
    • "book for the ***next*** X days" → constraint: "more_than" (blocks beyond X days)
    • "no more than X days in advance" → constraint: "more_than" (blocks beyond X days)
-   • Keywords: "up to", "next", "within", "no more than", "maximum"
+   • "X days in advance" (in context of booking allowance) → constraint: "more_than"
+   • Keywords: "up to", "next", "within", "no more than", "maximum", "can book"
 
 2. **MINIMUM NOTICE** (requires advance booking):
    • "must book ***at least*** X days in advance" → constraint: "less_than" (blocks within X days)
    • "need X days notice" → constraint: "less_than" (blocks within X days)
-   • Keywords: "at least", "minimum", "notice", "in advance"
+   • Keywords: "at least", "minimum", "notice", "must book"
+
+**CRITICAL EXAMPLES:**
+- "Coaches can book up to 7 days in advance" → constraint: "more_than", value: 7, unit: "days"
+- "Sales team can book 30 days in advance" → constraint: "more_than", value: 30, unit: "days"
+- "Must book at least 48 hours in advance" → constraint: "less_than", value: 48, unit: "hours"
+
+**USER SCOPE REQUIREMENTS:**
+- ALWAYS set user_scope: "users_with_tags" when tags are present
+- ALWAYS set user_scope: "all_users" when no tags specified
 
 **UNIT PRESERVATION:**
 • Keep user's original units: "30 days" stays "30 days" (NOT 720 hours)
 • Only convert if user explicitly used hours
 • Preserve: days, weeks, hours as user intended
-
-**EXAMPLES:**
-- "Sales team can book up to 30 days" → constraint: "more_than", value: 30, unit: "days"
-- "Everyone else only 3 days" → constraint: "more_than", value: 3, unit: "days"
-- "Must book 48 hours in advance" → constraint: "less_than", value: 48, unit: "hours"
 
 ────────────────────────────────────────  SPECIFIC-DATE LIMITS (Unsupported)
 The UI cannot pin rules to a calendar date.
@@ -462,20 +481,25 @@ CRITICAL PARSING INSTRUCTIONS:
       - "up to 30 days" → more_than 30 days (blocks beyond 30 days)
       - "next 3 days" → more_than 3 days (blocks beyond 3 days)
       - "within 1 week" → more_than 1 week (blocks beyond 1 week)
+      - "7 days in advance" (booking allowance) → more_than 7 days
       
    b) **MINIMUM NOTICE** (use constraint: "less_than"):
       - "at least 24 hours in advance" → less_than 24 hours (blocks within 24 hours)
       - "need 2 days notice" → less_than 2 days (blocks within 2 days)
 
-2. **UNIT PRESERVATION**: Keep user units unless they explicitly used hours.
+2. **USER SCOPE CRITICAL RULE**: 
+   - If tags specified → MUST set user_scope: "users_with_tags"
+   - If no tags → MUST set user_scope: "all_users"
 
-3. **SPECIFIC DATES**: If you detect calendar dates, return guidance message only.
+3. **UNIT PRESERVATION**: Keep user units unless they explicitly used hours.
 
-4. **DURATION CONSTRAINTS**: Session length limits go to booking_conditions, not booking_window_rules.
+4. **SPECIFIC DATES**: If you detect calendar dates, return guidance message only.
 
-5. **"ONLY" PATTERNS**: "only [users] can book" → operator: "contains_none_of" with allowed tags.
+5. **DURATION CONSTRAINTS**: Session length limits go to booking_conditions, not booking_window_rules.
 
-6. **MULTI-ROW CONDITIONS**: Use "rules" array with "logic_operators" for compound conditions.
+6. **"ONLY" PATTERNS**: "only [users] can book" → operator: "contains_none_of" with allowed tags.
+
+7. **MULTI-ROW CONDITIONS**: Use "rules" array with "logic_operators" for compound conditions.
 
 RESPONSE FORMAT:
 Return a JSON object with appropriate rule arrays. If specific dates detected, return only:
@@ -486,7 +510,7 @@ Return a JSON object with appropriate rule arrays. If specific dates detected, r
 
 Otherwise, return full rule structure with:
 - booking_conditions: [rules with multi-row support]
-- booking_window_rules: [with correct operators and preserved units]
+- booking_window_rules: [with correct operators, user_scope, and preserved units]
 - pricing_rules, quota_rules, buffer_time_rules, space_sharing as needed
 - summary: "Comprehensive summary (≤ 4 lines)"
 
