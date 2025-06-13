@@ -75,16 +75,13 @@ export function useTagOptions(ruleResult?: RuleResult) {
       ruleResult.booking_window_rules.forEach(rule => {
         console.log('[useTagOptions] Processing booking window rule:', rule);
         if (rule.tags && Array.isArray(rule.tags)) {
-          rule.tags.forEach((tag: any) => {
+          rule.tags.forEach(tag => {
             console.log('[useTagOptions] Found tag in booking window rule:', tag);
             if (typeof tag === 'string') {
               extractedTags.add(tag);
-            } else if (tag && typeof tag === 'object' && tag !== null) {
-              // Type assertion with runtime check
-              const tagObj = tag as { name?: string };
-              if ('name' in tagObj && typeof tagObj.name === 'string') {
-                extractedTags.add(tagObj.name);
-              }
+            } else if (tag && typeof tag === 'object' && tag !== null && 'name' in tag && typeof tag.name === 'string') {
+              // Proper type guard for {id, name} format
+              extractedTags.add(tag.name);
             }
           });
         }
