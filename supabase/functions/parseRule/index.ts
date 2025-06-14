@@ -512,6 +512,25 @@ Your job:
 • Extract exact space names from the prompt: "indoor track" → "Indoor Track"
 • Capitalize properly but keep the exact wording
 
+**PRICING RULE STRUCTURE:**
+• ALWAYS use this exact structure for pricing rules:
+  {
+    "space": ["Space Name"],
+    "time_range": "HH:MM–HH:MM",
+    "days": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+    "rate": { "amount": NUMBER, "unit": "per_hour" },
+    "condition_type": "duration" OR "user_tags",
+    "operator": "is_greater_than_or_equal_to" OR "contains_any_of",
+    "value": "15min" OR ["tag_name"],
+    "explanation": "descriptive text"
+  }
+
+**PRICE EXTRACTION:**
+• "$10 per hour" → rate: { amount: 10, unit: "per_hour" }
+• "$18 per hour" → rate: { amount: 18, unit: "per_hour" }
+• "$8 per hour" → rate: { amount: 8, unit: "per_hour" }
+• NEVER leave rate.amount empty or undefined
+
 **DEFAULT VALUES FOR PRICING RULES:**
 • If no specific duration constraint is mentioned, always set:
   - condition_type: "duration"
@@ -583,12 +602,17 @@ CRITICAL PARSING INSTRUCTIONS:
    b) **SPACE SELECTION**: Extract exact space names
       - "indoor track" → space: ["Indoor Track"]
    
-   c) **DEFAULT CONDITIONS**: For pricing rules without specific constraints
+   c) **PRICE EXTRACTION**: Extract exact dollar amounts
+      - "$10 per hour" → rate: { amount: 10, unit: "per_hour" }
+      - "$18 per hour" → rate: { amount: 18, unit: "per_hour" }
+      - "$8 per hour" → rate: { amount: 8, unit: "per_hour" }
+   
+   d) **DEFAULT CONDITIONS**: For pricing rules without specific constraints
       - condition_type: "duration"
       - operator: "is_greater_than_or_equal_to"
       - value: "15min"
    
-   d) **TAG CONDITIONS**: For user-specific pricing
+   e) **TAG CONDITIONS**: For user-specific pricing
       - "College Team tag" → condition_type: "user_tags", operator: "contains_any_of", value: ["College Team"]
 
 2. **BOOKING WINDOW LOGIC**: 
@@ -619,7 +643,7 @@ Return a JSON object with appropriate rule arrays. If specific dates detected, r
 }
 
 Otherwise, return full rule structure with:
-- pricing_rules: [rules with proper time ranges, spaces, days, and conditions]
+- pricing_rules: [rules with proper time ranges, spaces, days, rates, and conditions]
 - booking_conditions: [rules with multi-row support]
 - booking_window_rules: [with correct operators and preserved units]
 - quota_rules, buffer_time_rules, space_sharing as needed

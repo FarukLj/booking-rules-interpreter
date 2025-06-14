@@ -11,6 +11,9 @@ export function usePricingRules(initialRules: PricingRule[] = []) {
     return 0;
   });
   
+  // Debug logging for initial rules
+  console.log('usePricingRules - initial rules:', sortedInitialRules);
+  
   const [rules, setRules] = useState<PricingRule[]>(
     sortedInitialRules.length > 0 ? sortedInitialRules : [{
       space: ["Space 1"],
@@ -27,6 +30,11 @@ export function usePricingRules(initialRules: PricingRule[] = []) {
   const [logicOperators, setLogicOperators] = useState<string[]>(
     new Array(Math.max(0, rules.length - 1)).fill("AND")
   );
+
+  // Debug logging when rules change
+  useEffect(() => {
+    console.log('usePricingRules - rules updated:', rules);
+  }, [rules]);
 
   // Validation for positive pricing logic
   useEffect(() => {
@@ -48,6 +56,8 @@ const updateRule = (
   field: keyof PricingRule | "time_keyword",
   value: any
 ) => {
+  console.log(`updateRule - index: ${index}, field: ${field}, value:`, value);
+  
   // ••• 1) keyword branch — run before we touch state •••
   if (field === "time_keyword") {
     const range = normaliseTimeRange(String(value));
@@ -70,6 +80,8 @@ const updateRule = (
 };
 
   const updateRateField = (index: number, field: 'amount' | 'unit', value: any) => {
+    console.log(`updateRateField - index: ${index}, field: ${field}, value:`, value);
+    
     setRules(prev => prev.map((rule, i) => 
       i === index ? { 
         ...rule, 

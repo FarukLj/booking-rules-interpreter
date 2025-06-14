@@ -32,7 +32,15 @@ export function getLogicText(condition: any): string {
 export function getAvailableOperators(conditionType: string): string[] {
   switch (conditionType) {
     case 'duration':
-      return ['is less than', 'is less than or equal to', 'is greater than', 'is greater than or equal to', 'is equal to', 'multiple of'];
+      return [
+        'is less than', 
+        'is less than or equal to', 
+        'is greater than', 
+        'is greater than or equal to', 
+        'is equal to', 
+        'is not equal to',
+        'multiple of'
+      ];
     case 'interval_start':
     case 'interval_end':
       return ['multiple of', 'is less than', 'is greater than'];
@@ -50,6 +58,7 @@ export function getOperatorDisplayText(operator: string): string {
     'is_greater_than': 'is greater than',
     'is_greater_than_or_equal_to': 'is greater than or equal to',
     'is_equal_to': 'is equal to',
+    'is_not_equal_to': 'is not equal to',
     'multiple_of': 'multiple of',
     'contains_any_of': 'contains any of',
     'contains_none_of': 'contains none of'
@@ -64,7 +73,8 @@ export function getOperatorValue(displayText: string): string {
     'is less than or equal to': 'is_less_than_or_equal_to',
     'is greater than': 'is_greater_than',
     'is greater than or equal to': 'is_greater_than_or_equal_to',
-    'is equal to': 'is_equal_to', 
+    'is equal to': 'is_equal_to',
+    'is not equal to': 'is_not_equal_to',
     'multiple of': 'multiple_of',
     'contains any of': 'contains_any_of',
     'contains none of': 'contains_none_of'
