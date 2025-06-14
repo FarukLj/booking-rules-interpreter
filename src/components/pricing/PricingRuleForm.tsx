@@ -149,7 +149,7 @@ export function PricingRuleForm({
 
         {rule.condition_type === 'user_tags' && (
           <MultiSelect
-            triggerVariant="default"
+            triggerVariant="input"
             options={tagOptions}
             selected={Array.isArray(rule.value) ? rule.value : []}
             onSelectionChange={sel => onUpdateRule(index, 'value', sel)}
