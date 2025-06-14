@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { PricingRule } from "@/types/RuleResult";
 import { handleSmartTimeRange, timeRangeFromKeyword, normaliseTimeRange } from "@/utils/pricingFormatters";
@@ -11,18 +10,15 @@ export function usePricingRules(initialRules: PricingRule[] = []) {
     return 0;
   });
   
-  // Debug logging for initial rules
-  console.log('usePricingRules - initial rules:', sortedInitialRules);
-  
   const [rules, setRules] = useState<PricingRule[]>(
     sortedInitialRules.length > 0 ? sortedInitialRules : [{
       space: ["Space 1"],
       time_range: "09:00–17:00",
-      days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+      days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
       rate: { amount: 25, unit: "per_hour" },
       condition_type: "duration",
-      operator: "is_greater_than_or_equal_to",
-      value: "15min",
+      operator: "is_greater_than",
+      value: "1h",
       explanation: "Default pricing rule"
     }]
   );
@@ -30,11 +26,6 @@ export function usePricingRules(initialRules: PricingRule[] = []) {
   const [logicOperators, setLogicOperators] = useState<string[]>(
     new Array(Math.max(0, rules.length - 1)).fill("AND")
   );
-
-  // Debug logging when rules change
-  useEffect(() => {
-    console.log('usePricingRules - rules updated:', rules);
-  }, [rules]);
 
   // Validation for positive pricing logic
   useEffect(() => {
@@ -50,14 +41,12 @@ export function usePricingRules(initialRules: PricingRule[] = []) {
 
   // ───────────────────────────────────────────────────────────
 //  Updates a single field **or** handles our special keyword
-//  "after 18:00" → time_range = "18:00–24:00"
+//  “after 18:00” → time_range = "18:00–24:00"
 const updateRule = (
   index: number,
   field: keyof PricingRule | "time_keyword",
   value: any
 ) => {
-  console.log(`updateRule - index: ${index}, field: ${field}, value:`, value);
-  
   // ••• 1) keyword branch — run before we touch state •••
   if (field === "time_keyword") {
     const range = normaliseTimeRange(String(value));
@@ -80,8 +69,6 @@ const updateRule = (
 };
 
   const updateRateField = (index: number, field: 'amount' | 'unit', value: any) => {
-    console.log(`updateRateField - index: ${index}, field: ${field}, value:`, value);
-    
     setRules(prev => prev.map((rule, i) => 
       i === index ? { 
         ...rule, 
@@ -102,8 +89,8 @@ const updateRule = (
           ...(rule.sub_conditions || []),
           {
             condition_type: "duration",
-            operator: "is_greater_than_or_equal_to",
-            value: "15min",
+            operator: "is_greater_than",
+            value: "1h",
             logic: "AND"
           }
         ]

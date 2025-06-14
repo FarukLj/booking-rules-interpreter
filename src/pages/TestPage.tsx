@@ -2,15 +2,12 @@
 import React, { useEffect, useState } from 'react';
 import { runTwoBlockTests, testTwoBlockTimeConditions } from '@/lib/bookingConditionTest';
 import { BookingConditionsBlock } from '@/components/BookingConditionsBlock';
-import { PricingRulesBlock } from '@/components/PricingRulesBlock';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { supabase } from '@/integrations/supabase/client';
 
 export default function TestPage() {
   const [testResults, setTestResults] = useState<any>(null);
   const [mockConditions, setMockConditions] = useState<any[]>([]);
-  const [pricingTestResults, setPricingTestResults] = useState<any>(null);
 
   const runTests = () => {
     console.log('🚀 Running two-block implementation tests...');
@@ -19,29 +16,6 @@ export default function TestPage() {
     
     if (results.conditions) {
       setMockConditions(results.conditions);
-    }
-  };
-
-  const testPricingPrompt = async () => {
-    console.log('🚀 Testing pricing prompt...');
-    const testPrompt = "From 6 AM-4 PM the indoor track is $10 per hour; from 4 PM-9 PM it's $18 per hour; members with the 'College Team' tag always pay $8 per hour any time.";
-    
-    try {
-      const { data, error } = await supabase.functions.invoke('parseRule', {
-        body: { rule: testPrompt }
-      });
-      
-      if (error) {
-        console.error('Error invoking parseRule:', error);
-        setPricingTestResults({ error: error.message });
-        return;
-      }
-      
-      console.log('Pricing test results:', data);
-      setPricingTestResults(data);
-    } catch (err) {
-      console.error('Failed to test pricing prompt:', err);
-      setPricingTestResults({ error: 'Failed to invoke parseRule function' });
     }
   };
 
@@ -81,50 +55,6 @@ export default function TestPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Pricing Rules Test</CardTitle>
-          <p className="text-sm text-slate-600">
-            Testing the indoor track pricing prompt with expected 3 pricing rule blocks
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Button onClick={testPricingPrompt}>Test Pricing Prompt</Button>
-          
-          {pricingTestResults && (
-            <div className="space-y-4">
-              {pricingTestResults.error ? (
-                <div className="p-4 bg-red-50 rounded text-red-600">
-                  Error: {pricingTestResults.error}
-                </div>
-              ) : (
-                <>
-                  <div className="p-4 bg-green-50 rounded">
-                    <h3 className="font-semibold mb-2 text-green-800">Pricing Test Results:</h3>
-                    <p className="text-green-700">
-                      Generated {pricingTestResults.pricing_rules?.length || 0} pricing rule blocks
-                    </p>
-                    {pricingTestResults.summary && (
-                      <p className="text-sm mt-2 text-slate-600">{pricingTestResults.summary}</p>
-                    )}
-                  </div>
-                  
-                  {pricingTestResults.pricing_rules && (
-                    <div>
-                      <h4 className="font-semibold mb-2">Generated Pricing Rules:</h4>
-                      <PricingRulesBlock 
-                        initialRules={pricingTestResults.pricing_rules}
-                        ruleResult={pricingTestResults}
-                      />
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
       {mockConditions.length > 0 && (
         <Card>
           <CardHeader>
@@ -145,18 +75,7 @@ export default function TestPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-2 text-sm">
-            <h4 className="font-semibold">Pricing Rules Test Expected Results:</h4>
-            <ul className="list-disc pl-6 space-y-1">
-              <li>✓ 3 pricing rule blocks total</li>
-              <li>✓ Block 1: 6 AM-4 PM, Indoor Track, $10/hour, 15min default condition</li>
-              <li>✓ Block 2: 4 PM-9 PM, Indoor Track, $18/hour, 15min default condition</li>
-              <li>✓ Block 3: All times, Indoor Track, $8/hour, College Team tag condition</li>
-              <li>✓ All blocks have all 7 days selected</li>
-              <li>✓ Indoor Track space is properly selected</li>
-              <li>✓ Time ranges are correctly parsed and displayed</li>
-            </ul>
-
-            <h4 className="font-semibold mt-4">Block 1 - Time Intervals (1-hour blocks):</h4>
+            <h4 className="font-semibold">Block 1 - Time Intervals (1-hour blocks):</h4>
             <ul className="list-disc pl-6 space-y-1">
               <li>✓ Space: Basketball Court 2 selected</li>
               <li>✓ Days: All days (Mon-Sun) selected</li>
