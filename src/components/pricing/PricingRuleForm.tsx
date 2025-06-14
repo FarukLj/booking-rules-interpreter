@@ -1,8 +1,11 @@
+
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { Button } from "@/components/ui/button";
 import { LinkSelect } from "@/components/ui/LinkSelect";
+import { ConditionTypeSelector } from "@/components/ConditionTypeSelector";
+import { OperatorSelector } from "@/components/OperatorSelector";
 import { Plus, X } from "lucide-react";
 import { PricingRule } from "@/types/RuleResult";
 import { formatTimeDisplay, formatUnit, getPricingLogicText } from "@/utils/pricingFormatters";
@@ -114,52 +117,43 @@ export function PricingRuleForm({
           ))}
         </LinkSelect>
 
+        <span>if</span>
+
+        <ConditionTypeSelector
+          condition={rule}
+          onConditionChange={(field, value) => onUpdateRule(index, field as keyof PricingRule, value)}
+        />
+
+        <OperatorSelector
+          condition={rule}
+          onOperatorChange={value => onUpdateRule(index, 'operator', value)}
+        />
+
         {rule.condition_type === 'duration' && (
-          <>
-            <span>if the duration</span>
-            <LinkSelect
-              value={rule.operator || 'is_greater_than'}
-              onValueChange={v => onUpdateRule(index, 'operator', v)}
-            >
-              {durationOperators.map(op => (
-                <SelectItem key={op} value={op.split(' ').join('_')}>
-                  {op}
-                </SelectItem>
-              ))}
-            </LinkSelect>
-            <LinkSelect
-              value={rule.value as string || '1h'}
-              onValueChange={v => onUpdateRule(index, 'value', v)}
-            >
+          <Select
+            value={rule.value as string || '15min'}
+            onValueChange={v => onUpdateRule(index, 'value', v)}
+          >
+            <SelectTrigger className="w-auto h-8 px-3">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
               {durationValues.map(val => (
                 <SelectItem key={val} value={val}>
                   {val}
                 </SelectItem>
               ))}
-            </LinkSelect>
-          </>
+            </SelectContent>
+          </Select>
         )}
 
         {rule.condition_type === 'user_tags' && (
-          <>
-            <span>for users with</span>
-            <LinkSelect
-              value={rule.operator || 'contains_any_of'}
-              onValueChange={v => onUpdateRule(index, 'operator', v)}
-            >
-              {tagOperators.map(op => (
-                <SelectItem key={op} value={op.split(' ').join('_')}>
-                  {op}
-                </SelectItem>
-              ))}
-            </LinkSelect>
-            <MultiSelect
-              triggerVariant="link"
-              options={tagOptions}
-              selected={Array.isArray(rule.value) ? rule.value : []}
-              onSelectionChange={sel => onUpdateRule(index, 'value', sel)}
-            />
-          </>
+          <MultiSelect
+            triggerVariant="default"
+            options={tagOptions}
+            selected={Array.isArray(rule.value) ? rule.value : []}
+            onSelectionChange={sel => onUpdateRule(index, 'value', sel)}
+          />
         )}
       </div>
     </div>
