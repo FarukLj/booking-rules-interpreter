@@ -53,108 +53,120 @@ export function PricingRuleForm({
 
   return (
     <div className="bg-[#F1F3F5] p-4 sm:p-3 rounded-lg dark:bg-slate-800">
-      <div className="flex flex-wrap items-center gap-1 text-sm font-medium mb-3 leading-6">
-        <span>Between</span>
+      <div className="space-y-3">
+        {/* Main inline text flow */}
+        <div className="flex flex-wrap items-center gap-1 text-sm font-medium leading-6">
+          <span>Between</span>
 
-        <LinkSelect 
-          value={startTime}
-          onValueChange={(v) => onUpdateRule(index, 'time_range', `${v}–${endTime}`)}
-        >
-          {timeOptions.map(t => 
-            <SelectItem key={t} value={t}>{formatTimeDisplay(t)}</SelectItem>
-          )}
-        </LinkSelect>
-
-        <span>and</span>
-
-        <LinkSelect 
-          value={endTime}
-          onValueChange={(v) => onUpdateRule(index, 'time_range', `${startTime}–${v}`)}
-        >
-          {timeOptions.map(t => 
-            <SelectItem key={t} value={t}>{formatTimeDisplay(t)}</SelectItem>
-          )}
-        </LinkSelect>
-
-        <span>on</span>
-
-        <MultiSelect
-          triggerVariant="link"
-          options={dayOptions}
-          selected={rule.days || []}
-          onSelectionChange={sel => onUpdateRule(index, 'days', sel)}
-          abbreviateDays={true}
-        />
-        ,
-
-        <MultiSelect
-          triggerVariant="link"
-          options={spaceOptions}
-          selected={rule.space || []}
-          onSelectionChange={sel => onUpdateRule(index, 'space', sel)}
-        />
-
-        <span>is priced</span>
-
-        <span>$</span>
-        <Input
-          type="number"
-          value={rule.rate?.amount ?? ''}
-          onChange={e => onUpdateRateField(index, 'amount', e.target.value)}
-          className="w-20 h-6 px-1 text-right"
-        />
-
-        <span>per</span>
-
-        <LinkSelect
-          value={rule.rate?.unit || 'per_hour'}
-          onValueChange={v => onUpdateRateField(index, 'unit', v)}
-        >
-          {rateUnitOptions.map(unit => (
-            <SelectItem key={unit} value={unit}>
-              {formatUnit(unit)}
-            </SelectItem>
-          ))}
-        </LinkSelect>
-
-        <span>if</span>
-
-        <ConditionTypeSelector
-          condition={rule}
-          onConditionChange={(field, value) => onUpdateRule(index, field as keyof PricingRule, value)}
-        />
-
-        <OperatorSelector
-          condition={rule}
-          onOperatorChange={value => onUpdateRule(index, 'operator', value)}
-        />
-
-        {rule.condition_type === 'duration' && (
-          <Select
-            value={rule.value as string || '15min'}
-            onValueChange={v => onUpdateRule(index, 'value', v)}
+          <LinkSelect 
+            value={startTime}
+            onValueChange={(v) => onUpdateRule(index, 'time_range', `${v}–${endTime}`)}
           >
-            <SelectTrigger className="w-auto h-8 px-3">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {durationValues.map(val => (
-                <SelectItem key={val} value={val}>
-                  {val}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
+            {timeOptions.map(t => 
+              <SelectItem key={t} value={t}>{formatTimeDisplay(t)}</SelectItem>
+            )}
+          </LinkSelect>
 
-        {rule.condition_type === 'user_tags' && (
+          <span>and</span>
+
+          <LinkSelect 
+            value={endTime}
+            onValueChange={(v) => onUpdateRule(index, 'time_range', `${startTime}–${v}`)}
+          >
+            {timeOptions.map(t => 
+              <SelectItem key={t} value={t}>{formatTimeDisplay(t)}</SelectItem>
+            )}
+          </LinkSelect>
+
+          <span>on</span>
+
           <MultiSelect
-            triggerVariant="input"
-            options={tagOptions}
-            selected={Array.isArray(rule.value) ? rule.value : []}
-            onSelectionChange={sel => onUpdateRule(index, 'value', sel)}
+            triggerVariant="link"
+            options={dayOptions}
+            selected={rule.days || []}
+            onSelectionChange={sel => onUpdateRule(index, 'days', sel)}
+            abbreviateDays={true}
           />
-        )}
+          ,
+
+          <MultiSelect
+            triggerVariant="link"
+            options={spaceOptions}
+            selected={rule.space || []}
+            onSelectionChange={sel => onUpdateRule(index, 'space', sel)}
+          />
+
+          <span>is priced</span>
+
+          <span>$</span>
+          <Input
+            type="number"
+            value={rule.rate?.amount ?? ''}
+            onChange={e => onUpdateRateField(index, 'amount', e.target.value)}
+            className="w-20 h-6 px-1 text-right"
+          />
+
+          <span>per</span>
+
+          <LinkSelect
+            value={rule.rate?.unit || 'per_hour'}
+            onValueChange={v => onUpdateRateField(index, 'unit', v)}
+          >
+            {rateUnitOptions.map(unit => (
+              <SelectItem key={unit} value={unit}>
+                {formatUnit(unit)}
+              </SelectItem>
+            ))}
+          </LinkSelect>
+
+          <span>if</span>
+        </div>
+
+        {/* Dropdown selectors container - responsive layout */}
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-1">
+          <div className="flex-1">
+            <ConditionTypeSelector
+              condition={rule}
+              onConditionChange={(field, value) => onUpdateRule(index, field as keyof PricingRule, value)}
+            />
+          </div>
+
+          <div className="flex-1">
+            <OperatorSelector
+              condition={rule}
+              onOperatorChange={value => onUpdateRule(index, 'operator', value)}
+            />
+          </div>
+
+          <div className="flex-1">
+            {rule.condition_type === 'duration' && (
+              <Select
+                value={rule.value as string || '15min'}
+                onValueChange={v => onUpdateRule(index, 'value', v)}
+              >
+                <SelectTrigger className="w-full h-10">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {durationValues.map(val => (
+                    <SelectItem key={val} value={val}>
+                      {val}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {rule.condition_type === 'user_tags' && (
+              <MultiSelect
+                triggerVariant="input"
+                options={tagOptions}
+                selected={Array.isArray(rule.value) ? rule.value : []}
+                onSelectionChange={sel => onUpdateRule(index, 'value', sel)}
+              />
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
