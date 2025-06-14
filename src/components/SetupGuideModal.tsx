@@ -124,7 +124,7 @@ export const SetupGuideModal = ({
 
   const setupGuide = result.setup_guide?.length > 0 ? result.setup_guide : buildSetupGuide(result);
 
-  // Dev mode guard rail - only check if we have rule blocks that should contain data
+  // Enhanced dev mode guard rail - only check if we have rule blocks that should contain data
   if (process.env.NODE_ENV === 'development') {
     const ruleStepKeys = ['pricing_rules', 'booking_conditions', 'quota_rules', 'buffer_time_rules', 'booking_window_rules', 'space_sharing'];
     const stepsWithEmptyRuleBlocks = setupGuide.filter(step => 
@@ -138,7 +138,7 @@ export const SetupGuideModal = ({
       throw new Error(`[ModalGuard] Empty rule_blocks for steps: ${stepsWithEmptyRuleBlocks.map(s => s.step_key).join(', ')}`);
     }
 
-    // Dev echo for debugging
+    // Enhanced dev echo for debugging
     const ruleCount = {
       PR: result.pricing_rules?.length || 0,
       BC: result.booking_conditions?.length || 0,
@@ -148,9 +148,12 @@ export const SetupGuideModal = ({
       SS: result.space_sharing?.length || 0
     };
     console.debug('[SetupGuideModal] Rule counts:', ruleCount);
+    console.debug('[SetupGuideModal] booking_conditions data:', result.booking_conditions);
   }
 
   const renderRuleBlocks = (ruleBlocks: any[], blockType: string) => {
+    console.log(`[SetupGuideModal] Rendering ${blockType} with data:`, ruleBlocks);
+    
     switch (blockType) {
       case 'booking_conditions':
         return <BookingConditionsBlock initialConditions={ruleBlocks} ruleResult={result} />;
@@ -220,7 +223,7 @@ export const SetupGuideModal = ({
                   </div>
                 )}
 
-                {renderRuleBlocks(step.rule_blocks, step.step_key)}
+                {step.rule_blocks && renderRuleBlocks(step.rule_blocks, step.step_key)}
               </div>
             ))}
           </div>

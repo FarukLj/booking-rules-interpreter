@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -33,44 +34,41 @@ const ADVANCE_CONTEXT_RX = /(?:in\s+advance|before|ahead\s+of|prior\s+to)/gi;
 
 // ────────────────────────────────────────── helper: builds booking condition for time blocks
 function buildTimeBlockConditions(
-  spaceId: string,               // resolved id or raw name
+  spaceRaw: string,               // raw space name from input
   nHours: number,                // size of each allowed block (1 → 60 min)
   minHrs: number,                // minimum duration (in hours)
   maxHrs: number                 // maximum duration (in hours)
 ) {
-  const uuid = () => crypto.randomUUID();
-  const days = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"];
-
+  console.log(`[buildTimeBlockConditions] Creating conditions for ${spaceRaw}: ${nHours}h blocks, ${minHrs}-${maxHrs}h range`);
+  
+  // Return in the legacy format expected by BookingConditionsBlock
   return [
     {
-      id: uuid(),
-      spaceIds: [spaceId],
-      days,
-      condition: "AND" as const,
-      isActive: true,
+      space: [spaceRaw],
+      time_range: "00:00–24:00",
+      days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
       rules: [
-        { 
-          id: uuid(), 
-          type: "duration" as const, 
-          operator: "greater_than_or_equal" as const,
-          value: { value: minHrs * 60, unit: "minutes" as const },
-          unit: "minutes" as const
+        {
+          condition_type: "duration",
+          operator: "is_greater_than",
+          value: `${minHrs}h`,
+          explanation: `Booking duration must be at least ${minHrs} hours`
         },
-        { 
-          id: uuid(), 
-          type: "duration" as const, 
-          operator: "less_than_or_equal" as const,
-          value: { value: maxHrs * 60, unit: "minutes" as const },
-          unit: "minutes" as const
+        {
+          condition_type: "duration", 
+          operator: "is_less_than",
+          value: `${maxHrs}h`,
+          explanation: `Booking duration must be at most ${maxHrs} hours`
         },
-        { 
-          id: uuid(), 
-          type: "time_interval" as const, 
-          operator: "multiple_of" as const,
-          value: { value: nHours * 60, unit: "minutes" as const },
-          unit: "minutes" as const
+        {
+          condition_type: "duration",
+          operator: "multiple_of",
+          value: `${nHours}h`,
+          explanation: `Booking duration must be in ${nHours}-hour blocks only`
         }
-      ]
+      ],
+      logic_operators: ["AND", "AND"],
+      explanation: `${spaceRaw} must be booked in ${nHours}-hour blocks, minimum ${minHrs} hours, maximum ${maxHrs} hours`
     }
   ];
 }
@@ -264,9 +262,7 @@ async function sanitizeRules(parsedResponse: any, originalRule: string): Promise
     const blockHrs = parseInt(tbMatch[2], 10);
     const minHrs   = parseInt(tbMatch[3], 10);
     const maxHrs   = parseInt(tbMatch[4], 10);
-    const resolved   = await resolveSpaces([spaceRaw]);
-    const spaceId    = Array.isArray(resolved) && resolved[0]?.id ? resolved[0].id : spaceRaw;
-    parsedResponse.booking_conditions = buildTimeBlockConditions(spaceId, blockHrs, minHrs, maxHrs);
+    parsedResponse.booking_conditions = buildTimeBlockConditions(spaceRaw, blockHrs, minHrs, maxHrs);
     delete parsedResponse.booking_window_rules;
     console.log("[SANITIZE] Applied time-block + min/max duration override for", spaceRaw);
   }

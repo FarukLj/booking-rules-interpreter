@@ -41,6 +41,19 @@ export function BookingConditionRow({
     onConditionChange(index, field, value);
   };
 
+  // Use actual condition data or provide sensible defaults
+  const selectedSpaces = condition.space || [];
+  const selectedDays = condition.days || [];
+  const startTime = condition.time_range?.split('–')[0] || '09:00';
+  const endTime = condition.time_range?.split('–')[1] || '17:00';
+
+  console.log('[BookingConditionRow] Rendering condition:', {
+    spaces: selectedSpaces,
+    days: selectedDays,
+    timeRange: condition.time_range,
+    conditionType: condition.condition_type
+  });
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2 text-sm mb-3">
@@ -48,16 +61,15 @@ export function BookingConditionRow({
         <MultiSelect
           triggerVariant="link"
           options={spaceOptions}
-          selected={condition.space || []}
+          selected={selectedSpaces}
           onSelectionChange={(selected) => updateCondition('space', selected)}
           placeholder="Select spaces"
         />
         
         <span className="text-slate-600">between</span>
         <LinkSelect 
-          value={condition.time_range?.split('–')[0] || '09:00'}
+          value={startTime}
           onValueChange={(value) => {
-            const endTime = condition.time_range?.split('–')[1] || '17:00';
             updateCondition('time_range', `${value}–${endTime}`);
           }}
         >
@@ -68,9 +80,8 @@ export function BookingConditionRow({
         
         <span className="text-slate-600">and</span>
         <LinkSelect 
-          value={condition.time_range?.split('–')[1] || '17:00'}
+          value={endTime}
           onValueChange={(value) => {
-            const startTime = condition.time_range?.split('–')[0] || '09:00';
             updateCondition('time_range', `${startTime}–${value}`);
           }}
         >
@@ -83,7 +94,7 @@ export function BookingConditionRow({
         <MultiSelect
           triggerVariant="link"
           options={dayOptions}
-          selected={condition.days || []}
+          selected={selectedDays}
           onSelectionChange={(selected) => updateCondition('days', selected)}
           placeholder="Select days"
           abbreviateDays={true}

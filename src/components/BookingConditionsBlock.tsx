@@ -42,23 +42,28 @@ export function BookingConditionsBlock({ initialConditions = [], ruleResult }: B
     };
   };
 
-  const [conditions, setConditions] = useState<BookingCondition[]>(
-    initialConditions.length > 0 
-      ? initialConditions.map(migrateCondition)
-      : [{
-          space: ["Space 1"],
-          time_range: "09:00–17:00",
-          days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
-          rules: [{
-            condition_type: "duration",
-            operator: "is_less_than",
-            value: "30min",
-            explanation: "Default booking condition"
-          }],
-          logic_operators: [],
-          explanation: "Default booking condition"
-        }]
-  );
+  // Initialize conditions with proper data from initialConditions
+  const [conditions, setConditions] = useState<BookingCondition[]>(() => {
+    if (initialConditions.length > 0) {
+      console.log('[BookingConditionsBlock] Using initialConditions:', initialConditions);
+      return initialConditions.map(migrateCondition);
+    }
+    
+    // Only use default if no initial conditions provided
+    return [{
+      space: ["Space 1"],
+      time_range: "09:00–17:00", 
+      days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+      rules: [{
+        condition_type: "duration",
+        operator: "is_less_than",
+        value: "30min",
+        explanation: "Default booking condition"
+      }],
+      logic_operators: [],
+      explanation: "Default booking condition"
+    }];
+  });
   
   const [logicOperators, setLogicOperators] = useState<string[]>(
     new Array(Math.max(0, conditions.length - 1)).fill("AND")
