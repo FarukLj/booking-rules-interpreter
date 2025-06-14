@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -25,6 +24,20 @@ const SPECIFIC_DATE_PATTERNS = [
   /(?:before|after|from|until|by)\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{1,2}(?:st|nd|rd|th)?/gi,
   /(?:before|after|from|until|by)\s+\d{1,2}\/\d{1,2}\/?\d{0,4}/gi,
   /(?:before|after|from|until|by)\s+\d{4}-\d{2}-\d{2}/gi
+];
+
+// NEW: Quota Rule Pattern Detection
+const QUOTA_PATTERNS = [
+  /(?:limit|restrict|cap|maximum\s+of|max\s+of)\s+(?:each|every|per)\s+(?:player|user|person|individual)\s+to\s+(\d+)\s*(h|hour|hours|min|minutes|booking|bookings)\s+per\s+(day|week|month)/gi,
+  /(?:each|every|per)\s+(?:player|user|person|individual)\s+(?:can\s+only|is\s+limited\s+to|gets)\s+(\d+)\s*(h|hour|hours|min|minutes|booking|bookings)\s+per\s+(day|week|month)/gi,
+  /(\d+)\s*(h|hour|hours|min|minutes|booking|bookings)\s+per\s+(day|week|month)\s+(?:limit|maximum|max|restriction)\s+(?:for\s+)?(?:each|every|per)\s+(?:player|user|person|individual)/gi,
+  /(?:no\s+more\s+than|maximum\s+of|max\s+of)\s+(\d+)\s*(h|hour|hours|min|minutes|booking|bookings)\s+per\s+(?:player|user|person|individual)\s+per\s+(day|week|month)/gi
+];
+
+const QUOTA_USER_SCOPE_PATTERNS = [
+  /(?:each|every|per)\s+(?:player|user|person|individual)/gi,
+  /(?:players|users|people|individuals)\s+with\s+(?:tag|tags)/gi,
+  /(?:group|team)\s+(?:with|having)\s+(?:tag|tags)/gi
 ];
 
 // Duration Guard Pattern Detection
@@ -99,7 +112,11 @@ function detectDurationGuard(text: string): { hasDurationConstraints: boolean; d
   // Check if advance context is present (should exclude from duration guard)
   const hasAdvanceContext = ADVANCE_CONTEXT_RX.test(lowerText);
   
-  if (durationMatches.length > 0 && directionMatches.length > 0 && !hasAdvanceContext) {
+  // NEW: Check if quota context is present (should exclude from duration guard)
+  const quotaAnalysis = detectQuotaPattern(text);
+  const hasQuotaContext = quotaAnalysis.hasQuotaConstraints;
+  
+  if (durationMatches.length > 0 && directionMatches.length > 0 && !hasAdvanceContext && !hasQuotaContext) {
     console.log(`[DURATION GUARD] Detected duration constraints: ${durationMatches.length} durations, ${directionMatches.length} directions`);
     
     const details = durationMatches.map((match, index) => {
@@ -120,6 +137,57 @@ function detectDurationGuard(text: string): { hasDurationConstraints: boolean; d
   }
   
   return { hasDurationConstraints: false, details: [] };
+}
+
+// NEW: Quota Detection Function
+function detectQuotaPattern(text: string): { 
+  hasQuotaConstraints: boolean; 
+  quotaDetails: Array<{ value: number; unit: string; period: string; userScope: string }>;
+} {
+  const lowerText = text.toLowerCase();
+  const quotaDetails: Array<{ value: number; unit: string; period: string; userScope: string }> = [];
+  
+  // Check for quota patterns
+  let hasQuotaConstraints = false;
+  for (const pattern of QUOTA_PATTERNS) {
+    const matches = [...lowerText.matchAll(pattern)];
+    if (matches.length > 0) {
+      hasQuotaConstraints = true;
+      matches.forEach(match => {
+        const value = parseInt(match[1]);
+        const unit = normalizeQuotaUnit(match[2]);
+        const period = normalizeQuotaPeriod(match[3]);
+        
+        // Detect user scope
+        let userScope = "individuals";
+        if (/(?:players|users|people|individuals)\s+with\s+(?:tag|tags)/.test(lowerText)) {
+          userScope = "individuals_with_tags";
+        } else if (/(?:group|team)\s+(?:with|having)\s+(?:tag|tags)/.test(lowerText)) {
+          userScope = "group_with_tag";
+        }
+        
+        quotaDetails.push({ value, unit, period, userScope });
+      });
+    }
+  }
+  
+  return { hasQuotaConstraints, quotaDetails };
+}
+
+function normalizeQuotaUnit(unit: string): string {
+  const normalized = unit.toLowerCase();
+  if (['h', 'hour', 'hours'].includes(normalized)) return 'h';
+  if (['min', 'minute', 'minutes'].includes(normalized)) return 'min';
+  if (['booking', 'bookings'].includes(normalized)) return 'bookings';
+  return normalized;
+}
+
+function normalizeQuotaPeriod(period: string): string {
+  const normalized = period.toLowerCase();
+  if (['day'].includes(normalized)) return 'day';
+  if (['week'].includes(normalized)) return 'week';
+  if (['month'].includes(normalized)) return 'month';
+  return normalized;
 }
 
 // Enhanced booking window pattern detection
@@ -272,6 +340,35 @@ async function resolveSpaces(spaceNames: string[]) {
 async function sanitizeRules(parsedResponse: any, originalRule: string): Promise<any> {
   console.log('Starting enhanced rule sanitization with improved pattern detection...');
   
+  // NEW: Check for quota patterns first to prevent incorrect duration guard conversion
+  const quotaAnalysis = detectQuotaPattern(originalRule);
+  if (quotaAnalysis.hasQuotaConstraints) {
+    console.log('[QUOTA GUARD] Detected quota constraints, preserving quota rules and preventing duration guard conversion');
+    // If we have quota patterns, ensure quota rules are preserved and don't convert to booking conditions
+    if (parsedResponse.quota_rules && parsedResponse.quota_rules.length > 0) {
+      console.log('[QUOTA GUARD] Quota rules already present, preserving them');
+    }
+    
+    // Prevent duration guard from converting quota-related booking conditions
+    if (parsedResponse.booking_conditions) {
+      const quotaRelatedConditions = parsedResponse.booking_conditions.filter((condition: any) => {
+        return condition.explanation && (
+          condition.explanation.toLowerCase().includes('limit') ||
+          condition.explanation.toLowerCase().includes('per week') ||
+          condition.explanation.toLowerCase().includes('per day') ||
+          condition.explanation.toLowerCase().includes('per month') ||
+          condition.explanation.toLowerCase().includes('each player') ||
+          condition.explanation.toLowerCase().includes('each user')
+        );
+      });
+      
+      if (quotaRelatedConditions.length > 0) {
+        console.log('[QUOTA GUARD] Found quota-related booking conditions that should be quota rules instead');
+        // Don't automatically convert here - let the AI prompt guide this correctly
+      }
+    }
+  }
+  
   // Check for time-block + min/max duration pattern first
   const tbMatch = originalRule.match(/(.*?)\s+must\s+be\s+booked\s+in\s+(\d+)\s*-?\s*hour\s+blocks?\s+only.*minimum\s+(\d+)\s*hours?.*maximum\s+(\d+)\s*hours?/i);
   if (tbMatch) {
@@ -299,9 +396,10 @@ async function sanitizeRules(parsedResponse: any, originalRule: string): Promise
   }
   
   // Duration Guard: Check if booking_window_rules should be booking_conditions
+  // BUT SKIP if quota patterns are detected
   const durationGuard = detectDurationGuard(originalRule);
   
-  if (durationGuard.hasDurationConstraints && parsedResponse.booking_window_rules && parsedResponse.booking_window_rules.length > 0) {
+  if (durationGuard.hasDurationConstraints && parsedResponse.booking_window_rules && parsedResponse.booking_window_rules.length > 0 && !quotaAnalysis.hasQuotaConstraints) {
     console.log('[DURATION GUARD] Converting misclassified booking window rules to booking conditions');
     
     // Convert booking window rules to booking conditions
@@ -371,6 +469,16 @@ async function sanitizeRules(parsedResponse: any, originalRule: string): Promise
       if (rule.spaces && Array.isArray(rule.spaces)) {
         rule.spaces = await resolveSpaces(rule.spaces);
         console.log('Resolved buffer time spaces:', rule.spaces);
+      }
+    }
+  }
+
+  // NEW: Resolve spaces in quota_rules
+  if (parsedResponse.quota_rules) {
+    for (const rule of parsedResponse.quota_rules) {
+      if (rule.affected_spaces && Array.isArray(rule.affected_spaces)) {
+        rule.affected_spaces = await resolveSpaces(rule.affected_spaces);
+        console.log('Resolved quota rule spaces:', rule.affected_spaces);
       }
     }
   }
@@ -452,6 +560,7 @@ serve(async (req) => {
     // Enhanced pre-processing analysis
     const durationGuard = detectDurationGuard(rule);
     const bookingWindowAnalysis = detectBookingWindowType(rule);
+    const quotaAnalysis = detectQuotaPattern(rule);
     
     const durationGuardHint = durationGuard.hasDurationConstraints 
       ? `\n\nDURATION GUARD DETECTED: This prompt contains duration constraints (${durationGuard.details.map(d => d.raw).join(', ')}). These should be parsed as BOOKING CONDITIONS with condition_type="duration", NOT as booking window rules.`
@@ -459,6 +568,10 @@ serve(async (req) => {
       
     const specificDateHint = bookingWindowAnalysis.hasSpecificDates
       ? `\n\nSPECIFIC DATE DETECTED: This prompt contains calendar dates (${bookingWindowAnalysis.specificDateMatches.join(', ')}). The UI doesn't support hardcoded dates. Return guidance message explaining limitations and alternatives.`
+      : '';
+
+    const quotaHint = quotaAnalysis.hasQuotaConstraints
+      ? `\n\nQUOTA CONSTRAINTS DETECTED: This prompt contains quota/limit patterns (${quotaAnalysis.quotaDetails.map(d => `${d.value}${d.unit} per ${d.period} for ${d.userScope}`).join(', ')}). These should be parsed as QUOTA RULES, NOT as booking conditions or booking window rules.`
       : '';
 
     const prompt = `
@@ -477,6 +590,56 @@ Your job:
 • fill every field exactly as the UI expects
 • never invent components the UI lacks
 • when a request is impossible, explain briefly **why** and offer the closest supported alternative
+
+────────────────────────────────────────  QUOTA RULES GUIDELINES (CRITICAL)
+
+**QUOTA DETECTION PATTERNS:**
+Quota rules are for limiting individual users or groups over time periods. Key phrases:
+• "limit each player to X hours per week"
+• "each user gets maximum Y bookings per month"
+• "no more than Z hours per day per person"
+• "maximum X minutes per week for individuals"
+
+**QUOTA RULE STRUCTURE:**
+{
+  "target": "individuals" | "individuals_with_tags" | "individuals_with_no_tags" | "group_with_tag",
+  "tags": ["tag1", "tag2"] // only if target involves tags
+  "quota_type": "time" | "count",
+  "value": "6h" | 5, // string for time, number for count
+  "period": "day" | "week" | "month" | "at_any_time",
+  "affected_spaces": ["Space1", "Space2"],
+  "consideration_time": "any_time" | "specific_time",
+  "time_range": "09:00–17:00", // only if consideration_time is "specific_time"
+  "days": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"], // only if consideration_time is "specific_time"
+  "explanation": "Clear explanation of the quota rule"
+}
+
+**QUOTA EXAMPLES:**
+- "limit each player to 6 hours per week on Pickleball 1 & 2" →
+  {
+    "target": "individuals",
+    "quota_type": "time",
+    "value": "6h",
+    "period": "week", 
+    "affected_spaces": ["Pickleball 1", "Pickleball 2"],
+    "consideration_time": "any_time",
+    "explanation": "Each player is limited to 6 hours per week on Pickleball 1 & 2"
+  }
+
+- "Premium members get 10 bookings per month" →
+  {
+    "target": "individuals_with_tags",
+    "tags": ["Premium"],
+    "quota_type": "count",
+    "value": 10,
+    "period": "month",
+    "affected_spaces": ["all spaces"],
+    "consideration_time": "any_time",
+    "explanation": "Premium members can make up to 10 bookings per month"
+  }
+
+**CRITICAL: DO NOT CREATE BOOKING CONDITIONS FOR QUOTA PATTERNS**
+If you detect quota language (limit, per week, each player, etc.), always create quota_rules, never booking_conditions.
 
 ────────────────────────────────────────  PRICING RULES GUIDELINES (CRITICAL)
 
@@ -565,14 +728,20 @@ Create **no rule blocks** that pretend date logic exists.
 
 CRITICAL PARSING INSTRUCTIONS:
 
-1. **PRICING RULES PRIORITY**:
+1. **QUOTA RULES PRIORITY (NEW)**:
+   a) **ALWAYS CHECK FOR QUOTA PATTERNS FIRST** before any other rule type
+   b) Quota keywords: "limit", "each player", "per week", "per day", "per month", "maximum per user"
+   c) If detected, create quota_rules, NOT booking_conditions or booking_window_rules
+   d) Example: "limit each player to 6 hours per week" → quota_rule with target="individuals", value="6h", period="week"
+
+2. **PRICING RULES PRIORITY**:
    a) Parse time ranges correctly: "6 AM-4 PM" → "06:00–16:00"
    b) Extract prices correctly: "$10 per hour" → amount: 10
    c) Include space names: "indoor track" → ["Indoor Track"]
    d) Default to all 7 days if not specified
    e) Use default condition: "is_greater_than_or_equal_to" "15min" for non-tag rules
 
-2. **BOOKING WINDOW LOGIC (MOST CRITICAL)**:
+3. **BOOKING WINDOW LOGIC (MOST CRITICAL)**:
    a) **HORIZON CAPS** (use constraint: "more_than"):
       - "up to 30 days" → more_than 30 days (blocks beyond 30 days)
       - "next 3 days" → more_than 3 days (blocks beyond 3 days)
@@ -582,15 +751,15 @@ CRITICAL PARSING INSTRUCTIONS:
       - "at least 24 hours in advance" → less_than 24 hours (blocks within 24 hours)
       - "need 2 days notice" → less_than 2 days (blocks within 2 days)
 
-3. **UNIT PRESERVATION**: Keep user units unless they explicitly used hours.
+4. **UNIT PRESERVATION**: Keep user units unless they explicitly used hours.
 
-4. **SPECIFIC DATES**: If you detect calendar dates, return guidance message only.
+5. **SPECIFIC DATES**: If you detect calendar dates, return guidance message only.
 
-5. **DURATION CONSTRAINTS**: Session length limits go to booking_conditions, not booking_window_rules.
+6. **DURATION CONSTRAINTS**: Session length limits go to booking_conditions, NOT quota_rules, UNLESS they mention "per week/day/month" or "each user/player".
 
-6. **"ONLY" PATTERNS**: "only [users] can book" → operator: "contains_none_of" with allowed tags.
+7. **"ONLY" PATTERNS**: "only [users] can book" → operator: "contains_none_of" with allowed tags.
 
-7. **MULTI-ROW CONDITIONS**: Use "rules" array with "logic_operators" for compound conditions.
+8. **MULTI-ROW CONDITIONS**: Use "rules" array with "logic_operators" for compound conditions.
 
 RESPONSE FORMAT:
 Return a JSON object with appropriate rule arrays. If specific dates detected, return only:
@@ -600,13 +769,14 @@ Return a JSON object with appropriate rule arrays. If specific dates detected, r
 }
 
 Otherwise, return full rule structure with:
+- quota_rules: [rules for user/time limits with target, quota_type, value, period, affected_spaces]
 - pricing_rules: [rules with correct times, prices, spaces, days, and conditions]
 - booking_conditions: [rules with multi-row support]
 - booking_window_rules: [with correct operators and preserved units]
-- quota_rules, buffer_time_rules, space_sharing as needed
+- buffer_time_rules, space_sharing as needed
 - summary: "Comprehensive summary (≤ 4 lines)"
 
-${durationGuardHint}${specificDateHint}
+${durationGuardHint}${specificDateHint}${quotaHint}
 
 Now analyze this booking rule and extract ALL applicable rule structures:
 
