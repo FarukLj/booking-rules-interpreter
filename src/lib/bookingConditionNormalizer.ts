@@ -1,8 +1,9 @@
+
 import { BookingCondition } from '@/types/BookingCondition';
 
 /**
  * Converts the new BookingCondition model into the legacy shape
- * used by <BookingConditionsBlock>.  Also flips operators that the
+ * used by <BookingConditionsBlock>.  Also fixes operators that the
  * back-end often inverts.
  */
 export function normaliseForUI(cond: BookingCondition) {
@@ -16,12 +17,12 @@ export function normaliseForUI(cond: BookingCondition) {
               : ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'],
     condition_type: 'duration',
 
-    /* fix common operator inversions */
+    /* fix common operator inversions - using correct operator names */
     rules: cond.rules.map(r => {
       if (r.type === 'duration') {
-        if (r.operator === 'greater_than_or_equal_to')
+        if (r.operator === 'greater_than_or_equal')
           return { ...r, operator: 'less_than' };
-        if (r.operator === 'less_than_or_equal_to')
+        if (r.operator === 'less_than_or_equal')
           return { ...r, operator: 'greater_than' };
       }
       return r;
