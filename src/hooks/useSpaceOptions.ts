@@ -1,3 +1,4 @@
+
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { RuleResult } from '@/types/RuleResult';
@@ -31,11 +32,18 @@ export function useSpaceOptions(ruleResult?: RuleResult) {
   const extractedSpaceNames = new Set<string>();
   
   if (ruleResult) {
-    // Buffer time rules
+    // Buffer time rules - handle both 'space' and 'spaces' field names
     ruleResult.buffer_time_rules?.forEach(rule => {
-      rule.spaces?.forEach(space => {
-        extractedSpaceNames.add(spaceToName(space));
-      });
+      const spaces = rule.spaces || (rule as any).space || [];
+      if (Array.isArray(spaces)) {
+        spaces.forEach(space => {
+          const spaceName = spaceToName(space);
+          if (spaceName) extractedSpaceNames.add(spaceName);
+        });
+      } else if (spaces) {
+        const spaceName = spaceToName(spaces);
+        if (spaceName) extractedSpaceNames.add(spaceName);
+      }
     });
 
     // Other rule types
