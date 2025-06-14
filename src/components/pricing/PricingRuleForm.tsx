@@ -1,3 +1,4 @@
+
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { MultiSelect } from "@/components/ui/multi-select";
@@ -118,7 +119,7 @@ export function PricingRuleForm({
           <>
             <span>if the duration</span>
             <LinkSelect
-              value={rule.operator || 'is_greater_than'}
+              value={rule.operator || 'is_greater_than_or_equal_to'}
               onValueChange={v => onUpdateRule(index, 'operator', v)}
             >
               {durationOperators.map(op => (
@@ -128,7 +129,7 @@ export function PricingRuleForm({
               ))}
             </LinkSelect>
             <LinkSelect
-              value={rule.value as string || '1h'}
+              value={rule.value as string || '15min'}
               onValueChange={v => onUpdateRule(index, 'value', v)}
             >
               {durationValues.map(val => (

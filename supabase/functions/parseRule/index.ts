@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -387,6 +388,28 @@ async function sanitizeRules(parsedResponse: any, originalRule: string): Promise
     });
   }
 
+  // Add default pricing rule conditions
+  if (parsedResponse.pricing_rules) {
+    parsedResponse.pricing_rules.forEach((rule: any, index: number) => {
+      // If no specific condition type is set or it's duration without user tags, apply default
+      if (!rule.condition_type || (rule.condition_type === 'duration' && !rule.value?.includes?.('tag'))) {
+        // Only set defaults if the rule doesn't already have specific tag conditions
+        if (rule.condition_type !== 'user_tags') {
+          rule.condition_type = 'duration';
+          rule.operator = 'is_greater_than_or_equal_to';
+          rule.value = '15min';
+          console.log(`[SANITIZE] Applied default 15min condition to pricing rule ${index}`);
+        }
+      }
+      
+      // Ensure all days are selected by default if not specified
+      if (!rule.days || rule.days.length === 0) {
+        rule.days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+        console.log(`[SANITIZE] Applied default all days to pricing rule ${index}`);
+      }
+    });
+  }
+
   return parsedResponse;
 }
 
@@ -477,6 +500,30 @@ Your job:
 • never invent components the UI lacks
 • when a request is impossible, explain briefly **why** and offer the closest supported alternative
 
+────────────────────────────────────────  CRITICAL PARSING RULES
+
+**TIME RANGE PARSING:**
+• "6 AM-4 PM" should become "06:00–16:00"
+• "4 PM-9 PM" should become "16:00–21:00"
+• Always convert to 24-hour format with leading zeros
+• Use en-dash (–) as separator, not hyphen (-)
+
+**SPACE NAMING:**
+• Extract exact space names from the prompt: "indoor track" → "Indoor Track"
+• Capitalize properly but keep the exact wording
+
+**DEFAULT VALUES FOR PRICING RULES:**
+• If no specific duration constraint is mentioned, always set:
+  - condition_type: "duration"
+  - operator: "is_greater_than_or_equal_to" 
+  - value: "15min"
+• If no days are specified, always include all 7 days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+• If user tags are mentioned, use condition_type: "user_tags" with appropriate operator
+
+**TAG CONDITIONS:**
+• For "members with 'College Team' tag": condition_type: "user_tags", operator: "contains_any_of", value: ["College Team"]
+• For "always pay": apply to all days and 00:00–24:00 time range
+
 ────────────────────────────────────────  BOOKING-WINDOW GUIDELINES (CRITICAL)
 
 **HORIZON CAPS vs MINIMUM NOTICE - OPERATOR MAPPING:**
@@ -527,7 +574,24 @@ Create **no rule blocks** that pretend date logic exists.
 
 CRITICAL PARSING INSTRUCTIONS:
 
-1. **BOOKING WINDOW LOGIC (MOST CRITICAL)**:
+1. **PRICING RULE LOGIC (MOST CRITICAL)**:
+   a) **TIME RANGE PARSING**: Parse exact times from prompt
+      - "From 6 AM-4 PM" → time_range: "06:00–16:00"
+      - "from 4 PM-9 PM" → time_range: "16:00–21:00"
+      - "any time" → time_range: "00:00–24:00"
+   
+   b) **SPACE SELECTION**: Extract exact space names
+      - "indoor track" → space: ["Indoor Track"]
+   
+   c) **DEFAULT CONDITIONS**: For pricing rules without specific constraints
+      - condition_type: "duration"
+      - operator: "is_greater_than_or_equal_to"
+      - value: "15min"
+   
+   d) **TAG CONDITIONS**: For user-specific pricing
+      - "College Team tag" → condition_type: "user_tags", operator: "contains_any_of", value: ["College Team"]
+
+2. **BOOKING WINDOW LOGIC**: 
    a) **HORIZON CAPS** (use constraint: "more_than"):
       - "up to 30 days" → more_than 30 days (blocks beyond 30 days)
       - "next 3 days" → more_than 3 days (blocks beyond 3 days)
@@ -537,15 +601,15 @@ CRITICAL PARSING INSTRUCTIONS:
       - "at least 24 hours in advance" → less_than 24 hours (blocks within 24 hours)
       - "need 2 days notice" → less_than 2 days (blocks within 2 days)
 
-2. **UNIT PRESERVATION**: Keep user units unless they explicitly used hours.
+3. **UNIT PRESERVATION**: Keep user units unless they explicitly used hours.
 
-3. **SPECIFIC DATES**: If you detect calendar dates, return guidance message only.
+4. **SPECIFIC DATES**: If you detect calendar dates, return guidance message only.
 
-4. **DURATION CONSTRAINTS**: Session length limits go to booking_conditions, not booking_window_rules.
+5. **DURATION CONSTRAINTS**: Session length limits go to booking_conditions, not booking_window_rules.
 
-5. **"ONLY" PATTERNS**: "only [users] can book" → operator: "contains_none_of" with allowed tags.
+6. **"ONLY" PATTERNS**: "only [users] can book" → operator: "contains_none_of" with allowed tags.
 
-6. **MULTI-ROW CONDITIONS**: Use "rules" array with "logic_operators" for compound conditions.
+7. **MULTI-ROW CONDITIONS**: Use "rules" array with "logic_operators" for compound conditions.
 
 RESPONSE FORMAT:
 Return a JSON object with appropriate rule arrays. If specific dates detected, return only:
@@ -555,9 +619,10 @@ Return a JSON object with appropriate rule arrays. If specific dates detected, r
 }
 
 Otherwise, return full rule structure with:
+- pricing_rules: [rules with proper time ranges, spaces, days, and conditions]
 - booking_conditions: [rules with multi-row support]
 - booking_window_rules: [with correct operators and preserved units]
-- pricing_rules, quota_rules, buffer_time_rules, space_sharing as needed
+- quota_rules, buffer_time_rules, space_sharing as needed
 - summary: "Comprehensive summary (≤ 4 lines)"
 
 ${durationGuardHint}${specificDateHint}

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { PricingRule } from "@/types/RuleResult";
 import { handleSmartTimeRange, timeRangeFromKeyword, normaliseTimeRange } from "@/utils/pricingFormatters";
@@ -14,11 +15,11 @@ export function usePricingRules(initialRules: PricingRule[] = []) {
     sortedInitialRules.length > 0 ? sortedInitialRules : [{
       space: ["Space 1"],
       time_range: "09:00–17:00",
-      days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+      days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
       rate: { amount: 25, unit: "per_hour" },
       condition_type: "duration",
-      operator: "is_greater_than",
-      value: "1h",
+      operator: "is_greater_than_or_equal_to",
+      value: "15min",
       explanation: "Default pricing rule"
     }]
   );
@@ -41,7 +42,7 @@ export function usePricingRules(initialRules: PricingRule[] = []) {
 
   // ───────────────────────────────────────────────────────────
 //  Updates a single field **or** handles our special keyword
-//  “after 18:00” → time_range = "18:00–24:00"
+//  "after 18:00" → time_range = "18:00–24:00"
 const updateRule = (
   index: number,
   field: keyof PricingRule | "time_keyword",
@@ -89,8 +90,8 @@ const updateRule = (
           ...(rule.sub_conditions || []),
           {
             condition_type: "duration",
-            operator: "is_greater_than",
-            value: "1h",
+            operator: "is_greater_than_or_equal_to",
+            value: "15min",
             logic: "AND"
           }
         ]
