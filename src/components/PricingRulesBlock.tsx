@@ -37,6 +37,7 @@ export function PricingRulesBlock({ initialRules = [], ruleResult }: PricingRule
   const dayOptions = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   const rateUnitOptions = ["fixed", "per_15min", "per_30min", "per_hour", "per_2hours", "per_day"];
   
+  // Enhanced duration operators including the missing "is greater than or equal to"
   const durationOperators = [
     "is less than",
     "is less than or equal to",

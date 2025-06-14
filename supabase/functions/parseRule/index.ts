@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -477,6 +478,43 @@ Your job:
 • never invent components the UI lacks
 • when a request is impossible, explain briefly **why** and offer the closest supported alternative
 
+────────────────────────────────────────  PRICING RULES GUIDELINES (CRITICAL)
+
+**TIME PARSING - CONVERT TO 24H FORMAT:**
+• "6 AM" → "06:00"
+• "4 PM" → "16:00" 
+• "9 PM" → "21:00"
+• "12 PM" → "12:00"
+• "12 AM" → "00:00"
+
+**SPACE EXTRACTION:**
+• Extract exact space names from text: "indoor track" → ["Indoor Track"]
+• Always include the space name in the space array
+
+**DAYS DEFAULT:**
+• If no specific days mentioned, set days to ALL 7 days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+
+**PRICE EXTRACTION:**
+• "$10 per hour" → rate: { amount: 10, unit: "per_hour" }
+• "$18 per hour" → rate: { amount: 18, unit: "per_hour" }
+• "$8 per hour" → rate: { amount: 8, unit: "per_hour" }
+
+**DEFAULT CONDITION:**
+• For non-tag pricing rules, use: condition_type: "duration", operator: "is_greater_than_or_equal_to", value: "15min"
+• For tag-based rules, use: condition_type: "user_tags", operator: "contains_any_of", value: [tag_names]
+
+**EXAMPLE PRICING RULE STRUCTURE:**
+{
+  "space": ["Indoor Track"],
+  "time_range": "06:00–16:00", 
+  "days": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+  "rate": { "amount": 10, "unit": "per_hour" },
+  "condition_type": "duration",
+  "operator": "is_greater_than_or_equal_to", 
+  "value": "15min",
+  "explanation": "Indoor Track is $10 per hour from 6 AM to 4 PM if booking is at least 15 minutes"
+}
+
 ────────────────────────────────────────  BOOKING-WINDOW GUIDELINES (CRITICAL)
 
 **HORIZON CAPS vs MINIMUM NOTICE - OPERATOR MAPPING:**
@@ -527,7 +565,14 @@ Create **no rule blocks** that pretend date logic exists.
 
 CRITICAL PARSING INSTRUCTIONS:
 
-1. **BOOKING WINDOW LOGIC (MOST CRITICAL)**:
+1. **PRICING RULES PRIORITY**:
+   a) Parse time ranges correctly: "6 AM-4 PM" → "06:00–16:00"
+   b) Extract prices correctly: "$10 per hour" → amount: 10
+   c) Include space names: "indoor track" → ["Indoor Track"]
+   d) Default to all 7 days if not specified
+   e) Use default condition: "is_greater_than_or_equal_to" "15min" for non-tag rules
+
+2. **BOOKING WINDOW LOGIC (MOST CRITICAL)**:
    a) **HORIZON CAPS** (use constraint: "more_than"):
       - "up to 30 days" → more_than 30 days (blocks beyond 30 days)
       - "next 3 days" → more_than 3 days (blocks beyond 3 days)
@@ -537,15 +582,15 @@ CRITICAL PARSING INSTRUCTIONS:
       - "at least 24 hours in advance" → less_than 24 hours (blocks within 24 hours)
       - "need 2 days notice" → less_than 2 days (blocks within 2 days)
 
-2. **UNIT PRESERVATION**: Keep user units unless they explicitly used hours.
+3. **UNIT PRESERVATION**: Keep user units unless they explicitly used hours.
 
-3. **SPECIFIC DATES**: If you detect calendar dates, return guidance message only.
+4. **SPECIFIC DATES**: If you detect calendar dates, return guidance message only.
 
-4. **DURATION CONSTRAINTS**: Session length limits go to booking_conditions, not booking_window_rules.
+5. **DURATION CONSTRAINTS**: Session length limits go to booking_conditions, not booking_window_rules.
 
-5. **"ONLY" PATTERNS**: "only [users] can book" → operator: "contains_none_of" with allowed tags.
+6. **"ONLY" PATTERNS**: "only [users] can book" → operator: "contains_none_of" with allowed tags.
 
-6. **MULTI-ROW CONDITIONS**: Use "rules" array with "logic_operators" for compound conditions.
+7. **MULTI-ROW CONDITIONS**: Use "rules" array with "logic_operators" for compound conditions.
 
 RESPONSE FORMAT:
 Return a JSON object with appropriate rule arrays. If specific dates detected, return only:
@@ -555,9 +600,10 @@ Return a JSON object with appropriate rule arrays. If specific dates detected, r
 }
 
 Otherwise, return full rule structure with:
+- pricing_rules: [rules with correct times, prices, spaces, days, and conditions]
 - booking_conditions: [rules with multi-row support]
 - booking_window_rules: [with correct operators and preserved units]
-- pricing_rules, quota_rules, buffer_time_rules, space_sharing as needed
+- quota_rules, buffer_time_rules, space_sharing as needed
 - summary: "Comprehensive summary (≤ 4 lines)"
 
 ${durationGuardHint}${specificDateHint}
@@ -612,8 +658,12 @@ Rule: ${rule}
       throw new Error('Invalid response structure from AI')
     }
 
+    console.log('Parsed response before sanitization:', JSON.stringify(parsedResponse, null, 2));
+
     // Apply enhanced post-processing sanitization
     parsedResponse = await sanitizeRules(parsedResponse, rule);
+
+    console.log('Parsed response after sanitization:', JSON.stringify(parsedResponse, null, 2));
 
     // Add setup guide generation only if we have actual rules
     if (parsedResponse.booking_conditions || parsedResponse.booking_window_rules || parsedResponse.pricing_rules || parsedResponse.quota_rules || parsedResponse.buffer_time_rules || parsedResponse.space_sharing) {
