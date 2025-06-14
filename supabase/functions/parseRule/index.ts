@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -32,45 +31,62 @@ const DURATION_RX = /(\d+(?:\.\d+)?)(?:\s?)(min|minutes?|h|hr|hrs?|hour|hours?)/
 const DIR_RX = /(min(?:imum)?|at\s+least|under|below|less\s+than|shorter\s+than|max(?:imum)?|over|above|more\s+than|longer\s+than|≥|>=|≤|<=|<|>)/gi;
 const ADVANCE_CONTEXT_RX = /(?:in\s+advance|before|ahead\s+of|prior\s+to)/gi;
 
-// ────────────────────────────────────────── helper: builds booking condition for time blocks
+// ────────────────────────────────────────── helper: builds TWO booking condition blocks for time blocks
 function buildTimeBlockConditions(
   spaceRaw: string,               // raw space name from input
   nHours: number,                // size of each allowed block (1 → 60 min)
   minHrs: number,                // minimum duration (in hours)
   maxHrs: number                 // maximum duration (in hours)
 ) {
-  console.log(`[buildTimeBlockConditions] Creating conditions for ${spaceRaw}: ${nHours}h blocks, ${minHrs}-${maxHrs}h range`);
+  console.log(`[buildTimeBlockConditions] Creating TWO separate blocks for ${spaceRaw}: ${nHours}h blocks, ${minHrs}-${maxHrs}h range`);
   
-  // Return in the legacy format expected by BookingConditionsBlock
-  return [
-    {
-      space: [spaceRaw],
-      time_range: "00:00–24:00",
-      days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
-      rules: [
-        {
-          condition_type: "duration",
-          operator: "is_greater_than",
-          value: `${minHrs}h`,
-          explanation: `Booking duration must be at least ${minHrs} hours`
-        },
-        {
-          condition_type: "duration", 
-          operator: "is_less_than",
-          value: `${maxHrs}h`,
-          explanation: `Booking duration must be at most ${maxHrs} hours`
-        },
-        {
-          condition_type: "duration",
-          operator: "multiple_of",
-          value: `${nHours}h`,
-          explanation: `Booking duration must be in ${nHours}-hour blocks only`
-        }
-      ],
-      logic_operators: ["AND", "AND"],
-      explanation: `${spaceRaw} must be booked in ${nHours}-hour blocks, minimum ${minHrs} hours, maximum ${maxHrs} hours`
-    }
-  ];
+  // First block: Time interval blocking (ensures 1-hour slots only)
+  const timeBlockingCondition = {
+    space: [spaceRaw],
+    time_range: "00:00–24:00",
+    days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+    rules: [
+      {
+        condition_type: "interval_start",
+        operator: "multiple_of",
+        value: `${nHours}h`,
+        explanation: `Booking start time must align with ${nHours}-hour intervals from 00:00`
+      },
+      {
+        condition_type: "interval_end", 
+        operator: "multiple_of",
+        value: `${nHours}h`,
+        explanation: `Booking end time must align with ${nHours}-hour intervals to 24:00`
+      }
+    ],
+    logic_operators: ["AND"],
+    explanation: `${spaceRaw} bookings must start and end on ${nHours}-hour boundaries only`
+  };
+  
+  // Second block: Duration constraints (min/max hours)
+  const durationConstraintCondition = {
+    space: [spaceRaw],
+    time_range: "00:00–24:00", 
+    days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+    rules: [
+      {
+        condition_type: "duration",
+        operator: "is_less_than",
+        value: `${minHrs}h`,
+        explanation: `Booking duration cannot be less than ${minHrs} hours`
+      },
+      {
+        condition_type: "duration",
+        operator: "is_greater_than", 
+        value: `${maxHrs}h`,
+        explanation: `Booking duration cannot be greater than ${maxHrs} hours`
+      }
+    ],
+    logic_operators: ["OR"],
+    explanation: `${spaceRaw} bookings must be between ${minHrs} and ${maxHrs} hours`
+  };
+  
+  return [timeBlockingCondition, durationConstraintCondition];
 }
 
 // Duration Guard Detection Function
@@ -264,7 +280,7 @@ async function sanitizeRules(parsedResponse: any, originalRule: string): Promise
     const maxHrs   = parseInt(tbMatch[4], 10);
     parsedResponse.booking_conditions = buildTimeBlockConditions(spaceRaw, blockHrs, minHrs, maxHrs);
     delete parsedResponse.booking_window_rules;
-    console.log("[SANITIZE] Applied time-block + min/max duration override for", spaceRaw);
+    console.log("[SANITIZE] Applied time-block + min/max duration override with TWO separate blocks for", spaceRaw);
   }
   
   // Enhanced booking window detection

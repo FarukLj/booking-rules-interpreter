@@ -11,6 +11,8 @@ interface ConditionTypeSelectorProps {
 export function ConditionTypeSelector({ condition, onConditionChange }: ConditionTypeSelectorProps) {
   // Handle time_range for legacy BookingCondition or default values for BookingConditionRule
   const timeRange = 'time_range' in condition ? condition.time_range : "09:00–17:00";
+  const startTime = timeRange?.split('–')[0] || '09:00';
+  const endTime = timeRange?.split('–')[1] || '17:00';
   
   return (
     <Select 
@@ -35,10 +37,10 @@ export function ConditionTypeSelector({ condition, onConditionChange }: Conditio
       <SelectContent className="z-50">
         <SelectItem value="its duration">its duration</SelectItem>
         <SelectItem value="the interval from start time to its start">
-          the interval from {formatTimeDisplay(timeRange?.split('–')[0] || '09:00')} to its start
+          the interval from {formatTimeDisplay(startTime)} to its start
         </SelectItem>
         <SelectItem value="the interval from its end to end time">
-          the interval from its end to {formatTimeDisplay(timeRange?.split('–')[1] || '17:00')}
+          the interval from its end to {formatTimeDisplay(endTime)}
         </SelectItem>
         <SelectItem value="the holder's set of tags">the holder's set of tags</SelectItem>
       </SelectContent>
