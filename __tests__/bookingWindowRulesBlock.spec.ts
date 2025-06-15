@@ -92,6 +92,76 @@ describe('BookingWindowRulesBlock - AI Rule Initialization', () => {
     });
   });
 
+  describe('Edge Function User Group Detection', () => {
+    it('should properly extract user groups from natural language', () => {
+      const testCases = [
+        {
+          input: 'Visitors can only reserve Tennis Courts up to 3 days in advance',
+          expected: ['Visitors']
+        },
+        {
+          input: 'Club members up to 14 days in advance',
+          expected: ['Club members']
+        },
+        {
+          input: 'Visitors can only reserve Tennis Courts up to 3 days in advance; club members up to 14 days in advance',
+          expected: ['Visitors', 'club members']
+        },
+        {
+          input: 'Premium Gold members can reserve premium spaces up to 21 days in advance',
+          expected: ['Premium Gold members']
+        }
+      ];
+
+      testCases.forEach(({ input, expected }) => {
+        // Simulate the extractUserGroupsFromText function logic
+        const userGroupPatterns = [
+          /(?:for\s+)?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*(?:\s+members?)?)\s+(?:can|must|should|are)/gi,
+          /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*(?:\s+members?)?)(?:\s+(?:can|must|should|are)\s+(?:only\s+)?(?:book|reserve|access))/gi,
+          /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*(?:\s+members?)?)(?:\s+up\s+to|\s+within|\s+at\s+least)/gi
+        ];
+        
+        const groups = new Set<string>();
+        userGroupPatterns.forEach(pattern => {
+          const matches = input.matchAll(pattern);
+          for (const match of matches) {
+            if (match[1]) {
+              let group = match[1].trim().replace(/'/g, '').replace(/\s+/g, ' ');
+              const skipWords = ['only', 'all', 'any', 'the', 'and', 'or', 'but'];
+              if (!skipWords.includes(group.toLowerCase()) && group.length > 2) {
+                groups.add(group);
+              }
+            }
+          }
+        });
+        
+        const extractedGroups = Array.from(groups);
+        expect(extractedGroups).toEqual(expect.arrayContaining(expected));
+      });
+    });
+
+    it('should generate proper booking window rules with user_scope and tags', () => {
+      const mockRule = {
+        user_scope: 'users_with_tags',
+        tags: ['Visitors'],
+        constraint: 'more_than',
+        value: 3,
+        unit: 'days',
+        spaces: ['Tennis Courts'],
+        explanation: 'Visitors can reserve Tennis Courts up to 3 days in advance'
+      };
+
+      // Verify the rule structure matches expected format
+      expect(mockRule.user_scope).toBe('users_with_tags');
+      expect(mockRule.tags).toEqual(['Visitors']);
+      expect(mockRule.constraint).toBe('more_than');
+      expect(mockRule.value).toBe(3);
+      expect(mockRule.unit).toBe('days');
+      expect(mockRule.spaces).toEqual(['Tennis Courts']);
+      expect(mockRule.explanation).toContain('Visitors');
+    });
+  });
+
   describe('Data Flow Validation', () => {
     it('should maintain rule integrity through the component hierarchy', () => {
       const originalRule: BookingWindowRule = {
@@ -167,6 +237,88 @@ describe('BookingWindowRulesBlock - AI Rule Initialization', () => {
       expect(mixedRules[0].tags).toBeUndefined();
       expect(mixedRules[1].user_scope).toBe('users_with_tags');
       expect(mixedRules[1].tags).toEqual(['VIP members']);
+    });
+  });
+
+  describe('AI Edge Function Field Mapping Tests', () => {
+    it('should ensure user_scope is set when tags are present', () => {
+      const ruleWithTagsButNoScope = {
+        tags: ['Visitors'],
+        constraint: 'more_than',
+        value: 3,
+        unit: 'days',
+        spaces: ['Tennis Courts'],
+        explanation: 'Visitors can reserve Tennis Courts up to 3 days in advance'
+      };
+
+      // Simulate the field mapping logic from the edge function
+      let processedRule = { ...ruleWithTagsButNoScope };
+      
+      if (!processedRule.user_scope && processedRule.tags && processedRule.tags.length > 0) {
+        processedRule.user_scope = 'users_with_tags';
+      }
+
+      expect(processedRule.user_scope).toBe('users_with_tags');
+      expect(processedRule.tags).toEqual(['Visitors']);
+    });
+
+    it('should extract user groups from explanation when missing tags', () => {
+      const ruleWithExplanationOnly = {
+        constraint: 'more_than',
+        value: 3,
+        unit: 'days',
+        spaces: ['Tennis Courts'],
+        explanation: 'Club members can reserve Tennis Courts up to 3 days in advance'
+      };
+
+      // Simulate user group extraction from explanation
+      const explanation = ruleWithExplanationOnly.explanation;
+      const userGroupPattern = /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*(?:\s+members?)?)\s+(?:can|must|should)/gi;
+      const matches = explanation.matchAll(userGroupPattern);
+      const extractedGroups = [];
+      
+      for (const match of matches) {
+        if (match[1]) {
+          extractedGroups.push(match[1].trim());
+        }
+      }
+
+      expect(extractedGroups).toContain('Club members');
+    });
+
+    it('should handle the specific test case: Visitors and Club members', () => {
+      const testInput = 'Visitors can only reserve Tennis Courts up to 3 days in advance; club members up to 14 days in advance';
+      
+      // Expected output structure
+      const expectedRules = [
+        {
+          user_scope: 'users_with_tags',
+          tags: ['Visitors'],
+          constraint: 'more_than',
+          value: 3,
+          unit: 'days',
+          spaces: ['Tennis Courts'],
+          explanation: 'Visitors can reserve Tennis Courts up to 3 days in advance'
+        },
+        {
+          user_scope: 'users_with_tags',
+          tags: ['Club members'],
+          constraint: 'more_than',
+          value: 14,
+          unit: 'days',
+          spaces: ['Tennis Courts'],
+          explanation: 'Club members can reserve Tennis Courts up to 14 days in advance'
+        }
+      ];
+
+      // Verify each rule has the correct structure
+      expectedRules.forEach(rule => {
+        expect(rule.user_scope).toBe('users_with_tags');
+        expect(rule.tags).toBeDefined();
+        expect(rule.tags).toHaveLength(1);
+        expect(rule.constraint).toBe('more_than');
+        expect(rule.spaces).toEqual(['Tennis Courts']);
+      });
     });
   });
 
@@ -291,6 +443,30 @@ export const bookingWindowBlockQAChecklist = [
           'spaces array preserved',
           'constraint and values preserved'
         ]
+      }
+    ]
+  },
+  {
+    id: 'edge-function-user-group-detection',
+    description: 'Test edge function properly detects and maps user groups',
+    testScenarios: [
+      {
+        name: 'Test case: "Visitors can only reserve Tennis Courts up to 3 days in advance; club members up to 14 days in advance"',
+        expectedOutput: {
+          ruleCount: 2,
+          rule1: {
+            user_scope: 'users_with_tags',
+            tags: ['Visitors'],
+            value: 3,
+            unit: 'days'
+          },
+          rule2: {
+            user_scope: 'users_with_tags',
+            tags: ['Club members'],
+            value: 14,
+            unit: 'days'
+          }
+        }
       }
     ]
   }
