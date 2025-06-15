@@ -496,6 +496,30 @@ async function sanitizeRules(parsedResponse: any, originalRule: string): Promise
     console.log('[DURATION GUARD] Successfully converted to booking conditions');
   }
   
+  // NEW: Fix booking window rule field names - map AI fields to expected interface
+  if (parsedResponse.booking_window_rules) {
+    console.log('[BOOKING WINDOW FIELD MAPPING] Normalizing booking window rule field names');
+    parsedResponse.booking_window_rules = parsedResponse.booking_window_rules.map((rule: any) => {
+      const normalizedRule = { ...rule };
+      
+      // Map target -> user_scope
+      if (rule.target && !rule.user_scope) {
+        normalizedRule.user_scope = rule.target;
+        delete normalizedRule.target;
+        console.log('[BOOKING WINDOW FIELD MAPPING] Mapped target to user_scope:', rule.target);
+      }
+      
+      // Map affected_spaces -> spaces
+      if (rule.affected_spaces && !rule.spaces) {
+        normalizedRule.spaces = rule.affected_spaces;
+        delete normalizedRule.affected_spaces;
+        console.log('[BOOKING WINDOW FIELD MAPPING] Mapped affected_spaces to spaces:', rule.affected_spaces);
+      }
+      
+      return normalizedRule;
+    });
+  }
+  
   // Enhanced booking window rule corrections
   if (parsedResponse.booking_window_rules) {
     parsedResponse.booking_window_rules.forEach((rule: any, index: number) => {
