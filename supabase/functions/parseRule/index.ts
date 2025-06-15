@@ -21,8 +21,8 @@ const extractUserGroupsFromText = (text: string): string[] => {
     /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*(?:\s+members?)?)(?:\s+up\s+to|\s+within|\s+at\s+least)/gi,
     // Semicolon separated groups
     /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*(?:\s+members?)?)(?:\s*[;,]\s*)/gi,
-    // Groups with possessive forms - FIXED: Added missing closing parenthesis
-    /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*'?s?\s+(?:can|must|should|booking|reservation))/gi
+    // Groups with possessive forms - FIXED: Properly escaped and closed
+    /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*'?s?)\s+(?:can|must|should|booking|reservation)/gi
   ];
 
   const groups = new Set<string>();
