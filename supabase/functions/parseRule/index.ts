@@ -8,7 +8,78 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// Enhanced user group detection patterns
+// Utility functions
+const parseTimeRange = (text: string): { from: string; to: string } | null => {
+  const timeMatch = text.match(/(\d{1,2})\s*(AM|PM)\s*[-–]\s*(\d{1,2})\s*(AM|PM)/i);
+  if (!timeMatch) return null;
+  
+  const [, startHour, startPeriod, endHour, endPeriod] = timeMatch;
+  
+  const convertTo24Hour = (hour: string, period: string): string => {
+    let h = parseInt(hour);
+    if (period.toUpperCase() === 'PM' && h !== 12) h += 12;
+    if (period.toUpperCase() === 'AM' && h === 12) h = 0;
+    return h.toString().padStart(2, '0') + ':00';
+  };
+  
+  return {
+    from: convertTo24Hour(startHour, startPeriod),
+    to: convertTo24Hour(endHour, endPeriod)
+  };
+};
+
+const parseAmount = (text: string): { amount: number; unit: string } | null => {
+  const amountMatch = text.match(/\$(\d+(?:\.\d+)?)\s*(?:\/\s*)?(per\s+)?(hour|h|day|d)/i);
+  if (!amountMatch) return null;
+  
+  const amount = parseFloat(amountMatch[1]);
+  const unit = amountMatch[3].toLowerCase().startsWith('h') ? 'hour' : 'day';
+  
+  return { amount, unit };
+};
+
+const parseDuration = (text: string): string | null => {
+  const durationMatch = text.match(/(\d+(?:\.\d+)?)\s*[-\s]*(h(ours?)?|hr?s?|minutes?|mins?|m)/i);
+  if (!durationMatch) return null;
+  let num = Number(durationMatch[1]);
+  if (/min/i.test(durationMatch[0])) {
+    return `${num}min`;
+  } else {
+    return `${num}h`;
+  }
+};
+
+const extractSpaces = (text: string): string[] => {
+  const spaces = new Set<string>();
+  
+  // Pattern for space names with numbers (Court 1, Room A, etc.)
+  const spacePatterns = [
+    /([A-Z][a-zA-Z\s]*(?:Court|Room|Track|Cage|Studio)\s*[A-Z0-9]*)/gi,
+    /([A-Z][a-zA-Z\s]*[A-Z0-9]+)/gi,
+    /(Basketball Court \d+|Tennis Court[s]?|Pickleball \d+|Batting Cage [A-Z])/gi
+  ];
+  
+  spacePatterns.forEach(pattern => {
+    const matches = text.matchAll(pattern);
+    for (const match of matches) {
+      if (match[1]) {
+        spaces.add(match[1].trim());
+      }
+    }
+  });
+  
+  // Handle ranges like "Courts 1-4"
+  const rangeMatch = text.match(/(Courts?)\s+(\d+)[-–](\d+)/i);
+  if (rangeMatch) {
+    const [, courtType, start, end] = rangeMatch;
+    for (let i = parseInt(start); i <= parseInt(end); i++) {
+      spaces.add(`${courtType.replace(/s$/, '')} ${i}`);
+    }
+  }
+  
+  return spaces.size > 0 ? Array.from(spaces) : ['all spaces'];
+};
+
 const extractUserGroupsFromText = (text: string): string[] => {
   console.log('[USER GROUP EXTRACTION] Analyzing text:', text);
   
@@ -21,8 +92,12 @@ const extractUserGroupsFromText = (text: string): string[] => {
     /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*(?:\s+members?)?)(?:\s+up\s+to|\s+within|\s+at\s+least)/gi,
     // Semicolon separated groups
     /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*(?:\s+members?)?)(?:\s*[;,]\s*)/gi,
-    // Groups with possessive forms - FIXED: Properly escaped and closed
-    /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*'?s?)\s+(?:can|must|should|booking|reservation)/gi
+    // Groups with possessive forms
+    /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*'?s?)\s+(?:can|must|should|booking|reservation)/gi,
+    // Tagged groups
+    /members?\s+with\s+(?:the\s+)?['"']([^'"]+)['"']\s+tag/gi,
+    // Quoted groups
+    /['"']([A-Z][a-zA-Z\s-]+)['"']\s+tagged/gi
   ];
 
   const groups = new Set<string>();
@@ -32,11 +107,9 @@ const extractUserGroupsFromText = (text: string): string[] => {
     for (const match of matches) {
       if (match[1]) {
         let group = match[1].trim();
-        // Clean up the group name
         group = group.replace(/'/g, '').replace(/\s+/g, ' ');
         
-        // Skip common non-user words
-        const skipWords = ['only', 'all', 'any', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'with', 'without'];
+        const skipWords = ['only', 'all', 'any', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'with', 'without', 'per hour'];
         if (!skipWords.includes(group.toLowerCase()) && group.length > 2) {
           groups.add(group);
         }
@@ -47,6 +120,160 @@ const extractUserGroupsFromText = (text: string): string[] => {
   const extractedGroups = Array.from(groups);
   console.log('[USER GROUP EXTRACTION] Extracted groups:', extractedGroups);
   return extractedGroups;
+};
+
+// Generate pricing rules
+const generatePricingRules = (inputRule: string, spaces: string[]): any[] => {
+  console.log('[PRICING GENERATION] Starting with text:', inputRule);
+  
+  const rules: any[] = [];
+  
+  // Pattern for time-based pricing: "From X-Y ... $Z per hour"
+  const timeBasedPattern = /(?:from\s+)?(\d{1,2}\s*(?:AM|PM))\s*[-–]\s*(\d{1,2}\s*(?:AM|PM))[^;$]*\$(\d+(?:\.\d+)?)\s*(?:\/\s*)?(?:per\s+)?(hour|h)/gi;
+  const timeBasedMatches = inputRule.matchAll(timeBasedPattern);
+  
+  for (const match of timeBasedMatches) {
+    const timeRange = parseTimeRange(match[0]);
+    const amount = parseFloat(match[3]);
+    
+    if (timeRange) {
+      rules.push({
+        space: spaces,
+        time_range: `${timeRange.from}–${timeRange.to}`,
+        days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+        rate: { amount, unit: "hour" },
+        condition_type: "duration",
+        operator: "is_greater_than",
+        value: "0h",
+        explanation: `Pricing: $${amount}/hour from ${timeRange.from} to ${timeRange.to}`
+      });
+    }
+  }
+  
+  // Pattern for user-specific pricing: "members with 'X' tag ... pay $Y"
+  const userPricingPattern = /members?\s+with\s+(?:the\s+)?['"']([^'"]+)['"']\s+tag[^$]*\$(\d+(?:\.\d+)?)\s*(?:\/\s*)?(?:per\s+)?(hour|h)/gi;
+  const userPricingMatches = inputRule.matchAll(userPricingPattern);
+  
+  for (const match of userPricingMatches) {
+    const tag = match[1];
+    const amount = parseFloat(match[2]);
+    
+    rules.push({
+      space: spaces,
+      time_range: "00:00–23:59",
+      days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+      rate: { amount, unit: "hour" },
+      condition_type: "user_tags",
+      operator: "contains_any_of",
+      value: [tag],
+      explanation: `Special pricing: $${amount}/hour for ${tag} members`
+    });
+  }
+  
+  console.log('[PRICING GENERATION] Generated rules:', rules);
+  return rules;
+};
+
+// Generate quota rules
+const generateQuotaRules = (inputRule: string, spaces: string[]): any[] => {
+  console.log('[QUOTA GENERATION] Starting with text:', inputRule);
+  
+  const rules: any[] = [];
+  
+  // Pattern for quota limits: "limit each player to X hours per week/day"
+  const quotaPattern = /limit\s+(?:each\s+)?([^to]+)\s+to\s+(\d+)\s+(hours?|bookings?)\s+per\s+(day|week|month)/gi;
+  const quotaMatches = inputRule.matchAll(quotaPattern);
+  
+  for (const match of quotaMatches) {
+    const target = match[1].trim().toLowerCase().includes('player') ? 'individuals' : 'individuals_with_tags';
+    const value = parseInt(match[2]);
+    const quotaType = match[3].toLowerCase().startsWith('hour') ? 'time' : 'count';
+    const period = match[4].toLowerCase() as 'day' | 'week' | 'month';
+    
+    rules.push({
+      target,
+      quota_type: quotaType,
+      value: quotaType === 'time' ? `${value}h` : value,
+      period,
+      affected_spaces: spaces,
+      consideration_time: "any_time",
+      explanation: `Limit: ${value} ${match[3]} per ${period} for ${match[1].trim()}`
+    });
+  }
+  
+  // Pattern for user group quotas: "'X' tagged teams to Y hours per day"
+  const userQuotaPattern = /['"']([^'"]+)['"']\s+tagged\s+([^to]+)\s+to\s+(\d+)\s+(hours?)\s+per\s+(day|week|month)/gi;
+  const userQuotaMatches = inputRule.matchAll(userQuotaPattern);
+  
+  for (const match of userQuotaMatches) {
+    const tag = match[1];
+    const value = parseInt(match[3]);
+    const period = match[5].toLowerCase() as 'day' | 'week' | 'month';
+    
+    rules.push({
+      target: "individuals_with_tags",
+      tags: [tag],
+      quota_type: "time",
+      value: `${value}h`,
+      period,
+      affected_spaces: spaces,
+      consideration_time: "any_time",
+      explanation: `Limit: ${value} hours per ${period} for ${tag} tagged users`
+    });
+  }
+  
+  console.log('[QUOTA GENERATION] Generated rules:', rules);
+  return rules;
+};
+
+// Generate buffer time rules
+const generateBufferTimeRules = (inputRule: string, spaces: string[]): any[] => {
+  console.log('[BUFFER GENERATION] Starting with text:', inputRule);
+  
+  const rules: any[] = [];
+  
+  // Pattern for buffer times: "X-minute buffer", "X min buffer"
+  const bufferPattern = /(?:add\s+(?:a\s+)?)?(\d+)[-\s]?minute?s?\s+(?:clean[-\s]?up\s+)?buffer/gi;
+  const bufferMatches = inputRule.matchAll(bufferPattern);
+  
+  for (const match of bufferMatches) {
+    const duration = `${match[1]}min`;
+    
+    rules.push({
+      spaces: spaces.map(space => ({ name: space })),
+      buffer_duration: duration,
+      explanation: `${match[1]}-minute buffer between bookings`
+    });
+  }
+  
+  console.log('[BUFFER GENERATION] Generated rules:', rules);
+  return rules;
+};
+
+// Generate space sharing rules
+const generateSpaceSharingRules = (inputRule: string): any[] => {
+  console.log('[SPACE SHARING GENERATION] Starting with text:', inputRule);
+  
+  const rules: any[] = [];
+  
+  // Pattern for mutual exclusivity: "If X is booked, Y becomes unavailable"
+  const exclusivityPattern = /if\s+([^,]+)\s+is\s+booked,?\s+([^,]+)\s+becomes?\s+unavailable/gi;
+  const exclusivityMatches = inputRule.matchAll(exclusivityPattern);
+  
+  for (const match of exclusivityMatches) {
+    const from = match[1].trim();
+    const to = match[2].trim();
+    
+    rules.push({ from, to });
+    
+    // Add reverse relationship for "vice-versa"
+    if (inputRule.toLowerCase().includes('vice versa') || inputRule.toLowerCase().includes('vice-versa')) {
+      rules.push({ from: to, to: from });
+    }
+  }
+  
+  console.log('[SPACE SHARING GENERATION] Generated rules:', rules);
+  return rules;
 };
 
 // Enhanced booking condition detection and generation
@@ -151,19 +378,7 @@ const generateBookingConditions = (inputRule: string, spaces: string[]): any[] =
   return blocks;
 };
 
-// Normalize duration units
-const parseDuration = (text: string): string | null => {
-  const durationMatch = text.match(/(\d+(\.\d+)?)\s*(h(ours?)?|hr?s?|minutes?|mins?|m)/i);
-  if (!durationMatch) return null;
-  let num = Number(durationMatch[1]);
-  if (/min/i.test(durationMatch[0])) {
-    return `${num}min`;
-  } else {
-    return `${num}h`;
-  }
-};
-
-// Enhanced booking window rule generation with proper user scope mapping
+// Enhanced booking window rule generation
 const generateBookingWindowRules = (text: string, spaces: string[]): any[] => {
   console.log('[BOOKING WINDOW GENERATION] Starting with text:', text);
   console.log('[BOOKING WINDOW GENERATION] Available spaces:', spaces);
@@ -194,7 +409,7 @@ const generateBookingWindowRules = (text: string, spaces: string[]): any[] => {
   });
   
   if (mentionedSpaces.length === 0) {
-    mentionedSpaces = spaces; // Default to all spaces if none specifically mentioned
+    mentionedSpaces = spaces;
   }
   
   console.log('[BOOKING WINDOW GENERATION] Mentioned spaces:', mentionedSpaces);
@@ -208,25 +423,21 @@ const generateBookingWindowRules = (text: string, spaces: string[]): any[] => {
       let constraint: string;
       
       if (match[1] && isNaN(parseInt(match[1]))) {
-        // Pattern: "Group up to X days/hours"
         userGroup = match[1].trim();
         value = parseInt(match[2]);
-        unit = match[3].toLowerCase().replace(/s$/, ''); // Remove plural 's'
-        constraint = "more_than"; // "up to X" means "more than X is not allowed"
+        unit = match[3].toLowerCase().replace(/s$/, '');
+        constraint = "more_than";
       } else if (match[3] && isNaN(parseInt(match[3]))) {
-        // Pattern: "X days/hours for Group"
         value = parseInt(match[1]);
         unit = match[2].toLowerCase().replace(/s$/, '');
         userGroup = match[3].trim();
         constraint = "more_than";
       } else {
-        continue; // Skip if pattern doesn't match expected format
+        continue;
       }
       
-      // Clean user group name
       userGroup = userGroup.replace(/'/g, '').replace(/\s+/g, ' ');
       
-      // Determine constraint type based on context
       if (text.toLowerCase().includes('at least') || text.toLowerCase().includes('must book')) {
         constraint = "less_than";
       }
@@ -240,8 +451,8 @@ const generateBookingWindowRules = (text: string, spaces: string[]): any[] => {
       });
       
       const rule = {
-        user_scope: "users_with_tags", // CRITICAL FIX: Always set user_scope when user groups are detected
-        tags: [userGroup], // CRITICAL FIX: Set the tags array with the detected user group
+        user_scope: "users_with_tags",
+        tags: [userGroup],
         constraint,
         value,
         unit,
@@ -252,24 +463,6 @@ const generateBookingWindowRules = (text: string, spaces: string[]): any[] => {
       rules.push(rule);
     }
   });
-  
-  // If no specific rules were generated but user groups were detected, create default rules
-  if (rules.length === 0 && userGroups.length > 0) {
-    console.log('[BOOKING WINDOW GENERATION] No specific rules found, creating default rules for detected groups');
-    
-    userGroups.forEach(group => {
-      const rule = {
-        user_scope: "users_with_tags",
-        tags: [group],
-        constraint: "more_than",
-        value: 72,
-        unit: "hours",
-        spaces: mentionedSpaces,
-        explanation: `${group} can reserve ${mentionedSpaces.join(', ')} up to 72 hours in advance`
-      };
-      rules.push(rule);
-    });
-  }
   
   console.log('[BOOKING WINDOW GENERATION] Final generated rules:', rules);
   return rules;
@@ -285,60 +478,71 @@ serve(async (req) => {
     const { rule: inputRule } = await req.json();
     console.log('Processing rule:', inputRule);
 
-    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-    if (!openAIApiKey) {
-      throw new Error('OpenAI API key not found');
-    }
-
-    // Enhanced rule type detection
-    let booking_conditions = [];
-    let booking_window_rules = [];
-    let summary = '';
-
-    const blockMatch = /block|slot/i.test(inputRule);
-    const minMaxMatch = /(minimum|maximum|at\s+least|no\s+more\s+than|min|max)/i.test(inputRule);
-    const advanceBookingMatch = /(in advance|prior to|beforehand)/i.test(inputRule);
-    const userGroupMatch = /(can only|for\s*\w+)/i.test(inputRule);
+    // Enhanced rule type detection with priority order
+    const hasPricingPattern = /\$\d+|per hour|hourly rate/i.test(inputRule);
+    const hasQuotaPattern = /limit.+to\s+\d+\s+(hours?|bookings?)\s+per\s+(day|week|month)/i.test(inputRule);
+    const hasBufferPattern = /\d+[-\s]?minute.+buffer|clean[-\s]?up/i.test(inputRule);
+    const hasSpaceSharingPattern = /if.+booked.+becomes unavailable|vice versa|mutual/i.test(inputRule);
+    const hasBlockPattern = /block|slot/i.test(inputRule);
+    const hasMinMaxPattern = /(minimum|maximum|at\s+least|no\s+more\s+than|min|max)/i.test(inputRule);
+    const hasAdvanceBookingPattern = /(in advance|prior to|beforehand)/i.test(inputRule);
+    const hasUserGroupPattern = /(can only|for\s*\w+)/i.test(inputRule);
 
     console.log('[RULE TYPE DETECTION]', {
-      blockMatch,
-      minMaxMatch,
-      advanceBookingMatch,
-      userGroupMatch,
+      hasPricingPattern,
+      hasQuotaPattern,
+      hasBufferPattern,
+      hasSpaceSharingPattern,
+      hasBlockPattern,
+      hasMinMaxPattern,
+      hasAdvanceBookingPattern,
+      hasUserGroupPattern,
       inputRule
     });
 
-    let mentionedSpaces = [];
-    // Basic heuristic for extracting a space name, fallback to 'all spaces'
-    const spaceMatch = inputRule.match(/([A-Z][a-zA-Z0-9\s]+)\s+must\s+be\s+booked/i);
-    if (spaceMatch) {
-      mentionedSpaces.push(spaceMatch[1].trim());
-    } else {
-      mentionedSpaces.push('all spaces');
-    }
+    // Extract spaces for all rule types
+    const mentionedSpaces = extractSpaces(inputRule);
 
-    // If there are any block/min/max rules, create booking_conditions
-    if (blockMatch || minMaxMatch) {
-      console.log('[MAIN] Generating booking conditions');
-      booking_conditions = generateBookingConditions(inputRule, mentionedSpaces);
-    }
-
-    // If "in advance" or user group detected, create booking_window_rules
-    if (advanceBookingMatch || userGroupMatch) {
-      console.log('[MAIN] Generating booking window rules');
-      booking_window_rules = generateBookingWindowRules(inputRule, mentionedSpaces);
-    }
-
-    // If none detected, send both as fallback
-    if (!booking_conditions.length && !booking_window_rules.length) {
-      console.log('[MAIN] No specific patterns detected, using fallback');
-      booking_window_rules = generateBookingWindowRules(inputRule, mentionedSpaces);
-    }
-
-    // Compose response
+    // Initialize response object
     let responseObj: any = {};
-    if (booking_conditions.length) responseObj.booking_conditions = booking_conditions;
-    if (booking_window_rules.length) responseObj.booking_window_rules = booking_window_rules;
+
+    // Generate rules based on priority order
+    if (hasSpaceSharingPattern) {
+      console.log('[MAIN] Generating space sharing rules');
+      responseObj.space_sharing = generateSpaceSharingRules(inputRule);
+    }
+
+    if (hasPricingPattern) {
+      console.log('[MAIN] Generating pricing rules');
+      responseObj.pricing_rules = generatePricingRules(inputRule, mentionedSpaces);
+    }
+
+    if (hasBufferPattern) {
+      console.log('[MAIN] Generating buffer time rules');
+      responseObj.buffer_time_rules = generateBufferTimeRules(inputRule, mentionedSpaces);
+    }
+
+    if (hasQuotaPattern) {
+      console.log('[MAIN] Generating quota rules');
+      responseObj.quota_rules = generateQuotaRules(inputRule, mentionedSpaces);
+    }
+
+    if (hasBlockPattern || hasMinMaxPattern) {
+      console.log('[MAIN] Generating booking conditions');
+      responseObj.booking_conditions = generateBookingConditions(inputRule, mentionedSpaces);
+    }
+
+    if (hasAdvanceBookingPattern || hasUserGroupPattern) {
+      console.log('[MAIN] Generating booking window rules');
+      responseObj.booking_window_rules = generateBookingWindowRules(inputRule, mentionedSpaces);
+    }
+
+    // Fallback to booking window if no specific patterns detected
+    if (Object.keys(responseObj).length === 0) {
+      console.log('[MAIN] No specific patterns detected, using booking window fallback');
+      responseObj.booking_window_rules = generateBookingWindowRules(inputRule, mentionedSpaces);
+    }
+
     responseObj.summary = "AI-generated interpretation of your rule constraints.";
 
     console.log('[MAIN] Final response:', responseObj);
