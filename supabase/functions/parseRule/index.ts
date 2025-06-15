@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -32,6 +33,15 @@ const QUOTA_PATTERNS = [
   /(?:each|every|per)\s+(?:player|user|person|individual)\s+(?:can\s+only|is\s+limited\s+to|gets)\s+(\d+)\s*(h|hour|hours|min|minutes|booking|bookings)\s+per\s+(day|week|month)/gi,
   /(\d+)\s*(h|hour|hours|min|minutes|booking|bookings)\s+per\s+(day|week|month)\s+(?:limit|maximum|max|restriction)\s+(?:for\s+)?(?:each|every|per)\s+(?:player|user|person|individual)/gi,
   /(?:no\s+more\s+than|maximum\s+of|max\s+of)\s+(\d+)\s*(h|hour|hours|min|minutes|booking|bookings)\s+per\s+(?:player|user|person|individual)\s+per\s+(day|week|month)/gi
+];
+
+// NEW: Space Sharing Pattern Detection
+const SPACE_SHARING_PATTERNS = [
+  /if\s+(.+?)\s+is\s+booked,?\s+(.+?)\s+(?:becomes?\s+)?(?:unavailable|blocked|not\s+available)/gi,
+  /when\s+(.+?)\s+is\s+(?:booked|reserved),?\s+(.+?)\s+(?:becomes?\s+)?(?:unavailable|blocked|not\s+available)/gi,
+  /(.+?)\s+and\s+(.+?)\s+(?:cannot\s+be\s+booked|are\s+mutually\s+exclusive|share\s+the\s+same)/gi,
+  /(?:mutual\s+exclusion|mutually\s+exclusive)\s+between\s+(.+?)\s+and\s+(.+)/gi,
+  /(.+?)\s+(?:makes?\s+)?(.+?)\s+(?:unavailable|blocked)/gi
 ];
 
 const QUOTA_USER_SCOPE_PATTERNS = [
@@ -172,6 +182,43 @@ function detectQuotaPattern(text: string): {
   }
   
   return { hasQuotaConstraints, quotaDetails };
+}
+
+// NEW: Space Sharing Detection Function
+function detectSpaceSharingPattern(text: string): {
+  hasSpaceSharing: boolean;
+  spacePairs: Array<{ from: string; to: string }>;
+  isBidirectional: boolean;
+} {
+  const spacePairs: Array<{ from: string; to: string }> = [];
+  let hasSpaceSharing = false;
+  let isBidirectional = false;
+  
+  // Check for bidirectional indicators
+  const bidirectionalKeywords = /(?:vice[\s-]?versa|mutually\s+exclusive|both\s+ways|either\s+way)/gi;
+  isBidirectional = bidirectionalKeywords.test(text);
+  
+  // Extract space relationships
+  for (const pattern of SPACE_SHARING_PATTERNS) {
+    const matches = [...text.matchAll(pattern)];
+    if (matches.length > 0) {
+      hasSpaceSharing = true;
+      matches.forEach(match => {
+        const space1 = match[1]?.trim();
+        const space2 = match[2]?.trim();
+        
+        if (space1 && space2) {
+          spacePairs.push({ from: space1, to: space2 });
+          // If bidirectional, add reverse relationship
+          if (isBidirectional) {
+            spacePairs.push({ from: space2, to: space1 });
+          }
+        }
+      });
+    }
+  }
+  
+  return { hasSpaceSharing, spacePairs, isBidirectional };
 }
 
 function normalizeQuotaUnit(unit: string): string {
@@ -368,6 +415,28 @@ async function sanitizeRules(parsedResponse: any, originalRule: string): Promise
       }
     }
   }
+
+  // NEW: Check for space sharing patterns and fix field name inconsistency
+  const spaceSharingAnalysis = detectSpaceSharingPattern(originalRule);
+  if (spaceSharingAnalysis.hasSpaceSharing) {
+    console.log('[SPACE SHARING GUARD] Detected space sharing patterns, ensuring proper field naming');
+    
+    // Convert split_space_dependency_rules to space_sharing if present
+    if (parsedResponse.split_space_dependency_rules) {
+      console.log('[SPACE SHARING GUARD] Converting split_space_dependency_rules to space_sharing');
+      parsedResponse.space_sharing = parsedResponse.split_space_dependency_rules.map((rule: any) => ({
+        from: rule.spaces?.[0] || rule.from,
+        to: rule.spaces?.[1] || rule.to
+      }));
+      delete parsedResponse.split_space_dependency_rules;
+    }
+    
+    // Ensure we have space_sharing rules if detected
+    if (!parsedResponse.space_sharing && spaceSharingAnalysis.spacePairs.length > 0) {
+      console.log('[SPACE SHARING GUARD] Creating missing space_sharing rules from detected patterns');
+      parsedResponse.space_sharing = spaceSharingAnalysis.spacePairs;
+    }
+  }
   
   // Check for time-block + min/max duration pattern first
   const tbMatch = originalRule.match(/(.*?)\s+must\s+be\s+booked\s+in\s+(\d+)\s*-?\s*hour\s+blocks?\s+only.*minimum\s+(\d+)\s*hours?.*maximum\s+(\d+)\s*hours?/i);
@@ -561,6 +630,7 @@ serve(async (req) => {
     const durationGuard = detectDurationGuard(rule);
     const bookingWindowAnalysis = detectBookingWindowType(rule);
     const quotaAnalysis = detectQuotaPattern(rule);
+    const spaceSharingAnalysis = detectSpaceSharingPattern(rule);
     
     const durationGuardHint = durationGuard.hasDurationConstraints 
       ? `\n\nDURATION GUARD DETECTED: This prompt contains duration constraints (${durationGuard.details.map(d => d.raw).join(', ')}). These should be parsed as BOOKING CONDITIONS with condition_type="duration", NOT as booking window rules.`
@@ -574,6 +644,10 @@ serve(async (req) => {
       ? `\n\nQUOTA CONSTRAINTS DETECTED: This prompt contains quota/limit patterns (${quotaAnalysis.quotaDetails.map(d => `${d.value}${d.unit} per ${d.period} for ${d.userScope}`).join(', ')}). These should be parsed as QUOTA RULES, NOT as booking conditions or booking window rules.`
       : '';
 
+    const spaceSharingHint = spaceSharingAnalysis.hasSpaceSharing
+      ? `\n\nSPACE SHARING DETECTED: This prompt contains space interdependency patterns (${spaceSharingAnalysis.spacePairs.map(p => `${p.from} → ${p.to}`).join(', ')}). These should be parsed as SPACE SHARING rules with field name "space_sharing", NOT "split_space_dependency_rules".`
+      : '';
+
     const prompt = `
 You are the "Booking-Rules AI Interpreter" that converts venue-owner text into structured blocks inside the Lovable scheduling platform.
 
@@ -583,13 +657,50 @@ The UI has six block types:
 3. Booking Window
 4. Buffer Time
 5. Quota
-6. Split-Space Dependency
+6. Space Sharing
 
 Your job:
 • choose the correct block type(s)
 • fill every field exactly as the UI expects
 • never invent components the UI lacks
 • when a request is impossible, explain briefly **why** and offer the closest supported alternative
+
+────────────────────────────────────────  SPACE SHARING RULES GUIDELINES (NEW)
+
+**SPACE SHARING DETECTION PATTERNS:**
+Space sharing rules handle interdependencies between spaces. Key phrases:
+• "if X is booked, Y becomes unavailable"
+• "when X is reserved, Y is blocked"
+• "X and Y cannot be booked together"
+• "mutual exclusion between X and Y"
+• "X makes Y unavailable"
+• "vice-versa" or "both ways" (indicates bidirectional)
+
+**SPACE SHARING RULE STRUCTURE:**
+{
+  "from": "Space Name A",
+  "to": "Space Name B"
+}
+
+**FIELD NAME: Use "space_sharing" NOT "split_space_dependency_rules"**
+
+**EXAMPLES:**
+- "If Batting Cage A is booked, Batting Cage B becomes unavailable, and vice-versa" →
+  {
+    "space_sharing": [
+      { "from": "Batting Cage A", "to": "Batting Cage B" },
+      { "from": "Batting Cage B", "to": "Batting Cage A" }
+    ]
+  }
+
+- "When Conference Room 1 is booked, Conference Room 2 is blocked" →
+  {
+    "space_sharing": [
+      { "from": "Conference Room 1", "to": "Conference Room 2" }
+    ]
+  }
+
+**CRITICAL: Always use "space_sharing" as the field name, never "split_space_dependency_rules"**
 
 ────────────────────────────────────────  QUOTA RULES GUIDELINES (CRITICAL)
 
@@ -728,20 +839,27 @@ Create **no rule blocks** that pretend date logic exists.
 
 CRITICAL PARSING INSTRUCTIONS:
 
-1. **QUOTA RULES PRIORITY (NEW)**:
+1. **SPACE SHARING RULES PRIORITY (NEW)**:
+   a) **ALWAYS CHECK FOR SPACE SHARING PATTERNS FIRST** before any other rule type
+   b) Space sharing keywords: "if X is booked Y becomes unavailable", "mutual exclusion", "vice-versa"
+   c) If detected, create space_sharing rules, NOT booking_conditions or other types
+   d) Example: "If A is booked, B becomes unavailable" → space_sharing rule with from="A", to="B"
+   e) **CRITICAL: Use field name "space_sharing", NOT "split_space_dependency_rules"**
+
+2. **QUOTA RULES PRIORITY**:
    a) **ALWAYS CHECK FOR QUOTA PATTERNS FIRST** before any other rule type
    b) Quota keywords: "limit", "each player", "per week", "per day", "per month", "maximum per user"
    c) If detected, create quota_rules, NOT booking_conditions or booking_window_rules
    d) Example: "limit each player to 6 hours per week" → quota_rule with target="individuals", value="6h", period="week"
 
-2. **PRICING RULES PRIORITY**:
+3. **PRICING RULES PRIORITY**:
    a) Parse time ranges correctly: "6 AM-4 PM" → "06:00–16:00"
    b) Extract prices correctly: "$10 per hour" → amount: 10
    c) Include space names: "indoor track" → ["Indoor Track"]
    d) Default to all 7 days if not specified
    e) Use default condition: "is_greater_than_or_equal_to" "15min" for non-tag rules
 
-3. **BOOKING WINDOW LOGIC (MOST CRITICAL)**:
+4. **BOOKING WINDOW LOGIC (MOST CRITICAL)**:
    a) **HORIZON CAPS** (use constraint: "more_than"):
       - "up to 30 days" → more_than 30 days (blocks beyond 30 days)
       - "next 3 days" → more_than 3 days (blocks beyond 3 days)
@@ -751,15 +869,15 @@ CRITICAL PARSING INSTRUCTIONS:
       - "at least 24 hours in advance" → less_than 24 hours (blocks within 24 hours)
       - "need 2 days notice" → less_than 2 days (blocks within 2 days)
 
-4. **UNIT PRESERVATION**: Keep user units unless they explicitly used hours.
+5. **UNIT PRESERVATION**: Keep user units unless they explicitly used hours.
 
-5. **SPECIFIC DATES**: If you detect calendar dates, return guidance message only.
+6. **SPECIFIC DATES**: If you detect calendar dates, return guidance message only.
 
-6. **DURATION CONSTRAINTS**: Session length limits go to booking_conditions, NOT quota_rules, UNLESS they mention "per week/day/month" or "each user/player".
+7. **DURATION CONSTRAINTS**: Session length limits go to booking_conditions, NOT quota_rules, UNLESS they mention "per week/day/month" or "each user/player".
 
-7. **"ONLY" PATTERNS**: "only [users] can book" → operator: "contains_none_of" with allowed tags.
+8. **"ONLY" PATTERNS**: "only [users] can book" → operator: "contains_none_of" with allowed tags.
 
-8. **MULTI-ROW CONDITIONS**: Use "rules" array with "logic_operators" for compound conditions.
+9. **MULTI-ROW CONDITIONS**: Use "rules" array with "logic_operators" for compound conditions.
 
 RESPONSE FORMAT:
 Return a JSON object with appropriate rule arrays. If specific dates detected, return only:
@@ -769,14 +887,15 @@ Return a JSON object with appropriate rule arrays. If specific dates detected, r
 }
 
 Otherwise, return full rule structure with:
+- space_sharing: [rules for space interdependencies with from/to structure]
 - quota_rules: [rules for user/time limits with target, quota_type, value, period, affected_spaces]
 - pricing_rules: [rules with correct times, prices, spaces, days, and conditions]
 - booking_conditions: [rules with multi-row support]
 - booking_window_rules: [with correct operators and preserved units]
-- buffer_time_rules, space_sharing as needed
+- buffer_time_rules, as needed
 - summary: "Comprehensive summary (≤ 4 lines)"
 
-${durationGuardHint}${specificDateHint}${quotaHint}
+${durationGuardHint}${specificDateHint}${quotaHint}${spaceSharingHint}
 
 Now analyze this booking rule and extract ALL applicable rule structures:
 

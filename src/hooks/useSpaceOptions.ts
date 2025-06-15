@@ -62,6 +62,12 @@ export function useSpaceOptions(ruleResult?: RuleResult) {
     ruleResult.booking_window_rules?.forEach(rule => {
       rule.spaces?.forEach(space => extractedSpaceNames.add(space));
     });
+
+    // NEW: Handle space sharing rules
+    ruleResult.space_sharing?.forEach(rule => {
+      if (rule.from) extractedSpaceNames.add(rule.from);
+      if (rule.to) extractedSpaceNames.add(rule.to);
+    });
   }
 
   // Create comprehensive space options list - UI only needs the label, keep simple

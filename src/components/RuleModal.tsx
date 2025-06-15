@@ -1,3 +1,4 @@
+
 import {
   Dialog,
   DialogContent,
@@ -25,7 +26,7 @@ interface RuleModalProps {
 export function RuleModal({ result, isOpen, onClose }: RuleModalProps) {
   // Check if we have new format data
   const hasNewFormat = result.booking_conditions || result.pricing_rules || result.quota_rules || 
-                      result.buffer_time_rules || result.booking_window_rules || result.summary;
+                      result.buffer_time_rules || result.booking_window_rules || result.space_sharing || result.summary;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -136,6 +137,13 @@ export function RuleModal({ result, isOpen, onClose }: RuleModalProps) {
           {/* Separator between AI summary and interactive blocks */}
           <div className="border-t border-slate-200 pt-6">
             <h2 className="text-xl font-semibold text-slate-800 mb-6">Interactive Rule Configuration</h2>
+            
+            {/* Space Sharing Rules Block */}
+            {result.space_sharing && result.space_sharing.length > 0 && (
+              <div className="mb-8">
+                <SpaceSharingRulesBlock initialRules={result.space_sharing} />
+              </div>
+            )}
             
             {/* Booking Conditions Block */}
             {(result.booking_conditions || !hasNewFormat) && (
