@@ -1,4 +1,3 @@
-
 import * as React from "react";
 import { Check, ChevronDown, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -29,6 +28,12 @@ interface MultiSelectProps {
   triggerVariant?: "input" | "link";
   abbreviateDays?: boolean;
 }
+
+// Helper function for flexible space name matching
+const isSpaceMatch = (selected: string, option: string): boolean => {
+  if (selected === option) return true;
+  return selected.toLowerCase().trim() === option.toLowerCase().trim();
+};
 
 export function MultiSelect({ 
   options, 
@@ -63,20 +68,35 @@ export function MultiSelect({
       );
     }
 
-    // Ensure all selected items are strings and filter out invalid values
-    const validSelected = selected.filter(s => 
-      typeof s === "string" && options.includes(s)
-    );
+    // Ensure all selected items are strings and keep them even if not in options
+    // Use flexible matching to determine validity
+    const validSelected = selected.filter(s => {
+      if (typeof s !== "string") return false;
+      // If it exactly matches an option, it's valid
+      if (options.includes(s)) return true;
+      // If it matches an option case-insensitively, it's valid
+      return options.some(option => isSpaceMatch(s, option));
+    });
 
-    // Silently fix the selection if needed
+    // If we found invalid items, silently fix the selection
     if (validSelected.length !== selected.length) {
-      onSelectionChange(validSelected);
+      // Only update if we're removing invalid items, but keep items that match flexibly
+      const flexibleSelected = selected.filter(s => {
+        if (typeof s !== "string") return false;
+        return options.some(option => isSpaceMatch(s, option)) || options.includes(s);
+      });
+      if (flexibleSelected.length !== selected.length) {
+        onSelectionChange(flexibleSelected);
+      }
     }
+
+    // Display all selected items, even if they don't exactly match options
+    const itemsToDisplay = selected.filter(s => typeof s === "string");
 
     // For link variant, display as clean text like LinkSelect
     if (triggerVariant === "link") {
-      const displayItems = getDisplayItems(validSelected);
-      if (validSelected.length === 1) {
+      const displayItems = getDisplayItems(itemsToDisplay);
+      if (itemsToDisplay.length === 1) {
         return <span className="text-blue-700 font-semibold">{displayItems[0]}</span>;
       }
       return <span className="text-blue-700 font-semibold">{displayItems.join(", ")}</span>;
@@ -85,26 +105,26 @@ export function MultiSelect({
     // For input variant, use the existing chip display logic
     const maxVisibleChips = 3;
 
-    if (validSelected.length === 1) {
+    if (itemsToDisplay.length === 1) {
       return (
         <div className="flex items-center gap-1 min-w-0 flex-1">
           <span
             className="inline-flex items-center gap-0.5 rounded-full bg-link/10 text-link text-xs px-2 py-0.5 max-w-[160px] truncate"
           >
-            <span className="truncate">{validSelected[0]}</span>
+            <span className="truncate">{itemsToDisplay[0]}</span>
             <X
               className="ml-1 h-3 w-3 cursor-pointer hover:text-destructive flex-shrink-0"
-              onClick={(e) => removeItem(validSelected[0], e)}
+              onClick={(e) => removeItem(itemsToDisplay[0], e)}
             />
           </span>
         </div>
       );
     }
 
-    if (validSelected.length <= maxVisibleChips) {
+    if (itemsToDisplay.length <= maxVisibleChips) {
       return (
         <div className="flex items-center gap-1 min-w-0 flex-1 flex-wrap">
-          {validSelected.slice(0, maxVisibleChips).map((item, index) => (
+          {itemsToDisplay.slice(0, maxVisibleChips).map((item, index) => (
             <span
               key={item}
               className="inline-flex items-center gap-0.5 rounded-full bg-link/10 text-link text-xs px-2 py-0.5 max-w-[120px] truncate"
@@ -123,7 +143,7 @@ export function MultiSelect({
     // For many items, show first 2 chips + count
     return (
       <div className="flex items-center gap-1 min-w-0 flex-1">
-        {validSelected.slice(0, 2).map((item) => (
+        {itemsToDisplay.slice(0, 2).map((item) => (
           <span
             key={item}
             className="inline-flex items-center gap-0.5 rounded-full bg-link/10 text-link text-xs px-2 py-0.5 max-w-[100px] truncate"
@@ -136,7 +156,7 @@ export function MultiSelect({
           </span>
         ))}
         <span className="text-xs text-slate-600 font-medium flex-shrink-0">
-          +{validSelected.length - 2} more
+          +{itemsToDisplay.length - 2} more
         </span>
       </div>
     );
@@ -185,7 +205,7 @@ export function MultiSelect({
           >
             <div className="flex items-center space-x-2 w-full">
               <div className="flex h-4 w-4 items-center justify-center">
-                {selected.includes(option) && (
+                {(selected.includes(option) || selected.some(s => isSpaceMatch(s, option))) && (
                   <Check className="h-4 w-4 text-primary" />
                 )}
               </div>

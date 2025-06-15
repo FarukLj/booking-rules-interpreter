@@ -59,11 +59,18 @@ export function useSpaceOptions(ruleResult?: RuleResult) {
       rule.affected_spaces?.forEach(space => extractedSpaceNames.add(space));
     });
     
+    // FIXED: Properly extract spaces from booking window rules
     ruleResult.booking_window_rules?.forEach(rule => {
-      rule.spaces?.forEach(space => extractedSpaceNames.add(space));
+      if (rule.spaces && Array.isArray(rule.spaces)) {
+        rule.spaces.forEach(space => {
+          if (space && typeof space === 'string') {
+            extractedSpaceNames.add(space);
+          }
+        });
+      }
     });
 
-    // NEW: Handle space sharing rules
+    // Handle space sharing rules
     ruleResult.space_sharing?.forEach(rule => {
       if (rule.from) extractedSpaceNames.add(rule.from);
       if (rule.to) extractedSpaceNames.add(rule.to);
