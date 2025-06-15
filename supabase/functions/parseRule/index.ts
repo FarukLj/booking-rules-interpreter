@@ -196,15 +196,24 @@ const generatePricingRules = (inputRule: string, spaces: string[]): any[] => {
   const rules: any[] = [];
   
   // Enhanced pattern for peak/off-peak pricing with "otherwise" clause
-  const peakOffPeakPattern = /(?:pricing\s+for\s+)?peak\s+hours?\s+(?:from\s+)?([^$]*?)\s+is\s+\$?(\d+(?:\.\d+)?)\$?\s*(?:\/?\s*(?:per\s+)?(?:hour|h))?\s+and\s+\$?(\d+(?:\.\d+)?)\$?\s*(?:\/?\s*(?:per\s+)?(?:hour|h))?\s+otherwise/gi;
+  // Updated to handle both "$60" and "60$" formats
+  const peakOffPeakPattern = /peak\s+hours?\s+(?:from\s+)?(.*?)\s+is\s+(\$?\d+(?:\.\d+)?\$?)\s*(?:\/?\s*(?:per\s+)?(?:hour|h))?\s+and\s+(\$?\d+(?:\.\d+)?\$?)\s*(?:\/?\s*(?:per\s+)?(?:hour|h))?\s+otherwise/gi;
   const peakOffPeakMatch = inputRule.match(peakOffPeakPattern);
   
   if (peakOffPeakMatch) {
     console.log('[PRICING GENERATION] Found peak/off-peak pattern:', peakOffPeakMatch[0]);
     
-    const timeText = peakOffPeakMatch[0].match(/peak\s+hours?\s+(?:from\s+)?([^$]*?)\s+is/i)?.[1];
-    const peakAmount = parseFloat(peakOffPeakMatch[0].match(/is\s+\$?(\d+(?:\.\d+)?)/i)?.[1] || '0');
-    const offPeakAmount = parseFloat(peakOffPeakMatch[0].match(/and\s+\$?(\d+(?:\.\d+)?)/i)?.[1] || '0');
+    // Extract time text more carefully - everything between "from" and "is"
+    const timeTextMatch = inputRule.match(/peak\s+hours?\s+(?:from\s+)?(.*?)\s+is/i);
+    const timeText = timeTextMatch ? timeTextMatch[1].trim() : null;
+    
+    // Extract peak and off-peak amounts with improved regex
+    const peakAmountMatch = inputRule.match(/is\s+(\$?\d+(?:\.\d+)?\$?)/i);
+    const offPeakAmountMatch = inputRule.match(/and\s+(\$?\d+(?:\.\d+)?\$?)/i);
+    
+    // Parse amounts, removing $ symbols
+    const peakAmount = peakAmountMatch ? parseFloat(peakAmountMatch[1].replace(/\$/g, '')) : 0;
+    const offPeakAmount = offPeakAmountMatch ? parseFloat(offPeakAmountMatch[1].replace(/\$/g, '')) : 0;
     
     console.log('[PRICING GENERATION] Extracted:', { timeText, peakAmount, offPeakAmount });
     
