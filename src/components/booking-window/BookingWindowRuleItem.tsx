@@ -1,3 +1,4 @@
+
 import { normalizeTags } from "@/utils/tagHelpers";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MultiSelect } from "@/components/ui/multi-select";
@@ -8,7 +9,7 @@ import { normalizeAdvanceUnit, convertFromHours, getTimeDisplayHelper } from "./
 import { getLogicValidation, getConstraintExplanation } from "./utils/validation";
 import { getUserGroupText, getConstraintText } from "./utils/textHelpers";
 import { BookingWindowRow } from "./BookingWindowRow";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 interface BookingWindowRuleItemProps {
   rule: BookingWindowRule;
@@ -25,9 +26,20 @@ export function BookingWindowRuleItem({
 }: BookingWindowRuleItemProps) {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const validation = getLogicValidation(rule);
+  
+  // Track if the user manually changed the scope
+  const manualScopeChangeRef = useRef(false);
+  const previousTagsRef = useRef<string[]>([]);
 
-  // Update selected tags and user_scope when rule.tags or tagOptions changes
+  // Update selected tags when rule.tags or tagOptions changes
   useEffect(() => {
+    console.log('[BookingWindowRuleItem] useEffect triggered:', {
+      ruleTags: rule.tags,
+      ruleUserScope: rule.user_scope,
+      tagOptionsLength: tagOptions.length,
+      manualScopeChange: manualScopeChangeRef.current
+    });
+
     if (rule.tags && rule.tags.length > 0) {
       const normalized = normalizeTags(rule.tags);
       const validTags = normalized.filter(tag => 
@@ -38,26 +50,52 @@ export function BookingWindowRuleItem({
       setSelectedTags(validTags);
       
       // If we have valid tags but the scope is not set to users_with_tags, update it
-      if (validTags.length > 0 && rule.user_scope !== 'users_with_tags') {
+      // BUT only if this wasn't a manual scope change
+      if (validTags.length > 0 && rule.user_scope !== 'users_with_tags' && !manualScopeChangeRef.current) {
+        console.log('[BookingWindowRuleItem] Auto-updating scope to users_with_tags due to valid tags');
         onRuleUpdate('user_scope', 'users_with_tags');
       }
       
       // If we have invalid tags, update the rule
       if (validTags.length !== normalized.length) {
+        console.log('[BookingWindowRuleItem] Updating rule with valid tags only');
         onRuleUpdate('tags', validTags);
       }
     } else {
       setSelectedTags([]);
-      // If no tags but scope was set to users_with_tags, reset to all_users
-      if (rule.user_scope === 'users_with_tags') {
+      
+      // Only auto-revert to all_users if:
+      // 1. The user had tags before and they were just cleared (not a manual scope change)
+      // 2. OR if the scope was programmatically set to a tag-based scope but there are no tags
+      const hadTagsBefore = previousTagsRef.current.length > 0;
+      const isTagBasedScope = rule.user_scope === 'users_with_tags' || rule.user_scope === 'users_with_no_tags';
+      
+      if (hadTagsBefore && !manualScopeChangeRef.current && isTagBasedScope) {
+        console.log('[BookingWindowRuleItem] Auto-reverting scope to all_users due to cleared tags');
         onRuleUpdate('user_scope', 'all_users');
       }
+    }
+
+    // Update the previous tags reference
+    previousTagsRef.current = rule.tags || [];
+    
+    // Reset manual scope change flag after processing
+    if (manualScopeChangeRef.current) {
+      manualScopeChangeRef.current = false;
     }
   }, [rule.tags, tagOptions, onRuleUpdate, rule.user_scope]);
 
   const handleTagSelection = (selected: string[]) => {
+    console.log('[BookingWindowRuleItem] Tag selection changed:', selected);
     setSelectedTags(selected);
     onRuleUpdate('tags', selected);
+  };
+
+  const handleScopeChange = (newScope: string) => {
+    console.log('[BookingWindowRuleItem] Manual scope change:', newScope);
+    // Mark this as a manual scope change
+    manualScopeChangeRef.current = true;
+    onRuleUpdate('user_scope', newScope);
   };
 
   const handleUnitChange = (newUnit: "hours" | "days" | "weeks") => {
@@ -70,7 +108,7 @@ export function BookingWindowRuleItem({
   // Row 1 Content: User scope selector and tags (if applicable)
   const row1Content = (
     <div className="flex gap-2 items-center">
-      <Select value={rule.user_scope || 'all_users'} onValueChange={(value) => onRuleUpdate('user_scope', value)}>
+      <Select value={rule.user_scope || 'all_users'} onValueChange={handleScopeChange}>
         <SelectTrigger className="min-w-[160px] h-10">
           <SelectValue>
             {getUserGroupText(rule.user_scope || 'all_users')}
