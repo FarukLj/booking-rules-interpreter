@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -24,6 +25,14 @@ const SPECIFIC_DATE_PATTERNS = [
   /(?:before|after|from|until|by)\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{1,2}(?:st|nd|rd|th)?/gi,
   /(?:before|after|from|until|by)\s+\d{1,2}\/\d{1,2}\/?\d{0,4}/gi,
   /(?:before|after|from|until|by)\s+\d{4}-\d{2}-\d{2}/gi
+];
+
+// NEW: User Group Detection Patterns for Booking Window Rules
+const USER_GROUP_PATTERNS = [
+  /\b(visitors?|guests?|non[_\s]?members?)\s+(?:can|may|are\s+(?:able\s+to|allowed\s+to))\s+(?:book|reserve)/gi,
+  /\b(members?|club\s+members?|premium\s+members?|staff|employees?|coaches?|trainers?)\s+(?:can|may|are\s+(?:able\s+to|allowed\s+to))\s+(?:book|reserve)/gi,
+  /\b(students?|faculty|administrators?)\s+(?:can|may|are\s+(?:able\s+to|allowed\s+to))\s+(?:book|reserve)/gi,
+  /\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s+(?:can|may|are\s+(?:able\s+to|allowed\s+to))\s+(?:book|reserve)/gi
 ];
 
 // NEW: Quota Rule Pattern Detection
@@ -72,6 +81,71 @@ const QUOTA_USER_SCOPE_PATTERNS = [
 const DURATION_RX = /(\d+(?:\.\d+)?)(?:\s?)(min|minutes?|h|hr|hrs?|hour|hours?)/gi;
 const DIR_RX = /(min(?:imum)?|at\s+least|under|below|less\s+than|shorter\s+than|max(?:imum)?|over|above|more\s+than|longer\s+than|≥|>=|≤|<=|<|>)/gi;
 const ADVANCE_CONTEXT_RX = /(?:in\s+advance|before|ahead\s+of|prior\s+to)/gi;
+
+// NEW: User Group Extraction Function
+function extractUserGroupsFromText(text: string): Array<{ group: string; constraint: string; value: number; unit: string; spaces: string[] }> {
+  console.log(`[USER GROUP EXTRACTION] Analyzing text: "${text}"`);
+  
+  const userGroups: Array<{ group: string; constraint: string; value: number; unit: string; spaces: string[] }> = [];
+  
+  // Pattern to match user group booking window rules
+  const complexPattern = /\b([A-Z][a-z]+(?:\s+[a-z]+)*(?:\s+members?)?)\s+(?:can|may)\s+(?:only\s+)?(?:book|reserve)\s+([^;]+?)(?:up\s+to|within|for\s+the\s+next)\s+(\d+)\s+(days?|weeks?|hours?)\s*(?:in\s+advance)?/gi;
+  
+  let match;
+  while ((match = complexPattern.exec(text)) !== null) {
+    const userGroup = match[1].trim();
+    const spaceText = match[2].trim();
+    const value = parseInt(match[3]);
+    const unit = normalizeBookingUnit(match[4]);
+    
+    // Extract spaces from the space text
+    const spaces = extractSpaceNamesFromText(spaceText);
+    
+    console.log(`[USER GROUP EXTRACTION] Found user group: "${userGroup}" with ${value} ${unit} for spaces: [${spaces.join(', ')}]`);
+    
+    userGroups.push({
+      group: userGroup,
+      constraint: 'more_than', // "up to X days" = blocks beyond X days
+      value: value,
+      unit: unit,
+      spaces: spaces.length > 0 ? spaces : ['all spaces']
+    });
+  }
+  
+  // Also handle semicolon-separated rules like "Visitors can book X; club members can book Y"
+  const parts = text.split(/[;,]/).map(part => part.trim());
+  
+  for (const part of parts) {
+    const simplePattern = /\b([A-Z][a-z]+(?:\s+[a-z]+)*(?:\s+members?)?)\s+(?:can|may)\s+(?:only\s+)?(?:book|reserve)\s+(?:.*?)(?:up\s+to|within|for\s+the\s+next)\s+(\d+)\s+(days?|weeks?|hours?)/gi;
+    
+    let partMatch;
+    while ((partMatch = simplePattern.exec(part)) !== null) {
+      const userGroup = partMatch[1].trim();
+      const value = parseInt(partMatch[2]);
+      const unit = normalizeBookingUnit(partMatch[3]);
+      
+      // Extract spaces from the original text (before the semicolon split)
+      const spaces = extractSpaceNamesFromText(text);
+      
+      // Check if we already have this user group to avoid duplicates
+      const existingGroup = userGroups.find(ug => ug.group.toLowerCase() === userGroup.toLowerCase());
+      if (!existingGroup) {
+        console.log(`[USER GROUP EXTRACTION] Found additional user group from part: "${userGroup}" with ${value} ${unit}`);
+        
+        userGroups.push({
+          group: userGroup,
+          constraint: 'more_than',
+          value: value,
+          unit: unit,
+          spaces: spaces.length > 0 ? spaces : ['all spaces']
+        });
+      }
+    }
+  }
+  
+  console.log(`[USER GROUP EXTRACTION] Final extracted user groups:`, userGroups);
+  return userGroups;
+}
 
 // NEW: Space Name Extraction Function
 function extractSpaceNamesFromText(text: string): string[] {
@@ -512,6 +586,52 @@ async function sanitizeRules(parsedResponse: any, originalRule: string): Promise
       parsedResponse.space_sharing = spaceSharingAnalysis.spacePairs;
     }
   }
+
+  // NEW: Enhanced User Group Detection and Booking Window Rule Correction
+  const userGroups = extractUserGroupsFromText(originalRule);
+  if (userGroups.length > 0 && parsedResponse.booking_window_rules) {
+    console.log('[USER GROUP GUARD] Detected user groups, correcting booking window rules');
+    
+    // If we have the same number of rules as user groups, map them directly
+    if (parsedResponse.booking_window_rules.length === userGroups.length) {
+      parsedResponse.booking_window_rules = parsedResponse.booking_window_rules.map((rule: any, index: number) => {
+        const userGroup = userGroups[index];
+        return {
+          ...rule,
+          user_scope: 'users_with_tags',
+          tags: [userGroup.group],
+          constraint: userGroup.constraint,
+          value: userGroup.value,
+          unit: userGroup.unit,
+          spaces: userGroup.spaces,
+          explanation: `${userGroup.group} can reserve ${userGroup.spaces.join(', ')} up to ${userGroup.value} ${userGroup.unit} in advance`
+        };
+      });
+    } else {
+      // Create new rules based on detected user groups
+      console.log('[USER GROUP GUARD] Creating new booking window rules from detected user groups');
+      parsedResponse.booking_window_rules = userGroups.map(userGroup => ({
+        user_scope: 'users_with_tags',
+        tags: [userGroup.group],
+        constraint: userGroup.constraint,
+        value: userGroup.value,
+        unit: userGroup.unit,
+        spaces: userGroup.spaces,
+        explanation: `${userGroup.group} can reserve ${userGroup.spaces.join(', ')} up to ${userGroup.value} ${userGroup.unit} in advance`
+      }));
+    }
+    
+    console.log('[USER GROUP GUARD] Updated booking window rules with user groups:', parsedResponse.booking_window_rules);
+  } else if (parsedResponse.booking_window_rules) {
+    // No user groups detected, ensure existing rules have proper default scope
+    console.log('[USER GROUP GUARD] No user groups detected, ensuring proper default user_scope');
+    parsedResponse.booking_window_rules = parsedResponse.booking_window_rules.map((rule: any) => {
+      if (!rule.user_scope) {
+        rule.user_scope = 'all_users';
+      }
+      return rule;
+    });
+  }
   
   // Check for time-block + min/max duration pattern first
   const tbMatch = originalRule.match(/(.*?)\s+must\s+be\s+booked\s+in\s+(\d+)\s*-?\s*hour\s+blocks?\s+only.*minimum\s+(\d+)\s*hours?.*maximum\s+(\d+)\s*hours?/i);
@@ -753,6 +873,7 @@ serve(async (req) => {
     const bookingWindowAnalysis = detectBookingWindowType(rule);
     const quotaAnalysis = detectQuotaPattern(rule);
     const spaceSharingAnalysis = detectSpaceSharingPattern(rule);
+    const userGroups = extractUserGroupsFromText(rule);
     
     const durationGuardHint = durationGuard.hasDurationConstraints 
       ? `\n\nDURATION GUARD DETECTED: This prompt contains duration constraints (${durationGuard.details.map(d => d.raw).join(', ')}). These should be parsed as BOOKING CONDITIONS with condition_type="duration", NOT as booking window rules.`
@@ -768,6 +889,10 @@ serve(async (req) => {
 
     const spaceSharingHint = spaceSharingAnalysis.hasSpaceSharing
       ? `\n\nSPACE SHARING DETECTED: This prompt contains space interdependency patterns (${spaceSharingAnalysis.spacePairs.map(p => `${p.from} → ${p.to}`).join(', ')}). These should be parsed as SPACE SHARING rules with field name "space_sharing", NOT "split_space_dependency_rules".`
+      : '';
+
+    const userGroupHint = userGroups.length > 0
+      ? `\n\nUSER GROUPS DETECTED: This prompt contains user group patterns (${userGroups.map(ug => `"${ug.group}" can book ${ug.spaces.join(', ')} up to ${ug.value} ${ug.unit}`).join(', ')}). Each user group should create a separate booking window rule with user_scope="users_with_tags" and tags=["${userGroups.map(ug => ug.group).join('", "')}"].`
       : '';
 
     const prompt = `
@@ -913,6 +1038,32 @@ If you detect quota language (limit, per week, each player, etc.), always create
 
 ────────────────────────────────────────  BOOKING-WINDOW GUIDELINES (CRITICAL)
 
+**USER GROUP DETECTION - ABSOLUTELY CRITICAL:**
+
+1. **DETECT USER GROUPS IN BOOKING WINDOW RULES:**
+   • "Visitors can book up to 3 days" → user_scope: "users_with_tags", tags: ["Visitors"]
+   • "Club members can book up to 14 days" → user_scope: "users_with_tags", tags: ["Club members"]
+   • "Staff can book up to 30 days" → user_scope: "users_with_tags", tags: ["Staff"]
+   • "Premium members get 7 days advance" → user_scope: "users_with_tags", tags: ["Premium members"]
+
+2. **USER GROUP PATTERNS TO DETECT:**
+   • "Visitors can..." → tags: ["Visitors"]
+   • "Club members can..." → tags: ["Club members"]  
+   • "Members can..." → tags: ["Members"]
+   • "Staff can..." → tags: ["Staff"]
+   • "Guests can..." → tags: ["Guests"]
+   • "Premium users can..." → tags: ["Premium users"]
+   • "[Any Group Name] can..." → tags: ["[Any Group Name]"]
+
+3. **MULTI-USER RULES:**
+   • "Visitors can book up to 3 days; club members up to 14 days" → Create TWO separate booking window rules:
+     - Rule 1: user_scope: "users_with_tags", tags: ["Visitors"], value: 3, unit: "days"
+     - Rule 2: user_scope: "users_with_tags", tags: ["Club members"], value: 14, unit: "days"
+
+4. **DEFAULT USER SCOPE:**
+   • ONLY use user_scope: "all_users" when NO specific user groups are mentioned
+   • If ANY user group is mentioned, use user_scope: "users_with_tags"
+
 **HORIZON CAPS vs MINIMUM NOTICE - OPERATOR MAPPING:**
 
 1. **HORIZON CAPS** (limits how far ahead users can book):
@@ -937,11 +1088,50 @@ If you detect quota language (limit, per week, each player, etc.), always create
 • If no specific spaces mentioned, use ["all spaces"]
 • Example: "Visitors can book Tennis Courts up to 3 days" → spaces: ["Tennis Courts"]
 
-**EXAMPLES:**
-- "Sales team can book up to 30 days" → constraint: "more_than", value: 30, unit: "days", spaces: ["all spaces"]
-- "Everyone else only 3 days" → constraint: "more_than", value: 3, unit: "days", spaces: ["all spaces"]
-- "Must book 48 hours in advance" → constraint: "less_than", value: 48, unit: "hours", spaces: ["all spaces"]
-- "Visitors can book Tennis Courts up to 3 days" → constraint: "more_than", value: 3, unit: "days", spaces: ["Tennis Courts"]
+**EXAMPLES WITH USER GROUPS:**
+- "Visitors can book Tennis Courts up to 3 days" → 
+  {
+    "user_scope": "users_with_tags",
+    "tags": ["Visitors"],
+    "constraint": "more_than", 
+    "value": 3, 
+    "unit": "days", 
+    "spaces": ["Tennis Courts"],
+    "explanation": "Visitors can reserve Tennis Courts up to 3 days in advance"
+  }
+
+- "Club members can book up to 14 days" → 
+  {
+    "user_scope": "users_with_tags",
+    "tags": ["Club members"],
+    "constraint": "more_than", 
+    "value": 14, 
+    "unit": "days", 
+    "spaces": ["all spaces"],
+    "explanation": "Club members can reserve all spaces up to 14 days in advance"
+  }
+
+- "Visitors can book up to 3 days; club members up to 14 days" → CREATE TWO RULES:
+  [
+    {
+      "user_scope": "users_with_tags",
+      "tags": ["Visitors"],
+      "constraint": "more_than",
+      "value": 3,
+      "unit": "days",
+      "spaces": ["all spaces"],
+      "explanation": "Visitors can reserve all spaces up to 3 days in advance"
+    },
+    {
+      "user_scope": "users_with_tags", 
+      "tags": ["Club members"],
+      "constraint": "more_than",
+      "value": 14,
+      "unit": "days", 
+      "spaces": ["all spaces"],
+      "explanation": "Club members can reserve all spaces up to 14 days in advance"
+    }
+  ]
 
 ────────────────────────────────────────  SPECIFIC-DATE LIMITS (Unsupported)
 The UI cannot pin rules to a calendar date.
@@ -968,51 +1158,66 @@ Create **no rule blocks** that pretend date logic exists.
 
 CRITICAL PARSING INSTRUCTIONS:
 
-1. **SPACE SHARING RULES PRIORITY (NEW)**:
+1. **USER GROUP DETECTION PRIORITY (MOST CRITICAL FOR BOOKING WINDOWS)**:
+   a) **ALWAYS CHECK FOR USER GROUPS FIRST** in booking window rules
+   b) User group keywords: "Visitors can", "Club members can", "Members can", "Staff can", "[Group] can"
+   c) If detected, ALWAYS use user_scope: "users_with_tags" and extract the group name to tags: ["Group Name"]
+   d) For multi-user rules, create separate booking window rules for each user group
+   e) Example: "Visitors can book up to 3 days; club members up to 14 days" → TWO separate rules with different tags
+
+2. **SPACE SHARING RULES PRIORITY (NEW)**:
    a) **ALWAYS CHECK FOR SPACE SHARING PATTERNS FIRST** before any other rule type
    b) Space sharing keywords: "if X is booked Y becomes unavailable", "mutual exclusion", "vice-versa"
    c) If detected, create space_sharing rules, NOT booking_conditions or other types
    d) Example: "If A is booked, B becomes unavailable" → space_sharing rule with from="A", to="B"
    e) **CRITICAL: Use field name "space_sharing", NOT "split_space_dependency_rules"**
 
-2. **QUOTA RULES PRIORITY**:
+3. **QUOTA RULES PRIORITY**:
    a) **ALWAYS CHECK FOR QUOTA PATTERNS FIRST** before any other rule type
    b) Quota keywords: "limit", "each player", "per week", "per day", "per month", "maximum per user"
    c) If detected, create quota_rules, NOT booking_conditions or booking_window_rules
    d) Example: "limit each player to 6 hours per week" → quota_rule with target="individuals", value="6h", period="week"
 
-3. **PRICING RULES PRIORITY**:
+4. **PRICING RULES PRIORITY**:
    a) Parse time ranges correctly: "6 AM-4 PM" → "06:00–16:00"
    b) Extract prices correctly: "$10 per hour" → amount: 10
    c) Include space names: "indoor track" → ["Indoor Track"]
    d) Default to all 7 days if not specified
    e) Use default condition: "is_greater_than_or_equal_to" "15min" for non-tag rules
 
-4. **BOOKING WINDOW LOGIC (MOST CRITICAL)**:
-   a) **HORIZON CAPS** (use constraint: "more_than"):
+5. **BOOKING WINDOW LOGIC (MOST CRITICAL)**:
+   a) **USER GROUP DETECTION FIRST**: Extract user groups and map to user_scope + tags
+   
+   b) **HORIZON CAPS** (use constraint: "more_than"):
       - "up to 30 days" → more_than 30 days (blocks beyond 30 days)
       - "next 3 days" → more_than 3 days (blocks beyond 3 days)
       - "within 1 week" → more_than 1 week (blocks beyond 1 week)
       
-   b) **MINIMUM NOTICE** (use constraint: "less_than"):
+   c) **MINIMUM NOTICE** (use constraint: "less_than"):
       - "at least 24 hours in advance" → less_than 24 hours (blocks within 24 hours)
       - "need 2 days notice" → less_than 2 days (blocks within 2 days)
 
-   c) **SPACES FIELD - ABSOLUTELY CRITICAL**:
+   d) **SPACES FIELD - ABSOLUTELY CRITICAL**:
       - **NEVER OMIT the "spaces" field** from booking window rules
       - Extract space names from rule text: "Tennis Courts", "Batting Cage A", etc.
       - If no specific spaces mentioned, use ["all spaces"]
       - This field is REQUIRED for the UI to display the rule correctly
 
-5. **UNIT PRESERVATION**: Keep user units unless they explicitly used hours.
+   e) **USER SCOPE FIELD - ABSOLUTELY CRITICAL**:
+      - **ALWAYS include user_scope field** in booking window rules
+      - If user groups detected: user_scope: "users_with_tags" + tags: ["Group Name"]
+      - If no user groups: user_scope: "all_users"
+      - **NEVER omit user_scope field**
 
-6. **SPECIFIC DATES**: If you detect calendar dates, return guidance message only.
+6. **UNIT PRESERVATION**: Keep user units unless they explicitly used hours.
 
-7. **DURATION CONSTRAINTS**: Session length limits go to booking_conditions, NOT quota_rules, UNLESS they mention "per week/day/month" or "each user/player".
+7. **SPECIFIC DATES**: If you detect calendar dates, return guidance message only.
 
-8. **"ONLY" PATTERNS**: "only [users] can book" → operator: "contains_none_of" with allowed tags.
+8. **DURATION CONSTRAINTS**: Session length limits go to booking_conditions, NOT quota_rules, UNLESS they mention "per week/day/month" or "each user/player".
 
-9. **MULTI-ROW CONDITIONS**: Use "rules" array with "logic_operators" for compound conditions.
+9. **"ONLY" PATTERNS**: "only [users] can book" → operator: "contains_none_of" with allowed tags.
+
+10. **MULTI-ROW CONDITIONS**: Use "rules" array with "logic_operators" for compound conditions.
 
 RESPONSE FORMAT:
 Return a JSON object with appropriate rule arrays. If specific dates detected, return only:
@@ -1026,11 +1231,11 @@ Otherwise, return full rule structure with:
 - quota_rules: [rules for user/time limits with target, quota_type, value, period, affected_spaces]
 - pricing_rules: [rules with correct times, prices, spaces, days, and conditions]
 - booking_conditions: [rules with multi-row support]
-- booking_window_rules: [with correct operators, preserved units, AND REQUIRED SPACES FIELD]
+- booking_window_rules: [with correct operators, preserved units, REQUIRED SPACES FIELD, and REQUIRED USER_SCOPE + TAGS for user groups]
 - buffer_time_rules, as needed
 - summary: "Comprehensive summary (≤ 4 lines)"
 
-${durationGuardHint}${specificDateHint}${quotaHint}${spaceSharingHint}
+${durationGuardHint}${specificDateHint}${quotaHint}${spaceSharingHint}${userGroupHint}
 
 Now analyze this booking rule and extract ALL applicable rule structures:
 
