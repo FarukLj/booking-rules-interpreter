@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -44,6 +43,25 @@ const SPACE_SHARING_PATTERNS = [
   /(.+?)\s+(?:makes?\s+)?(.+?)\s+(?:unavailable|blocked)/gi
 ];
 
+// NEW: Space Name Extraction Patterns
+const SPACE_NAME_PATTERNS = [
+  // Common patterns for space names in booking rules
+  /(?:Tennis\s+Courts?)/gi,
+  /(?:Batting\s+Cage\s+[A-Z0-9]+)/gi,
+  /(?:Conference\s+Room\s+[A-Z0-9]+)/gi,
+  /(?:Pickleball\s+[A-Z0-9]+)/gi,
+  /(?:Indoor\s+Track)/gi,
+  /(?:Outdoor\s+Track)/gi,
+  /(?:Swimming\s+Pool)/gi,
+  /(?:Gymnasium)/gi,
+  /(?:Studio\s+[A-Z0-9]+)/gi,
+  /(?:Court\s+[A-Z0-9]+)/gi,
+  /(?:Field\s+[A-Z0-9]+)/gi,
+  /(?:Rink\s+[A-Z0-9]+)/gi,
+  // Generic patterns - match capitalized words that could be space names
+  /\b([A-Z][a-z]+(?:\s+[A-Z][a-z]*)*(?:\s+[A-Z0-9]+)?)\b/g
+];
+
 const QUOTA_USER_SCOPE_PATTERNS = [
   /(?:each|every|per)\s+(?:player|user|person|individual)/gi,
   /(?:players|users|people|individuals)\s+with\s+(?:tag|tags)/gi,
@@ -54,6 +72,63 @@ const QUOTA_USER_SCOPE_PATTERNS = [
 const DURATION_RX = /(\d+(?:\.\d+)?)(?:\s?)(min|minutes?|h|hr|hrs?|hour|hours?)/gi;
 const DIR_RX = /(min(?:imum)?|at\s+least|under|below|less\s+than|shorter\s+than|max(?:imum)?|over|above|more\s+than|longer\s+than|≥|>=|≤|<=|<|>)/gi;
 const ADVANCE_CONTEXT_RX = /(?:in\s+advance|before|ahead\s+of|prior\s+to)/gi;
+
+// NEW: Space Name Extraction Function
+function extractSpaceNamesFromText(text: string): string[] {
+  console.log(`[SPACE EXTRACTION] Analyzing text: "${text}"`);
+  
+  const extractedSpaces = new Set<string>();
+  
+  // First, try specific known space patterns
+  for (const pattern of SPACE_NAME_PATTERNS) {
+    const matches = [...text.matchAll(pattern)];
+    matches.forEach(match => {
+      let spaceName = match[0].trim();
+      
+      // Clean up the space name
+      spaceName = spaceName.replace(/^(the\s+|a\s+|an\s+)/i, ''); // Remove articles
+      spaceName = spaceName.replace(/\s+/g, ' '); // Normalize whitespace
+      
+      // Only add if it looks like a valid space name (contains letters and reasonable length)
+      if (spaceName.length >= 3 && spaceName.length <= 50 && /[a-zA-Z]/.test(spaceName)) {
+        // Filter out common words that are not space names
+        const excludeWords = ['visitors', 'members', 'users', 'players', 'days', 'hours', 'advance', 'booking', 'reserve', 'club'];
+        if (!excludeWords.some(word => spaceName.toLowerCase() === word)) {
+          extractedSpaces.add(spaceName);
+          console.log(`[SPACE EXTRACTION] Found space: "${spaceName}"`);
+        }
+      }
+    });
+  }
+  
+  // Specific extraction for common booking rule patterns
+  const commonPatterns = [
+    /(?:book|reserve|use)\s+([A-Z][a-zA-Z\s]+?)(?:\s+up\s+to|\s+for|\s+in|\s+at|\s*$)/gi,
+    /([A-Z][a-zA-Z\s]+?)\s+(?:can\s+be\s+booked|is\s+available|bookings?)/gi,
+    /(?:on|for)\s+([A-Z][a-zA-Z\s]+?)(?:\s+up\s+to|\s+for|\s+in|\s+at|\s*$)/gi
+  ];
+  
+  commonPatterns.forEach(pattern => {
+    const matches = [...text.matchAll(pattern)];
+    matches.forEach(match => {
+      let spaceName = match[1].trim();
+      spaceName = spaceName.replace(/^(the\s+|a\s+|an\s+)/i, '');
+      spaceName = spaceName.replace(/\s+/g, ' ');
+      
+      if (spaceName.length >= 3 && spaceName.length <= 50 && /[a-zA-Z]/.test(spaceName)) {
+        const excludeWords = ['visitors', 'members', 'users', 'players', 'days', 'hours', 'advance', 'booking', 'reserve', 'club'];
+        if (!excludeWords.some(word => spaceName.toLowerCase() === word)) {
+          extractedSpaces.add(spaceName);
+          console.log(`[SPACE EXTRACTION] Found space from pattern: "${spaceName}"`);
+        }
+      }
+    });
+  });
+  
+  const result = Array.from(extractedSpaces);
+  console.log(`[SPACE EXTRACTION] Final extracted spaces: [${result.join(', ')}]`);
+  return result;
+}
 
 // ────────────────────────────────────────── helper: builds TWO booking condition blocks for time blocks
 function buildTimeBlockConditions(
@@ -496,9 +571,9 @@ async function sanitizeRules(parsedResponse: any, originalRule: string): Promise
     console.log('[DURATION GUARD] Successfully converted to booking conditions');
   }
   
-  // NEW: Fix booking window rule field names - map AI fields to expected interface
+  // NEW: Fix booking window rule field names and extract missing spaces
   if (parsedResponse.booking_window_rules) {
-    console.log('[BOOKING WINDOW FIELD MAPPING] Normalizing booking window rule field names');
+    console.log('[BOOKING WINDOW FIELD MAPPING] Normalizing booking window rule field names and extracting spaces');
     parsedResponse.booking_window_rules = parsedResponse.booking_window_rules.map((rule: any) => {
       const normalizedRule = { ...rule };
       
@@ -514,6 +589,29 @@ async function sanitizeRules(parsedResponse: any, originalRule: string): Promise
         normalizedRule.spaces = rule.affected_spaces;
         delete normalizedRule.affected_spaces;
         console.log('[BOOKING WINDOW FIELD MAPPING] Mapped affected_spaces to spaces:', rule.affected_spaces);
+      }
+      
+      // CRITICAL: Extract spaces from explanation if spaces field is missing or empty
+      if (!normalizedRule.spaces || normalizedRule.spaces.length === 0) {
+        console.log('[SPACE EXTRACTION] spaces field missing, extracting from explanation:', rule.explanation);
+        
+        const extractedSpaces = extractSpaceNamesFromText(rule.explanation || '');
+        if (extractedSpaces.length > 0) {
+          normalizedRule.spaces = extractedSpaces;
+          console.log('[SPACE EXTRACTION] Added extracted spaces to rule:', extractedSpaces);
+        } else {
+          // Fallback: try to extract from the original rule text
+          console.log('[SPACE EXTRACTION] No spaces from explanation, trying original rule text');
+          const fallbackSpaces = extractSpaceNamesFromText(originalRule);
+          if (fallbackSpaces.length > 0) {
+            normalizedRule.spaces = fallbackSpaces;
+            console.log('[SPACE EXTRACTION] Added fallback spaces to rule:', fallbackSpaces);
+          } else {
+            // Last resort: set to empty array (will show as "no spaces selected")
+            normalizedRule.spaces = [];
+            console.log('[SPACE EXTRACTION] No spaces found, setting empty array');
+          }
+        }
       }
       
       return normalizedRule;
@@ -833,10 +931,17 @@ If you detect quota language (limit, per week, each player, etc.), always create
 • Only convert if user explicitly used hours
 • Preserve: days, weeks, hours as user intended
 
+**SPACE INCLUSION - CRITICAL:**
+• ALWAYS include the "spaces" field in booking window rules
+• Extract space names from the rule text (e.g., "Tennis Courts", "Batting Cage A")
+• If no specific spaces mentioned, use ["all spaces"]
+• Example: "Visitors can book Tennis Courts up to 3 days" → spaces: ["Tennis Courts"]
+
 **EXAMPLES:**
-- "Sales team can book up to 30 days" → constraint: "more_than", value: 30, unit: "days"
-- "Everyone else only 3 days" → constraint: "more_than", value: 3, unit: "days"
-- "Must book 48 hours in advance" → constraint: "less_than", value: 48, unit: "hours"
+- "Sales team can book up to 30 days" → constraint: "more_than", value: 30, unit: "days", spaces: ["all spaces"]
+- "Everyone else only 3 days" → constraint: "more_than", value: 3, unit: "days", spaces: ["all spaces"]
+- "Must book 48 hours in advance" → constraint: "less_than", value: 48, unit: "hours", spaces: ["all spaces"]
+- "Visitors can book Tennis Courts up to 3 days" → constraint: "more_than", value: 3, unit: "days", spaces: ["Tennis Courts"]
 
 ────────────────────────────────────────  SPECIFIC-DATE LIMITS (Unsupported)
 The UI cannot pin rules to a calendar date.
@@ -893,6 +998,12 @@ CRITICAL PARSING INSTRUCTIONS:
       - "at least 24 hours in advance" → less_than 24 hours (blocks within 24 hours)
       - "need 2 days notice" → less_than 2 days (blocks within 2 days)
 
+   c) **SPACES FIELD - ABSOLUTELY CRITICAL**:
+      - **NEVER OMIT the "spaces" field** from booking window rules
+      - Extract space names from rule text: "Tennis Courts", "Batting Cage A", etc.
+      - If no specific spaces mentioned, use ["all spaces"]
+      - This field is REQUIRED for the UI to display the rule correctly
+
 5. **UNIT PRESERVATION**: Keep user units unless they explicitly used hours.
 
 6. **SPECIFIC DATES**: If you detect calendar dates, return guidance message only.
@@ -915,7 +1026,7 @@ Otherwise, return full rule structure with:
 - quota_rules: [rules for user/time limits with target, quota_type, value, period, affected_spaces]
 - pricing_rules: [rules with correct times, prices, spaces, days, and conditions]
 - booking_conditions: [rules with multi-row support]
-- booking_window_rules: [with correct operators and preserved units]
+- booking_window_rules: [with correct operators, preserved units, AND REQUIRED SPACES FIELD]
 - buffer_time_rules, as needed
 - summary: "Comprehensive summary (≤ 4 lines)"
 
