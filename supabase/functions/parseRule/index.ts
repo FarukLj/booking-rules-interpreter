@@ -10,10 +10,17 @@ const corsHeaders = {
 
 // Utility functions
 const parseTimeRange = (text: string): { from: string; to: string } | null => {
+  console.log('[parseTimeRange] Input text:', text);
+  
+  // Pattern for time ranges like "6 AM-4 PM" or "4 PM-9 PM"
   const timeMatch = text.match(/(\d{1,2})\s*(AM|PM)\s*[-–]\s*(\d{1,2})\s*(AM|PM)/i);
-  if (!timeMatch) return null;
+  if (!timeMatch) {
+    console.log('[parseTimeRange] No time match found');
+    return null;
+  }
   
   const [, startHour, startPeriod, endHour, endPeriod] = timeMatch;
+  console.log('[parseTimeRange] Matched:', { startHour, startPeriod, endHour, endPeriod });
   
   const convertTo24Hour = (hour: string, period: string): string => {
     let h = parseInt(hour);
@@ -22,10 +29,13 @@ const parseTimeRange = (text: string): { from: string; to: string } | null => {
     return h.toString().padStart(2, '0') + ':00';
   };
   
-  return {
+  const result = {
     from: convertTo24Hour(startHour, startPeriod),
     to: convertTo24Hour(endHour, endPeriod)
   };
+  
+  console.log('[parseTimeRange] Result:', result);
+  return result;
 };
 
 const parseAmount = (text: string): { amount: number; unit: string } | null => {
@@ -50,21 +60,28 @@ const parseDuration = (text: string): string | null => {
 };
 
 const extractSpaces = (text: string): string[] => {
+  console.log('[extractSpaces] Input text:', text);
   const spaces = new Set<string>();
   
-  // Pattern for space names with numbers (Court 1, Room A, etc.)
-  const spacePatterns = [
-    /([A-Z][a-zA-Z\s]*(?:Court|Room|Track|Cage|Studio)\s*[A-Z0-9]*)/gi,
-    /([A-Z][a-zA-Z\s]*[A-Z0-9]+)/gi,
-    /(Basketball Court \d+|Tennis Court[s]?|Pickleball \d+|Batting Cage [A-Z])/gi
+  // Specific patterns for common facility names
+  const facilityPatterns = [
+    /(?:the\s+)?indoor\s+track/gi,
+    /(?:the\s+)?outdoor\s+track/gi,
+    /basketball\s+court\s*\d*/gi,
+    /tennis\s+court\s*[s]?(?:\s*\d+)?/gi,
+    /pickleball\s*\d*/gi,
+    /batting\s+cage\s*[A-Z]?/gi,
+    /court\s*\d+/gi,
+    /courts?\s+\d+[-–]\d+/gi
   ];
   
-  spacePatterns.forEach(pattern => {
+  facilityPatterns.forEach(pattern => {
     const matches = text.matchAll(pattern);
     for (const match of matches) {
-      if (match[1]) {
-        spaces.add(match[1].trim());
-      }
+      let space = match[0].trim();
+      // Clean up common prefixes
+      space = space.replace(/^the\s+/i, '');
+      spaces.add(space);
     }
   });
   
@@ -72,12 +89,15 @@ const extractSpaces = (text: string): string[] => {
   const rangeMatch = text.match(/(Courts?)\s+(\d+)[-–](\d+)/i);
   if (rangeMatch) {
     const [, courtType, start, end] = rangeMatch;
+    spaces.clear(); // Clear any previous matches for this range
     for (let i = parseInt(start); i <= parseInt(end); i++) {
       spaces.add(`${courtType.replace(/s$/, '')} ${i}`);
     }
   }
   
-  return spaces.size > 0 ? Array.from(spaces) : ['all spaces'];
+  const result = spaces.size > 0 ? Array.from(spaces) : ['all spaces'];
+  console.log('[extractSpaces] Extracted spaces:', result);
+  return result;
 };
 
 const extractUserGroupsFromText = (text: string): string[] => {
@@ -125,52 +145,69 @@ const extractUserGroupsFromText = (text: string): string[] => {
 // Generate pricing rules
 const generatePricingRules = (inputRule: string, spaces: string[]): any[] => {
   console.log('[PRICING GENERATION] Starting with text:', inputRule);
+  console.log('[PRICING GENERATION] Available spaces:', spaces);
   
   const rules: any[] = [];
   
-  // Pattern for time-based pricing: "From X-Y ... $Z per hour"
-  const timeBasedPattern = /(?:from\s+)?(\d{1,2}\s*(?:AM|PM))\s*[-–]\s*(\d{1,2}\s*(?:AM|PM))[^;$]*\$(\d+(?:\.\d+)?)\s*(?:\/\s*)?(?:per\s+)?(hour|h)/gi;
-  const timeBasedMatches = inputRule.matchAll(timeBasedPattern);
+  // Split the input by semicolons to handle multiple pricing rules
+  const segments = inputRule.split(/[;]/);
+  console.log('[PRICING GENERATION] Segments:', segments);
   
-  for (const match of timeBasedMatches) {
-    const timeRange = parseTimeRange(match[0]);
-    const amount = parseFloat(match[3]);
+  segments.forEach((segment, index) => {
+    console.log(`[PRICING GENERATION] Processing segment ${index}:`, segment.trim());
     
-    if (timeRange) {
-      rules.push({
+    // Pattern for time-based pricing: "From X AM-Y PM ... $Z per hour"
+    const timeBasedPattern = /from\s+(\d{1,2}\s*(?:AM|PM)\s*[-–]\s*\d{1,2}\s*(?:AM|PM))[^$]*\$(\d+(?:\.\d+)?)\s*(?:\/\s*)?(?:per\s+)?(hour|h)/gi;
+    const timeBasedMatches = segment.matchAll(timeBasedPattern);
+    
+    for (const match of timeBasedMatches) {
+      console.log('[PRICING GENERATION] Time-based match:', match[0]);
+      const timeRange = parseTimeRange(match[1]);
+      const amount = parseFloat(match[2]);
+      
+      if (timeRange) {
+        const rule = {
+          space: spaces,
+          time_range: `${timeRange.from}–${timeRange.to}`,
+          days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+          rate: { amount, unit: "hour" },
+          condition_type: "duration",
+          operator: "is_greater_than",
+          value: "0h",
+          explanation: `Pricing: $${amount}/hour from ${timeRange.from} to ${timeRange.to}`
+        };
+        
+        console.log('[PRICING GENERATION] Generated time-based rule:', rule);
+        rules.push(rule);
+      }
+    }
+    
+    // Pattern for user-specific pricing: "members with 'X' tag ... pay $Y"
+    const userPricingPattern = /members?\s+with\s+(?:the\s+)?['"']([^'"]+)['"']\s+tag[^$]*(?:always\s+)?pay\s*\$(\d+(?:\.\d+)?)\s*(?:\/\s*)?(?:per\s+)?(hour|h)/gi;
+    const userPricingMatches = segment.matchAll(userPricingPattern);
+    
+    for (const match of userPricingMatches) {
+      console.log('[PRICING GENERATION] User-specific match:', match[0]);
+      const tag = match[1];
+      const amount = parseFloat(match[2]);
+      
+      const rule = {
         space: spaces,
-        time_range: `${timeRange.from}–${timeRange.to}`,
+        time_range: "00:00–23:59",
         days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
         rate: { amount, unit: "hour" },
-        condition_type: "duration",
-        operator: "is_greater_than",
-        value: "0h",
-        explanation: `Pricing: $${amount}/hour from ${timeRange.from} to ${timeRange.to}`
-      });
+        condition_type: "user_tags",
+        operator: "contains_any_of",
+        value: [tag],
+        explanation: `Special pricing: $${amount}/hour for ${tag} members`
+      };
+      
+      console.log('[PRICING GENERATION] Generated user-specific rule:', rule);
+      rules.push(rule);
     }
-  }
+  });
   
-  // Pattern for user-specific pricing: "members with 'X' tag ... pay $Y"
-  const userPricingPattern = /members?\s+with\s+(?:the\s+)?['"']([^'"]+)['"']\s+tag[^$]*\$(\d+(?:\.\d+)?)\s*(?:\/\s*)?(?:per\s+)?(hour|h)/gi;
-  const userPricingMatches = inputRule.matchAll(userPricingPattern);
-  
-  for (const match of userPricingMatches) {
-    const tag = match[1];
-    const amount = parseFloat(match[2]);
-    
-    rules.push({
-      space: spaces,
-      time_range: "00:00–23:59",
-      days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
-      rate: { amount, unit: "hour" },
-      condition_type: "user_tags",
-      operator: "contains_any_of",
-      value: [tag],
-      explanation: `Special pricing: $${amount}/hour for ${tag} members`
-    });
-  }
-  
-  console.log('[PRICING GENERATION] Generated rules:', rules);
+  console.log('[PRICING GENERATION] Final generated rules:', rules);
   return rules;
 };
 
