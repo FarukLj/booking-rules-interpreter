@@ -30,7 +30,10 @@ export function usePricingRules(initialRules: PricingRule[] = []) {
           console.log(`[PRICING RULES HOOK] Normalized unit from "hour" to "per_hour" for rule ${index}`);
         }
         
-        const processedRule = {
+        // Ensure condition_type is properly typed
+        const normalizedConditionType = rule.condition_type === "user_tags" ? "user_tags" : "duration";
+        
+        const processedRule: PricingRule = {
           ...rule,
           // Ensure all 7 days are selected if not specified
           days: rule.days && rule.days.length > 0 ? rule.days : 
@@ -43,7 +46,7 @@ export function usePricingRules(initialRules: PricingRule[] = []) {
             unit: normalizedUnit
           },
           // Ensure proper defaults for conditions with fallback to 15min
-          condition_type: rule.condition_type || "duration",
+          condition_type: normalizedConditionType,
           operator: rule.operator || "is_greater_than_or_equal_to",
           value: rule.value || "15min"
         };
@@ -58,14 +61,14 @@ export function usePricingRules(initialRules: PricingRule[] = []) {
       setRules(processedRules);
       setLogicOperators(new Array(Math.max(0, processedRules.length - 1)).fill("AND"));
     } else {
-      // Default rule when no initialRules provided
+      // Default rule when no initialRules provided - with proper typing
       console.log('[PRICING RULES HOOK] No initial rules, setting default rule');
-      const defaultRule = {
+      const defaultRule: PricingRule = {
         space: ["Space 1"],
         time_range: "09:00–17:00",
         days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
         rate: { amount: 25, unit: "per_hour" },
-        condition_type: "duration",
+        condition_type: "duration" as const,
         operator: "is_greater_than_or_equal_to",
         value: "15min",
         explanation: "Default pricing rule"
@@ -142,7 +145,7 @@ export function usePricingRules(initialRules: PricingRule[] = []) {
         sub_conditions: [
           ...(rule.sub_conditions || []),
           {
-            condition_type: "duration",
+            condition_type: "duration" as const,
             operator: "is_greater_than",
             value: "1h",
             logic: "AND"
