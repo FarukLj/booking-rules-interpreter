@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1'
@@ -172,8 +171,8 @@ const generatePricingRules = (inputRule: string, spaces: string[]): any[] => {
           days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
           rate: { amount, unit: "hour" },
           condition_type: "duration",
-          operator: "is_greater_than",
-          value: "0h",
+          operator: "is_greater_than_or_equal_to",
+          value: "15min",
           explanation: `Pricing: $${amount}/hour from ${timeRange.from} to ${timeRange.to}`
         };
         
@@ -182,8 +181,8 @@ const generatePricingRules = (inputRule: string, spaces: string[]): any[] => {
       }
     }
     
-    // Pattern for user-specific pricing: "members with 'X' tag ... pay $Y"
-    const userPricingPattern = /members?\s+with\s+(?:the\s+)?['"']([^'"]+)['"']\s+tag[^$]*(?:always\s+)?pay\s*\$(\d+(?:\.\d+)?)\s*(?:\/\s*)?(?:per\s+)?(hour|h)/gi;
+    // Enhanced pattern for user-specific pricing: "members with 'X' tag ... pay $Y"
+    const userPricingPattern = /members?\s+with\s+(?:the\s+)?['"']([^'"]+)['"']\s+tag[^$]*(?:always\s+)?(?:pay|get|charged?)\s*\$(\d+(?:\.\d+)?)\s*(?:\/\s*)?(?:per\s+)?(hour|h)/gi;
     const userPricingMatches = segment.matchAll(userPricingPattern);
     
     for (const match of userPricingMatches) {

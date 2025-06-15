@@ -145,7 +145,7 @@ export function PricingRuleForm({
                 onValueChange={v => onUpdateRule(index, 'value', v)}
               >
                 <SelectTrigger className="w-full h-10">
-                  <SelectValue />
+                  <SelectValue placeholder="Select duration" />
                 </SelectTrigger>
                 <SelectContent>
                   {durationValues.map(val => (

@@ -46,7 +46,7 @@ export function usePricingRules(initialRules: PricingRule[] = []) {
           amount: rule.rate?.amount || 0,
           unit: rule.rate?.unit || "per_hour"
         },
-        // Ensure proper defaults for conditions
+        // Ensure proper defaults for conditions with fallback to 15min
         condition_type: rule.condition_type || "duration",
         operator: rule.operator || "is_greater_than_or_equal_to",
         value: rule.value || "15min"
@@ -69,36 +69,33 @@ export function usePricingRules(initialRules: PricingRule[] = []) {
     });
   }, [rules]);
 
-  // ───────────────────────────────────────────────────────────
-//  Updates a single field **or** handles our special keyword
-//  "after 18:00" → time_range = "18:00–24:00"
-const updateRule = (
-  index: number,
-  field: keyof PricingRule | "time_keyword",
-  value: any
-) => {
-  console.log(`Updating rule ${index}, field: ${field}, value:`, value);
-  
-  // ••• 1) keyword branch — run before we touch state •••
-  if (field === "time_keyword") {
-    const range = normaliseTimeRange(String(value));
-    if (range) {
-      setRules(prev =>
-        prev.map((rule, i) =>
-          i === index ? { ...rule, time_range: range } : rule
-        )
-      );
+  const updateRule = (
+    index: number,
+    field: keyof PricingRule | "time_keyword",
+    value: any
+  ) => {
+    console.log(`Updating rule ${index}, field: ${field}, value:`, value);
+    
+    // keyword branch — run before we touch state
+    if (field === "time_keyword") {
+      const range = normaliseTimeRange(String(value));
+      if (range) {
+        setRules(prev =>
+          prev.map((rule, i) =>
+            i === index ? { ...rule, time_range: range } : rule
+          )
+        );
+      }
+      return;
     }
-    return;                           // nothing else to do
-  }
 
-  // ••• 2) regular field update •••
-  setRules(prev =>
-    prev.map((rule, i) =>
-      i === index ? { ...rule, [field]: value } : rule
-    )
-  );
-};
+    // regular field update
+    setRules(prev =>
+      prev.map((rule, i) =>
+        i === index ? { ...rule, [field]: value } : rule
+      )
+    );
+  };
 
   const updateRateField = (index: number, field: 'amount' | 'unit', value: any) => {
     console.log(`Updating rate field ${field} for rule ${index}:`, value);
