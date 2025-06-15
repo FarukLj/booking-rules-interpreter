@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1'
@@ -62,6 +61,31 @@ const parseDuration = (text: string): string | null => {
 const extractSpaces = (text: string): string[] => {
   console.log('[extractSpaces] Input text:', text);
   const spaces = new Set<string>();
+  
+  // Enhanced pattern for numbered space ranges like "Sales Desks 1-10"
+  const numberedRangePattern = /([A-Za-z\s]+?)s?\s+(\d+)[-–](\d+)/gi;
+  const numberedRangeMatches = text.matchAll(numberedRangePattern);
+  
+  for (const match of numberedRangeMatches) {
+    console.log('[extractSpaces] Found numbered range:', match[0]);
+    const baseType = match[1].trim();
+    const start = parseInt(match[2]);
+    const end = parseInt(match[3]);
+    
+    // Generate individual spaces for the range
+    for (let i = start; i <= end; i++) {
+      const spaceName = `${baseType} ${i}`;
+      spaces.add(spaceName);
+      console.log('[extractSpaces] Added space:', spaceName);
+    }
+  }
+  
+  // If we found numbered ranges, use those
+  if (spaces.size > 0) {
+    const result = Array.from(spaces);
+    console.log('[extractSpaces] Final numbered range spaces:', result);
+    return result;
+  }
   
   // Specific patterns for common facility names
   const facilityPatterns = [
@@ -426,13 +450,20 @@ const generateBookingWindowRules = (text: string, spaces: string[]): any[] => {
   
   console.log('[BOOKING WINDOW GENERATION] Detected user groups:', userGroups);
   
-  // Pattern to extract booking window constraints
+  // Enhanced patterns to extract booking window constraints
   const windowPatterns = [
-    // "Group up to X days/hours in advance"
+    // NEW: "Group should be able to book... for the next X days/hours/weeks"
+    /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*(?:\s+(?:team|members?))?)\s+should\s+be\s+able\s+to\s+book[^.]*?for\s+the\s+next\s+(\d+)\s+(days?|hours?|weeks?)/gi,
+    
+    // NEW: "Group can only book for the next X days/hours/weeks"
+    /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*(?:\s+(?:team|members?))?)\s+can\s+only\s+book[^.]*?for\s+the\s+next\s+(\d+)\s+(days?|hours?|weeks?)/gi,
+    
+    // NEW: "Everybody else can only book for the next X days"
+    /(everybody\s+else|everyone\s+else|all\s+other\s+users)\s+can\s+only\s+book[^.]*?for\s+the\s+next\s+(\d+)\s+(days?|hours?|weeks?)/gi,
+    
+    // Existing patterns
     /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*(?:\s+members?)?)\s+(?:can\s+(?:only\s+)?(?:book|reserve|access))?\s*(?:up\s+to|within|at\s+most)\s+(\d+)\s+(days?|hours?|weeks?)\s+(?:in\s+)?advance/gi,
-    // "Group must book at least X days/hours in advance"
     /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*(?:\s+members?)?)\s+(?:must|should)\s+(?:book|reserve)\s+(?:at\s+least)\s+(\d+)\s+(days?|hours?|weeks?)\s+(?:in\s+)?advance/gi,
-    // "X days/hours advance for Group"
     /(\d+)\s+(days?|hours?|weeks?)\s+(?:in\s+)?advance\s+(?:for\s+)?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*(?:\s+members?)?)/gi
   ];
 
@@ -452,30 +483,59 @@ const generateBookingWindowRules = (text: string, spaces: string[]): any[] => {
   
   console.log('[BOOKING WINDOW GENERATION] Mentioned spaces:', mentionedSpaces);
 
-  windowPatterns.forEach(pattern => {
+  windowPatterns.forEach((pattern, patternIndex) => {
+    console.log(`[BOOKING WINDOW GENERATION] Testing pattern ${patternIndex}:`, pattern.source);
     const matches = text.matchAll(pattern);
+    
     for (const match of matches) {
+      console.log(`[BOOKING WINDOW GENERATION] Pattern ${patternIndex} matched:`, match[0]);
+      
       let userGroup: string;
       let value: number;
       let unit: string;
-      let constraint: string;
+      let constraint: string = "more_than"; // Default constraint
+      let userScope: string = "users_with_tags"; // Default scope
       
-      if (match[1] && isNaN(parseInt(match[1]))) {
+      // Handle different match patterns
+      if (patternIndex <= 2) { // New "for the next X" patterns
+        userGroup = match[1].trim();
+        value = parseInt(match[2]);
+        unit = match[3].toLowerCase().replace(/s$/, '');
+        
+        // Handle "everybody else" case
+        if (userGroup.toLowerCase().includes('everybody else') || 
+            userGroup.toLowerCase().includes('everyone else') ||
+            userGroup.toLowerCase().includes('all other users')) {
+          userScope = "all_users";
+          console.log('[BOOKING WINDOW GENERATION] Detected "everybody else" - using all_users scope');
+        }
+        
+        // Determine constraint based on the phrase
+        if (text.toLowerCase().includes('can only book')) {
+          constraint = "more_than";
+        } else if (text.toLowerCase().includes('should be able to book')) {
+          constraint = "more_than";
+        }
+      } else if (match[1] && isNaN(parseInt(match[1]))) {
+        // Pattern where group comes first
         userGroup = match[1].trim();
         value = parseInt(match[2]);
         unit = match[3].toLowerCase().replace(/s$/, '');
         constraint = "more_than";
       } else if (match[3] && isNaN(parseInt(match[3]))) {
+        // Pattern where number comes first
         value = parseInt(match[1]);
         unit = match[2].toLowerCase().replace(/s$/, '');
         userGroup = match[3].trim();
         constraint = "more_than";
       } else {
+        console.log('[BOOKING WINDOW GENERATION] Could not parse match:', match);
         continue;
       }
       
       userGroup = userGroup.replace(/'/g, '').replace(/\s+/g, ' ');
       
+      // Adjust constraint based on keywords
       if (text.toLowerCase().includes('at least') || text.toLowerCase().includes('must book')) {
         constraint = "less_than";
       }
@@ -485,20 +545,24 @@ const generateBookingWindowRules = (text: string, spaces: string[]): any[] => {
         value,
         unit,
         constraint,
+        userScope,
         spaces: mentionedSpaces
       });
       
       const rule = {
-        user_scope: "users_with_tags",
-        tags: [userGroup],
+        user_scope: userScope,
+        ...(userScope === "users_with_tags" ? { tags: [userGroup] } : {}),
         constraint,
         value,
         unit,
         spaces: mentionedSpaces,
-        explanation: `${userGroup} can reserve ${mentionedSpaces.join(', ')} ${constraint === 'more_than' ? 'up to' : 'at least'} ${value} ${unit}${value !== 1 ? 's' : ''} in advance`
+        explanation: userScope === "all_users" 
+          ? `All users can reserve ${mentionedSpaces.join(', ')} ${constraint === 'more_than' ? 'up to' : 'at least'} ${value} ${unit}${value !== 1 ? 's' : ''} in advance`
+          : `${userGroup} can reserve ${mentionedSpaces.join(', ')} ${constraint === 'more_than' ? 'up to' : 'at least'} ${value} ${unit}${value !== 1 ? 's' : ''} in advance`
       };
       
       rules.push(rule);
+      console.log('[BOOKING WINDOW GENERATION] Added rule:', rule);
     }
   });
   
@@ -523,8 +587,8 @@ serve(async (req) => {
     const hasSpaceSharingPattern = /if.+booked.+becomes unavailable|vice versa|mutual/i.test(inputRule);
     const hasBlockPattern = /block|slot/i.test(inputRule);
     const hasMinMaxPattern = /(minimum|maximum|at\s+least|no\s+more\s+than|min|max)/i.test(inputRule);
-    const hasAdvanceBookingPattern = /(in advance|prior to|beforehand)/i.test(inputRule);
-    const hasUserGroupPattern = /(can only|for\s*\w+)/i.test(inputRule);
+    const hasAdvanceBookingPattern = /(in advance|prior to|beforehand|for\s+the\s+next)/i.test(inputRule);
+    const hasUserGroupPattern = /(can only|for\s*\w+|should\s+be\s+able\s+to|everybody\s+else)/i.test(inputRule);
 
     console.log('[RULE TYPE DETECTION]', {
       hasPricingPattern,
