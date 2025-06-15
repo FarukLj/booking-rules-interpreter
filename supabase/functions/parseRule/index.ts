@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1'
@@ -169,7 +170,7 @@ const generatePricingRules = (inputRule: string, spaces: string[]): any[] => {
           space: spaces,
           time_range: `${timeRange.from}–${timeRange.to}`,
           days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
-          rate: { amount, unit: "hour" },
+          rate: { amount, unit: "per_hour" }, // Fixed: use per_hour instead of hour
           condition_type: "duration",
           operator: "is_greater_than_or_equal_to",
           value: "15min",
@@ -194,7 +195,7 @@ const generatePricingRules = (inputRule: string, spaces: string[]): any[] => {
         space: spaces,
         time_range: "00:00–23:59",
         days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
-        rate: { amount, unit: "hour" },
+        rate: { amount, unit: "per_hour" }, // Fixed: use per_hour instead of hour
         condition_type: "user_tags",
         operator: "contains_any_of",
         value: [tag],
@@ -206,6 +207,7 @@ const generatePricingRules = (inputRule: string, spaces: string[]): any[] => {
     }
   });
   
+  console.log('[PRICING GENERATION] Final generated rules count:', rules.length);
   console.log('[PRICING GENERATION] Final generated rules:', rules);
   return rules;
 };
@@ -551,6 +553,7 @@ serve(async (req) => {
     if (hasPricingPattern) {
       console.log('[MAIN] Generating pricing rules');
       responseObj.pricing_rules = generatePricingRules(inputRule, mentionedSpaces);
+      console.log('[MAIN] Generated pricing rules count:', responseObj.pricing_rules?.length);
     }
 
     if (hasBufferPattern) {
