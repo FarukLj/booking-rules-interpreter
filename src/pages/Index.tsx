@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { BookingRuleInput } from "@/components/BookingRuleInput";
 import { RuleModal } from "@/components/RuleModal";
@@ -43,7 +42,29 @@ const Index = () => {
         throw new Error(data.details || data.error);
       }
 
-      setRuleResult(data);
+      // ENHANCED: Ensure proper structure for both rule types
+      const enhancedData = {
+        ...data,
+        // Normalize booking conditions if present
+        booking_conditions: data.booking_conditions || [],
+        // Normalize booking window rules if present  
+        booking_window_rules: data.booking_window_rules || [],
+        // Create setup guide structure if any rules exist
+        setup_guide: (data.booking_conditions?.length > 0 || data.booking_window_rules?.length > 0) ? [
+          {
+            step_key: "configure_rules",
+            title: "Configure Booking Rules",
+            instruction: "Review and configure the generated booking rules",
+            rule_blocks: {
+              booking_conditions: data.booking_conditions || [],
+              booking_window_rules: data.booking_window_rules || []
+            }
+          }
+        ] : data.setup_guide || []
+      };
+
+      console.log('[INDEX] Enhanced rule result:', enhancedData);
+      setRuleResult(enhancedData);
       setShowModal(true);
     } catch (error) {
       console.error("Failed to analyze rule:", error);
