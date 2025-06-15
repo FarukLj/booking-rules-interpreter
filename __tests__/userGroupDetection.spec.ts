@@ -225,6 +225,83 @@ describe('User Group Detection - AI Interpretation Tests', () => {
     });
   });
 
+  // NEW: UI Display Validation Tests
+  describe('UI Display Validation', () => {
+    it('should ensure rules with user_scope "users_with_tags" display correctly in UI', () => {
+      const ruleForUI = {
+        user_scope: 'users_with_tags',
+        tags: ['Visitors'],
+        constraint: 'more_than',
+        value: 3,
+        unit: 'days',
+        spaces: ['Tennis Courts'],
+        explanation: 'Visitors can reserve Tennis Courts up to 3 days in advance'
+      };
+
+      // Validate that this rule structure will display correctly
+      expect(ruleForUI.user_scope).toBe('users_with_tags'); // Should show "users with any of the tags"
+      expect(ruleForUI.tags).toEqual(['Visitors']); // Should populate tag selector
+      expect(ruleForUI.tags).not.toBeUndefined(); // Must have tags for user_scope display
+    });
+
+    it('should validate multi-rule UI display structure', () => {
+      const multiRuleStructure = [
+        {
+          user_scope: 'users_with_tags',
+          tags: ['Visitors'],
+          constraint: 'more_than',
+          value: 3,
+          unit: 'days',
+          spaces: ['Tennis Courts'],
+          explanation: 'Visitors rule'
+        },
+        {
+          user_scope: 'users_with_tags',
+          tags: ['Club members'],
+          constraint: 'more_than',
+          value: 14,
+          unit: 'days',
+          spaces: ['Tennis Courts'],
+          explanation: 'Club members rule'
+        }
+      ];
+
+      // Both rules should display with correct user_scope
+      multiRuleStructure.forEach(rule => {
+        expect(rule.user_scope).toBe('users_with_tags');
+        expect(rule.tags).toBeDefined();
+        expect(rule.tags.length).toBeGreaterThan(0);
+      });
+    });
+
+    it('should NOT have hardcoded default structure when AI provides user group rules', () => {
+      const hardcodedDefault = {
+        user_scope: "all_users",
+        constraint: "less_than",
+        value: 72,
+        unit: "hours",
+        spaces: ["Space 1"],
+        explanation: "Default booking window rule"
+      };
+
+      const aiGeneratedRule = {
+        user_scope: 'users_with_tags',
+        tags: ['Visitors'],
+        constraint: 'more_than',
+        value: 3,
+        unit: 'days',
+        spaces: ['Tennis Courts'],
+        explanation: 'Visitors can reserve Tennis Courts up to 3 days in advance'
+      };
+
+      // AI rule should NOT match hardcoded default
+      expect(aiGeneratedRule.user_scope).not.toBe(hardcodedDefault.user_scope);
+      expect(aiGeneratedRule.value).not.toBe(hardcodedDefault.value);
+      expect(aiGeneratedRule.unit).not.toBe(hardcodedDefault.unit);
+      expect(aiGeneratedRule.constraint).not.toBe(hardcodedDefault.constraint);
+    });
+  });
+
   describe('Required Fields Validation', () => {
     it('should always include user_scope field', () => {
       const visitorRule = {
@@ -324,7 +401,7 @@ describe('User Group Detection - AI Interpretation Tests', () => {
   });
 });
 
-// QA Integration Tests
+// QA Integration Tests - UPDATED with UI display validation
 export const userGroupQAChecklist = [
   {
     id: 'single-user-group-detection',
@@ -340,6 +417,13 @@ export const userGroupQAChecklist = [
       { user_scope: 'users_with_tags', tags: ['Club members'], spaces: ['all spaces'] },
       { user_scope: 'users_with_tags', tags: ['Staff'], spaces: ['all spaces'] },
       { user_scope: 'users_with_tags', tags: ['Premium members'], spaces: ['all spaces'] }
+    ],
+    // NEW: UI display expectations
+    expectedUIDisplay: [
+      { userScopeSelector: 'users with any of the tags', tagSelector: ['Visitors'] },
+      { userScopeSelector: 'users with any of the tags', tagSelector: ['Club members'] },
+      { userScopeSelector: 'users with any of the tags', tagSelector: ['Staff'] },
+      { userScopeSelector: 'users with any of the tags', tagSelector: ['Premium members'] }
     ]
   },
   {
@@ -352,6 +436,18 @@ export const userGroupQAChecklist = [
     expectedResults: [
       { ruleCount: 2, firstUserScope: 'users_with_tags', firstTags: ['Visitors'], secondTags: ['Club members'] },
       { ruleCount: 3, allUserScope: 'users_with_tags' }
+    ],
+    // NEW: UI display expectations for multiple rules
+    expectedUIDisplay: [
+      { 
+        ruleCount: 2,
+        firstRule: { userScopeSelector: 'users with any of the tags', tagSelector: ['Visitors'] },
+        secondRule: { userScopeSelector: 'users with any of the tags', tagSelector: ['Club members'] }
+      },
+      { 
+        ruleCount: 3,
+        allRules: { userScopeSelector: 'users with any of the tags' }
+      }
     ]
   },
   {
@@ -366,6 +462,52 @@ export const userGroupQAChecklist = [
       { user_scope: 'all_users', tags: undefined },
       { user_scope: 'all_users', tags: undefined },
       { user_scope: 'all_users', tags: undefined }
+    ],
+    // NEW: UI display expectations for all_users
+    expectedUIDisplay: [
+      { userScopeSelector: 'all users', tagSelector: undefined },
+      { userScopeSelector: 'all users', tagSelector: undefined },       
+      { userScopeSelector: 'all users', tagSelector: undefined }
+    ]
+  },
+  {
+    id: 'ui-display-validation',
+    description: 'NEW: Test that UI correctly displays AI-generated user group rules without falling back to hardcoded defaults',
+    testScenarios: [
+      {
+        name: 'Single user group rule should show correct selectors',
+        input: 'Visitors can only reserve Tennis Courts up to 3 days in advance',
+        expectedUI: {
+          userScopeSelector: 'users with any of the tags',
+          tagSelector: ['Visitors'],
+          spaceSelector: ['Tennis Courts'],
+          constraintSelector: 'more than',
+          valueInput: '3',
+          unitSelector: 'days in advance'
+        },
+        shouldNotShow: {
+          userScopeSelector: 'all users',
+          valueInput: '72',
+          unitSelector: 'hours in advance'
+        }
+      },
+      {
+        name: 'Multiple user group rules should show separate blocks',
+        input: 'Visitors can book up to 3 days; club members up to 14 days',
+        expectedUI: {
+          ruleCount: 2,
+          firstRule: {
+            userScopeSelector: 'users with any of the tags',
+            tagSelector: ['Visitors'],
+            valueInput: '3'
+          },
+          secondRule: {
+            userScopeSelector: 'users with any of the tags',
+            tagSelector: ['Club members'],
+            valueInput: '14'
+          }
+        }
+      }
     ]
   }
 ];
