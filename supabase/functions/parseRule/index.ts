@@ -49,151 +49,6 @@ const extractUserGroupsFromText = (text: string): string[] => {
   return extractedGroups;
 };
 
-// NEW: Generate booking conditions for duration and time block constraints
-const generateBookingConditions = (text: string, spaces: string[]): any[] => {
-  console.log('[BOOKING CONDITIONS GENERATION] Starting with text:', text);
-  console.log('[BOOKING CONDITIONS GENERATION] Available spaces:', spaces);
-  
-  const conditions: any[] = [];
-  
-  // Extract specific space mentions
-  const spacePatterns = spaces.map(space => new RegExp(`\\b${space.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi'));
-  let mentionedSpaces: string[] = [];
-  
-  spacePatterns.forEach((pattern, index) => {
-    if (pattern.test(text)) {
-      mentionedSpaces.push(spaces[index]);
-    }
-  });
-  
-  if (mentionedSpaces.length === 0) {
-    mentionedSpaces = spaces; // Default to all spaces if none specifically mentioned
-  }
-  
-  console.log('[BOOKING CONDITIONS GENERATION] Mentioned spaces:', mentionedSpaces);
-
-  // Pattern 1: Time block constraints (e.g., "1-hour blocks only", "30-minute slots")
-  const blockPatterns = [
-    /(\d+)[-\s]*(hour|minute)s?\s+blocks?\s+only/gi,
-    /only\s+(\d+)[-\s]*(hour|minute)s?\s+blocks?/gi,
-    /(\d+)[-\s]*(hour|minute)s?\s+slots?\s+only/gi,
-    /no\s+(?:half-hours?|90[-\s]*minute)/gi // Indicates hourly blocks
-  ];
-
-  let hasBlockConstraints = false;
-  let blockDuration = "";
-
-  blockPatterns.forEach(pattern => {
-    const matches = text.matchAll(pattern);
-    for (const match of matches) {
-      hasBlockConstraints = true;
-      if (match[1] && match[2]) {
-        const value = parseInt(match[1]);
-        const unit = match[2].toLowerCase();
-        blockDuration = unit === 'hour' ? `${value}h` : `${value}min`;
-        console.log('[BOOKING CONDITIONS] Detected block constraint:', blockDuration);
-      } else if (match[0].includes('half-hours') || match[0].includes('90-minute')) {
-        blockDuration = "1h"; // Infer 1-hour blocks from "no half-hours"
-        console.log('[BOOKING CONDITIONS] Inferred 1-hour blocks from exclusions');
-      }
-    }
-  });
-
-  // Pattern 2: Duration constraints (minimum/maximum)
-  const durationPatterns = [
-    /minimum\s+(\d+)\s+(hours?|minutes?)/gi,
-    /at\s+least\s+(\d+)\s+(hours?|minutes?)/gi,
-    /maximum\s+(\d+)\s+(hours?|minutes?)/gi,
-    /no\s+more\s+than\s+(\d+)\s+(hours?|minutes?)/gi
-  ];
-
-  const durationConstraints: { type: string; value: string }[] = [];
-
-  durationPatterns.forEach(pattern => {
-    const matches = text.matchAll(pattern);
-    for (const match of matches) {
-      if (match[1] && match[2]) {
-        const value = parseInt(match[1]);
-        const unit = match[2].toLowerCase().replace(/s$/, ''); // Remove plural 's'
-        const durationValue = unit === 'hour' ? `${value}h` : `${value}min`;
-        
-        if (match[0].toLowerCase().includes('minimum') || match[0].toLowerCase().includes('at least')) {
-          durationConstraints.push({ type: 'minimum', value: durationValue });
-        } else if (match[0].toLowerCase().includes('maximum') || match[0].toLowerCase().includes('no more')) {
-          durationConstraints.push({ type: 'maximum', value: durationValue });
-        }
-        
-        console.log('[BOOKING CONDITIONS] Detected duration constraint:', { type: match[0], value: durationValue });
-      }
-    }
-  });
-
-  // Generate booking condition 1: Time block constraints (interval rules)
-  if (hasBlockConstraints && blockDuration) {
-    const blockCondition = {
-      space: mentionedSpaces,
-      time_range: "00:00–23:59",
-      days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
-      rules: [
-        {
-          condition_type: "interval_start",
-          operator: "is_not_multiple_of",
-          value: blockDuration,
-          explanation: `Booking start time must be a multiple of ${blockDuration}`
-        },
-        {
-          condition_type: "interval_end",
-          operator: "is_not_multiple_of", 
-          value: blockDuration,
-          explanation: `Booking end time must be a multiple of ${blockDuration}`
-        }
-      ],
-      logic_operators: ["OR"],
-      explanation: `${mentionedSpaces.join(', ')} must be booked in ${blockDuration} blocks only`
-    };
-    
-    conditions.push(blockCondition);
-    console.log('[BOOKING CONDITIONS] Generated block constraint condition:', blockCondition);
-  }
-
-  // Generate booking condition 2: Duration constraints
-  if (durationConstraints.length > 0) {
-    const rules: any[] = [];
-    const logicOperators: string[] = [];
-
-    durationConstraints.forEach((constraint, index) => {
-      const operator = constraint.type === 'minimum' ? 'is_less_than' : 'is_greater_than';
-      rules.push({
-        condition_type: "duration",
-        operator: operator,
-        value: constraint.value,
-        explanation: `Booking duration ${constraint.type === 'minimum' ? 'cannot be less than' : 'cannot be greater than'} ${constraint.value}`
-      });
-      
-      if (index < durationConstraints.length - 1) {
-        logicOperators.push("OR");
-      }
-    });
-
-    if (rules.length > 0) {
-      const durationCondition = {
-        space: mentionedSpaces,
-        time_range: "00:00–23:59",
-        days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
-        rules: rules,
-        logic_operators: logicOperators,
-        explanation: `${mentionedSpaces.join(', ')} duration constraints: ${durationConstraints.map(c => `${c.type} ${c.value}`).join(', ')}`
-      };
-      
-      conditions.push(durationCondition);
-      console.log('[BOOKING CONDITIONS] Generated duration constraint condition:', durationCondition);
-    }
-  }
-
-  console.log('[BOOKING CONDITIONS GENERATION] Final generated conditions:', conditions);
-  return conditions;
-};
-
 // Enhanced booking window rule generation with proper user scope mapping
 const generateBookingWindowRules = (text: string, spaces: string[]): any[] => {
   console.log('[BOOKING WINDOW GENERATION] Starting with text:', text);
@@ -306,38 +161,6 @@ const generateBookingWindowRules = (text: string, spaces: string[]): any[] => {
   return rules;
 };
 
-// NEW: Intelligent rule type detection
-const detectRuleTypes = (text: string): { needsBookingConditions: boolean; needsBookingWindow: boolean } => {
-  console.log('[RULE TYPE DETECTION] Analyzing text for rule types:', text);
-  
-  // Patterns that indicate booking conditions are needed
-  const bookingConditionPatterns = [
-    /blocks?\s+only/gi,
-    /slots?\s+only/gi,
-    /minimum\s+\d+\s+(hours?|minutes?)/gi,
-    /maximum\s+\d+\s+(hours?|minutes?)/gi,
-    /at\s+least\s+\d+\s+(hours?|minutes?)/gi,
-    /no\s+more\s+than\s+\d+\s+(hours?|minutes?)/gi,
-    /no\s+(?:half-hours?|90[-\s]*minute)/gi
-  ];
-  
-  // Patterns that indicate booking window rules are needed
-  const bookingWindowPatterns = [
-    /\d+\s+days?\s+(?:in\s+)?advance/gi,
-    /\d+\s+hours?\s+(?:in\s+)?advance/gi,
-    /advance\s+booking/gi,
-    /up\s+to\s+\d+\s+days?/gi,
-    /(?:can|must|should)\s+(?:only\s+)?(?:book|reserve)/gi
-  ];
-  
-  const needsBookingConditions = bookingConditionPatterns.some(pattern => pattern.test(text));
-  const needsBookingWindow = bookingWindowPatterns.some(pattern => pattern.test(text));
-  
-  console.log('[RULE TYPE DETECTION] Results:', { needsBookingConditions, needsBookingWindow });
-  
-  return { needsBookingConditions, needsBookingWindow };
-};
-
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -353,44 +176,49 @@ serve(async (req) => {
       throw new Error('OpenAI API key not found');
     }
 
-    // ENHANCED: Detect what types of rules are needed
-    const ruleTypes = detectRuleTypes(inputRule);
-    
-    // Generate booking conditions if needed
-    let bookingConditions: any[] = [];
-    if (ruleTypes.needsBookingConditions) {
-      console.log('[RULE GENERATION] Generating booking conditions...');
-      bookingConditions = generateBookingConditions(inputRule, ['all spaces']);
-    }
-
-    // Enhanced prompt for better rule generation
+    // Enhanced prompt for better booking window rule generation
     const prompt = `
-Analyze this booking rule and generate a JSON response with the appropriate rule types.
+Analyze this booking rule and generate a JSON response with booking window rules that include proper user scope and tags.
 
 Rule: "${inputRule}"
 
-CRITICAL REQUIREMENTS:
+CRITICAL REQUIREMENTS for booking window rules:
+1. When user groups are mentioned (like "Visitors", "Club members", "Staff", etc.), ALWAYS set:
+   - user_scope: "users_with_tags"
+   - tags: ["GroupName"] (array with the actual group name)
+   
+2. Only use user_scope: "all_users" when NO specific user groups are mentioned.
 
-1. RULE TYPE DETECTION:
-   - If the rule mentions "blocks", "slots", "minimum/maximum duration", "no half-hours" → generate booking_conditions
-   - If the rule mentions "advance booking", "days in advance", user groups with time restrictions → generate booking_window_rules
-   - If the rule mentions both types → generate both
+3. For constraints:
+   - Use "more_than" for "up to X time" (meaning no more than X)
+   - Use "less_than" for "at least X time" (meaning minimum X)
 
-2. For BOOKING CONDITIONS (duration/time block constraints):
-   - Use "interval_start" and "interval_end" for time block requirements (e.g., "1-hour blocks only")
-   - Use "duration" for minimum/maximum time constraints
-   - Use operators: "is_not_multiple_of" for blocks, "is_less_than"/"is_greater_than" for duration limits
-   - Multiple rules within one condition use logic_operators: ["OR"] or ["AND"]
+4. Always include: user_scope, tags (when applicable), constraint, value, unit, spaces, explanation
 
-3. For BOOKING WINDOW RULES (advance booking constraints):
-   - When user groups are mentioned, ALWAYS set: user_scope: "users_with_tags", tags: ["GroupName"]
-   - Only use user_scope: "all_users" when NO specific user groups are mentioned
-   - Use "more_than" for "up to X time", "less_than" for "at least X time"
-
-4. Always include proper space arrays, explanations, and time_range/days for booking conditions.
-
-Example for "${inputRule}":
-Expected: booking_conditions with interval rules for 1-hour blocks AND duration rules for 2-4 hour limits.
+Example input: "Visitors can only reserve Tennis Courts up to 3 days in advance; club members up to 14 days in advance"
+Expected output:
+{
+  "booking_window_rules": [
+    {
+      "user_scope": "users_with_tags",
+      "tags": ["Visitors"],
+      "constraint": "more_than",
+      "value": 3,
+      "unit": "days",
+      "spaces": ["Tennis Courts"],
+      "explanation": "Visitors can reserve Tennis Courts up to 3 days in advance"
+    },
+    {
+      "user_scope": "users_with_tags", 
+      "tags": ["Club members"],
+      "constraint": "more_than",
+      "value": 14,
+      "unit": "days", 
+      "spaces": ["Tennis Courts"],
+      "explanation": "Club members can reserve Tennis Courts up to 14 days in advance"
+    }
+  ]
+}
 
 Respond with JSON only, no markdown formatting.`;
 
@@ -405,7 +233,7 @@ Respond with JSON only, no markdown formatting.`;
         messages: [
           {
             role: 'system',
-            content: 'You are an expert at parsing booking rules and generating structured JSON responses. Prioritize booking_conditions for duration and time block constraints, and booking_window_rules for advance booking restrictions.'
+            content: 'You are an expert at parsing booking rules and generating structured JSON responses. Always include user_scope and tags fields when user groups are detected.'
           },
           {
             role: 'user',
@@ -435,44 +263,29 @@ Respond with JSON only, no markdown formatting.`;
       console.log('Parsed response before sanitization:', parsedResponse);
     } catch (parseError) {
       console.error('Failed to parse AI response:', parseError);
-      // Enhanced fallback logic
-      const fallbackResponse: any = {};
-      
-      if (ruleTypes.needsBookingConditions && bookingConditions.length > 0) {
-        fallbackResponse.booking_conditions = bookingConditions;
-      }
-      
-      if (ruleTypes.needsBookingWindow) {
-        const fallbackRules = generateBookingWindowRules(inputRule, ['all spaces']);
-        if (fallbackRules.length > 0) {
-          fallbackResponse.booking_window_rules = fallbackRules;
-        }
-      }
-      
-      if (Object.keys(fallbackResponse).length === 0) {
-        fallbackResponse.booking_conditions = generateBookingConditions(inputRule, ['all spaces']);
-      }
-      
+      // Fallback to rule generation if AI parsing fails
+      const fallbackRules = generateBookingWindowRules(inputRule, ['all spaces']);
       parsedResponse = {
-        ...fallbackResponse,
-        summary: 'Generated rules using enhanced fallback logic with intelligent rule type detection'
+        booking_window_rules: fallbackRules,
+        summary: 'Generated booking window rules using fallback logic'
       };
     }
 
     // Enhanced sanitization with field validation
-    console.log('Starting enhanced rule sanitization...');
+    console.log('Starting enhanced rule sanitization with improved pattern detection...');
     
-    // Sanitize booking window rules
     if (parsedResponse.booking_window_rules) {
-      console.log('[BOOKING WINDOW FIELD MAPPING] Normalizing booking window rule field names');
+      console.log('[BOOKING WINDOW FIELD MAPPING] Normalizing booking window rule field names and extracting spaces');
       
       parsedResponse.booking_window_rules = parsedResponse.booking_window_rules.map((rule: any) => {
         // CRITICAL FIX: Ensure user_scope and tags are properly set
         if (!rule.user_scope) {
+          // If no user_scope is set, try to detect from tags or explanation
           if (rule.tags && rule.tags.length > 0) {
             rule.user_scope = "users_with_tags";
             console.log('[FIELD MAPPING] Added missing user_scope for rule with tags:', rule.tags);
           } else {
+            // Check explanation for user groups
             const detectedGroups = extractUserGroupsFromText(rule.explanation || '');
             if (detectedGroups.length > 0) {
               rule.user_scope = "users_with_tags";
@@ -485,43 +298,20 @@ Respond with JSON only, no markdown formatting.`;
           }
         }
         
+        // Ensure tags is an array when user_scope is users_with_tags
         if (rule.user_scope === "users_with_tags" && (!rule.tags || !Array.isArray(rule.tags))) {
           const detectedGroups = extractUserGroupsFromText(rule.explanation || inputRule);
           if (detectedGroups.length > 0) {
             rule.tags = detectedGroups;
             console.log('[FIELD MAPPING] Added missing tags array:', detectedGroups);
           } else {
+            // Fallback to all_users if no tags can be determined
             rule.user_scope = "all_users";
             console.log('[FIELD MAPPING] No tags found, reverted to all_users');
           }
         }
         
         return rule;
-      });
-    }
-
-    // NEW: Sanitize booking conditions
-    if (parsedResponse.booking_conditions) {
-      console.log('[BOOKING CONDITIONS FIELD MAPPING] Normalizing booking condition field names');
-      
-      parsedResponse.booking_conditions = parsedResponse.booking_conditions.map((condition: any) => {
-        // Ensure required fields are present
-        if (!condition.space) condition.space = ['all spaces'];
-        if (!condition.time_range) condition.time_range = '00:00–23:59';
-        if (!condition.days) condition.days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-        if (!condition.rules) condition.rules = [];
-        if (!condition.logic_operators) condition.logic_operators = [];
-        
-        // Ensure rules have proper structure
-        condition.rules = condition.rules.map((rule: any) => {
-          if (!rule.condition_type) rule.condition_type = 'duration';
-          if (!rule.operator) rule.operator = 'is_less_than';
-          if (!rule.value) rule.value = '30min';
-          if (!rule.explanation) rule.explanation = 'Default booking condition rule';
-          return rule;
-        });
-        
-        return condition;
       });
     }
 
