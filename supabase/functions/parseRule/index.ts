@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1'
@@ -20,8 +21,8 @@ const extractUserGroupsFromText = (text: string): string[] => {
     /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*(?:\s+members?)?)(?:\s+up\s+to|\s+within|\s+at\s+least)/gi,
     // Semicolon separated groups
     /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*(?:\s+members?)?)(?:\s*[;,]\s*)/gi,
-    // Groups with possessive forms
-    /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*'?s?\s+(?:can|must|should|booking|reservation)/gi
+    // Groups with possessive forms - FIXED: Added missing closing parenthesis
+    /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*'?s?\s+(?:can|must|should|booking|reservation))/gi
   ];
 
   const groups = new Set<string>();
@@ -48,43 +49,37 @@ const extractUserGroupsFromText = (text: string): string[] => {
   return extractedGroups;
 };
 
-// --- NEW: Util to normalize duration units ---
-const parseDuration = (text: string): string | null => {
-  // Accepts "2 hours", "1 hour", "3h", "4 hrs", etc.
-  const durationMatch = text.match(/(\d+(\.\d+)?)\s*(h(ours?)?|hr?s?|minutes?|mins?|m)/i);
-  if (!durationMatch) return null;
-  let num = Number(durationMatch[1]);
-  if (/min/i.test(durationMatch[0])) {
-    return `${num}min`;
-  } else {
-    return `${num}h`;
-  }
-  // Add more normalization as needed
-};
-
-// --- ENHANCED: Generate booking condition rules for duration and block constraints ---
-function generateBookingConditions(inputRule: string, spaces: string[]) {
+// Enhanced booking condition detection and generation
+const generateBookingConditions = (inputRule: string, spaces: string[]): any[] => {
+  console.log('[BOOKING CONDITIONS] Analyzing rule for conditions:', inputRule);
+  
   const lower = inputRule.toLowerCase();
   let blocks: any[] = [];
 
-  // Patterns for time block
+  // Patterns for time block constraints
   const blockMatch = inputRule.match(/(\d+)(?:[ -]?hour|\s*h)(?:\s*blocks?|\s*slots?| blocks?)?/i);
   const noIrregularSlot = /(no\s+(half(-|\s*)hours?|90[-\s]*minutes?|irregular\s*slots?))/i.test(inputRule);
 
   // Patterns for min/max duration
   const minMatch = inputRule.match(/min(?:imum)?\s*(?:of\s*)?(\d+(?:\.\d+)?\s*(?:hours?|h|minutes?|mins?|m))/i);
   const maxMatch = inputRule.match(/max(?:imum)?\s*(?:of\s*)?(\d+(?:\.\d+)?\s*(?:hours?|h|minutes?|mins?|m))/i);
-  // Or alternative: "at least X hours", "no longer than Y hours"
   const atLeastMatch = inputRule.match(/at\s+least\s+(\d+(?:\.\d+)?\s*(?:hours?|h|minutes?|mins?|m))/i);
   const noMoreThanMatch = inputRule.match(/no\s+more\s+than\s+(\d+(?:\.\d+)?\s*(?:hours?|h|minutes?|mins?|m))/i);
 
-  // --- Generate block constraint rule block if 1-hour block mentioned ---
+  console.log('[BOOKING CONDITIONS] Pattern matches:', {
+    blockMatch: blockMatch?.[0],
+    noIrregularSlot,
+    minMatch: minMatch?.[0],
+    maxMatch: maxMatch?.[0],
+    atLeastMatch: atLeastMatch?.[0],
+    noMoreThanMatch: noMoreThanMatch?.[0]
+  });
+
+  // Generate block constraint rules if block pattern is detected
   if (blockMatch || noIrregularSlot) {
-    // Default value if not matched is 1h
     let blockStr = blockMatch ? blockMatch[1] : '1';
     let blockVal = parseFloat(blockStr);
-    let blockUnit = /hour|h/i.test(blockMatch?.[0] || '') ? 'h' : 'min'; // Basic logic
-    let blockDisplay = blockVal + (blockUnit === 'h' ? 'h' : 'min');
+    let blockDisplay = blockVal + 'h';
 
     let explanation = `Bookings must be made in ${blockDisplay} blocks only.`;
     let ruleStart = {
@@ -94,11 +89,12 @@ function generateBookingConditions(inputRule: string, spaces: string[]) {
       explanation: `Booking start time must be a multiple of ${blockDisplay}`
     };
     let ruleEnd = {
-      condition_type: "interval_end",
+      condition_type: "interval_end", 
       operator: "is_not_multiple_of",
       value: blockDisplay,
       explanation: `Booking end time must be a multiple of ${blockDisplay}`
     };
+    
     blocks.push({
       space: spaces,
       time_range: "00:00–23:59",
@@ -107,15 +103,18 @@ function generateBookingConditions(inputRule: string, spaces: string[]) {
       logic_operators: ["OR"],
       explanation
     });
+    
+    console.log('[BOOKING CONDITIONS] Generated block constraint:', blocks[blocks.length - 1]);
   }
 
-  // --- Generate duration min/max constraint block ---
+  // Generate duration constraint rules if min/max patterns are detected
   let minStr = minMatch?.[1] || atLeastMatch?.[1];
   let maxStr = maxMatch?.[1] || noMoreThanMatch?.[1];
 
   if (minStr || maxStr) {
     let rules = [];
     let logic_operators = [];
+    
     if (minStr) {
       let normMin = parseDuration(minStr);
       rules.push({
@@ -129,23 +128,40 @@ function generateBookingConditions(inputRule: string, spaces: string[]) {
       let normMax = parseDuration(maxStr);
       rules.push({
         condition_type: "duration",
-        operator: "is_greater_than",
+        operator: "is_greater_than", 
         value: normMax,
         explanation: `Booking duration cannot be greater than ${normMax}`
       });
     }
     if (rules.length > 1) logic_operators.push("OR");
+    
     blocks.push({
       space: spaces,
       time_range: "00:00–23:59",
       days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
-      rules, logic_operators,
+      rules, 
+      logic_operators,
       explanation: `Booking duration constraints: ${minStr ? `minimum ${parseDuration(minStr)}` : ''}${minStr && maxStr ? ', ' : ''}${maxStr ? `maximum ${parseDuration(maxStr)}` : ''}`
     });
+    
+    console.log('[BOOKING CONDITIONS] Generated duration constraint:', blocks[blocks.length - 1]);
   }
 
+  console.log('[BOOKING CONDITIONS] Final generated blocks:', blocks);
   return blocks;
-}
+};
+
+// Normalize duration units
+const parseDuration = (text: string): string | null => {
+  const durationMatch = text.match(/(\d+(\.\d+)?)\s*(h(ours?)?|hr?s?|minutes?|mins?|m)/i);
+  if (!durationMatch) return null;
+  let num = Number(durationMatch[1]);
+  if (/min/i.test(durationMatch[0])) {
+    return `${num}min`;
+  } else {
+    return `${num}h`;
+  }
+};
 
 // Enhanced booking window rule generation with proper user scope mapping
 const generateBookingWindowRules = (text: string, spaces: string[]): any[] => {
@@ -274,7 +290,7 @@ serve(async (req) => {
       throw new Error('OpenAI API key not found');
     }
 
-    // ----- ENHANCED: Decide what to generate -----
+    // Enhanced rule type detection
     let booking_conditions = [];
     let booking_window_rules = [];
     let summary = '';
@@ -283,6 +299,14 @@ serve(async (req) => {
     const minMaxMatch = /(minimum|maximum|at\s+least|no\s+more\s+than|min|max)/i.test(inputRule);
     const advanceBookingMatch = /(in advance|prior to|beforehand)/i.test(inputRule);
     const userGroupMatch = /(can only|for\s*\w+)/i.test(inputRule);
+
+    console.log('[RULE TYPE DETECTION]', {
+      blockMatch,
+      minMaxMatch,
+      advanceBookingMatch,
+      userGroupMatch,
+      inputRule
+    });
 
     let mentionedSpaces = [];
     // Basic heuristic for extracting a space name, fallback to 'all spaces'
@@ -295,25 +319,29 @@ serve(async (req) => {
 
     // If there are any block/min/max rules, create booking_conditions
     if (blockMatch || minMaxMatch) {
+      console.log('[MAIN] Generating booking conditions');
       booking_conditions = generateBookingConditions(inputRule, mentionedSpaces);
     }
 
     // If "in advance" or user group detected, create booking_window_rules
     if (advanceBookingMatch || userGroupMatch) {
+      console.log('[MAIN] Generating booking window rules');
       booking_window_rules = generateBookingWindowRules(inputRule, mentionedSpaces);
     }
 
-    // If none detected, send both
+    // If none detected, send both as fallback
     if (!booking_conditions.length && !booking_window_rules.length) {
-      // fallback (previous logic)
+      console.log('[MAIN] No specific patterns detected, using fallback');
       booking_window_rules = generateBookingWindowRules(inputRule, mentionedSpaces);
     }
 
-    // ------ ENHANCED: Compose response -------
+    // Compose response
     let responseObj: any = {};
     if (booking_conditions.length) responseObj.booking_conditions = booking_conditions;
     if (booking_window_rules.length) responseObj.booking_window_rules = booking_window_rules;
     responseObj.summary = "AI-generated interpretation of your rule constraints.";
+
+    console.log('[MAIN] Final response:', responseObj);
 
     return new Response(JSON.stringify(responseObj), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
