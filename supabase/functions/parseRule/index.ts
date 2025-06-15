@@ -7,36 +7,58 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// Utility functions
+// Enhanced time range parsing to handle flexible formats
 const parseTimeRange = (text: string): { from: string; to: string } | null => {
   console.log('[parseTimeRange] Input text:', text);
   
-  // Pattern for time ranges like "6 AM-4 PM" or "4 PM-9 PM"
-  const timeMatch = text.match(/(\d{1,2})\s*(AM|PM)\s*[-–]\s*(\d{1,2})\s*(AM|PM)/i);
-  if (!timeMatch) {
-    console.log('[parseTimeRange] No time match found');
-    return null;
+  // Enhanced patterns for flexible time formats
+  const timePatterns = [
+    // "4 to 8pm", "4 to 8 PM", "4-8pm", "4-8 PM"
+    /(\d{1,2})\s*(?:to|[-–])\s*(\d{1,2})\s*(pm|am)/i,
+    // "6 AM-4 PM" or "4 PM-9 PM" (original pattern)
+    /(\d{1,2})\s*(AM|PM)\s*[-–]\s*(\d{1,2})\s*(AM|PM)/i,
+    // "from 4 to 8pm"
+    /from\s+(\d{1,2})\s*(?:to|[-–])\s*(\d{1,2})\s*(pm|am)/i
+  ];
+  
+  for (const pattern of timePatterns) {
+    const timeMatch = text.match(pattern);
+    if (timeMatch) {
+      console.log('[parseTimeRange] Matched pattern:', pattern.source, 'Result:', timeMatch);
+      
+      let startHour, startPeriod, endHour, endPeriod;
+      
+      if (timeMatch.length === 4) {
+        // Format: "4 to 8pm" - both times share the same period
+        [, startHour, endHour, endPeriod] = timeMatch;
+        startPeriod = endPeriod;
+      } else if (timeMatch.length === 5) {
+        // Format: "6 AM-4 PM" - different periods
+        [, startHour, startPeriod, endHour, endPeriod] = timeMatch;
+      }
+      
+      const convertTo24Hour = (hour: string, period: string): string => {
+        let h = parseInt(hour);
+        if (period.toUpperCase() === 'PM' && h !== 12) h += 12;
+        if (period.toUpperCase() === 'AM' && h === 12) h = 0;
+        return h.toString().padStart(2, '0') + ':00';
+      };
+      
+      const result = {
+        from: convertTo24Hour(startHour, startPeriod),
+        to: convertTo24Hour(endHour, endPeriod)
+      };
+      
+      console.log('[parseTimeRange] Result:', result);
+      return result;
+    }
   }
   
-  const [, startHour, startPeriod, endHour, endPeriod] = timeMatch;
-  console.log('[parseTimeRange] Matched:', { startHour, startPeriod, endHour, endPeriod });
-  
-  const convertTo24Hour = (hour: string, period: string): string => {
-    let h = parseInt(hour);
-    if (period.toUpperCase() === 'PM' && h !== 12) h += 12;
-    if (period.toUpperCase() === 'AM' && h === 12) h = 0;
-    return h.toString().padStart(2, '0') + ':00';
-  };
-  
-  const result = {
-    from: convertTo24Hour(startHour, startPeriod),
-    to: convertTo24Hour(endHour, endPeriod)
-  };
-  
-  console.log('[parseTimeRange] Result:', result);
-  return result;
+  console.log('[parseTimeRange] No time match found');
+  return null;
 };
 
+// Utility functions
 const parseAmount = (text: string): { amount: number; unit: string } | null => {
   const amountMatch = text.match(/\$(\d+(?:\.\d+)?)\s*(?:\/\s*)?(per\s+)?(hour|h|day|d)/i);
   if (!amountMatch) return null;
@@ -173,6 +195,56 @@ const generatePricingRules = (inputRule: string, spaces: string[]): any[] => {
   
   const rules: any[] = [];
   
+  // Enhanced pattern for peak/off-peak pricing with "otherwise" clause
+  const peakOffPeakPattern = /(?:pricing\s+for\s+)?peak\s+hours?\s+(?:from\s+)?([^$]*?)\s+is\s+\$?(\d+(?:\.\d+)?)\$?\s*(?:\/?\s*(?:per\s+)?(?:hour|h))?\s+and\s+\$?(\d+(?:\.\d+)?)\$?\s*(?:\/?\s*(?:per\s+)?(?:hour|h))?\s+otherwise/gi;
+  const peakOffPeakMatch = inputRule.match(peakOffPeakPattern);
+  
+  if (peakOffPeakMatch) {
+    console.log('[PRICING GENERATION] Found peak/off-peak pattern:', peakOffPeakMatch[0]);
+    
+    const timeText = peakOffPeakMatch[0].match(/peak\s+hours?\s+(?:from\s+)?([^$]*?)\s+is/i)?.[1];
+    const peakAmount = parseFloat(peakOffPeakMatch[0].match(/is\s+\$?(\d+(?:\.\d+)?)/i)?.[1] || '0');
+    const offPeakAmount = parseFloat(peakOffPeakMatch[0].match(/and\s+\$?(\d+(?:\.\d+)?)/i)?.[1] || '0');
+    
+    console.log('[PRICING GENERATION] Extracted:', { timeText, peakAmount, offPeakAmount });
+    
+    if (timeText && peakAmount && offPeakAmount) {
+      const timeRange = parseTimeRange(timeText);
+      
+      if (timeRange) {
+        // Peak hours rule
+        const peakRule = {
+          space: spaces,
+          time_range: `${timeRange.from}–${timeRange.to}`,
+          days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+          rate: { amount: peakAmount, unit: "per_hour" },
+          condition_type: "duration",
+          operator: "is_greater_than_or_equal_to",
+          value: "15min",
+          explanation: `Peak pricing: $${peakAmount}/hour from ${timeRange.from} to ${timeRange.to}`
+        };
+        
+        // Off-peak hours rule (all other times)
+        const offPeakRule = {
+          space: spaces,
+          time_range: "00:00–23:59",
+          days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+          rate: { amount: offPeakAmount, unit: "per_hour" },
+          condition_type: "duration",
+          operator: "is_greater_than_or_equal_to",
+          value: "15min",
+          explanation: `Off-peak pricing: $${offPeakAmount}/hour for all other times`
+        };
+        
+        console.log('[PRICING GENERATION] Generated peak rule:', peakRule);
+        console.log('[PRICING GENERATION] Generated off-peak rule:', offPeakRule);
+        
+        rules.push(peakRule, offPeakRule);
+        return rules;
+      }
+    }
+  }
+  
   // Split the input by semicolons to handle multiple pricing rules
   const segments = inputRule.split(/[;]/);
   console.log('[PRICING GENERATION] Segments:', segments);
@@ -194,7 +266,7 @@ const generatePricingRules = (inputRule: string, spaces: string[]): any[] => {
           space: spaces,
           time_range: `${timeRange.from}–${timeRange.to}`,
           days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
-          rate: { amount, unit: "per_hour" }, // Fixed: use per_hour instead of hour
+          rate: { amount, unit: "per_hour" },
           condition_type: "duration",
           operator: "is_greater_than_or_equal_to",
           value: "15min",
@@ -219,7 +291,7 @@ const generatePricingRules = (inputRule: string, spaces: string[]): any[] => {
         space: spaces,
         time_range: "00:00–23:59",
         days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
-        rate: { amount, unit: "per_hour" }, // Fixed: use per_hour instead of hour
+        rate: { amount, unit: "per_hour" },
         condition_type: "user_tags",
         operator: "contains_any_of",
         value: [tag],
@@ -581,7 +653,7 @@ serve(async (req) => {
     console.log('Processing rule:', inputRule);
 
     // Enhanced rule type detection with priority order
-    const hasPricingPattern = /\$\d+|per hour|hourly rate/i.test(inputRule);
+    const hasPricingPattern = /\$\d+|per hour|hourly rate|peak\s+hours?.*?\$.*?otherwise/i.test(inputRule);
     const hasQuotaPattern = /limit.+to\s+\d+\s+(hours?|bookings?)\s+per\s+(day|week|month)/i.test(inputRule);
     const hasBufferPattern = /\d+[-\s]?minute.+buffer|clean[-\s]?up/i.test(inputRule);
     const hasSpaceSharingPattern = /if.+booked.+becomes unavailable|vice versa|mutual/i.test(inputRule);
