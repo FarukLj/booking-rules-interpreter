@@ -1,3 +1,4 @@
+
 import { normalizeTags } from "@/utils/tagHelpers";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MultiSelect } from "@/components/ui/multi-select";
@@ -26,8 +27,14 @@ export function BookingWindowRuleItem({
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const validation = getLogicValidation(rule);
 
-  // Update selected tags and user_scope when rule.tags or tagOptions changes
+  // Add debugging
+  console.log("BookingWindowRuleItem - rule:", rule);
+  console.log("BookingWindowRuleItem - tagOptions:", tagOptions);
+
+  // Improved useEffect to handle user_scope and tags properly
   useEffect(() => {
+    console.log("useEffect triggered - rule.tags:", rule.tags, "rule.user_scope:", rule.user_scope);
+    
     if (rule.tags && rule.tags.length > 0) {
       const normalized = normalizeTags(rule.tags);
       const validTags = normalized.filter(tag => 
@@ -35,11 +42,19 @@ export function BookingWindowRuleItem({
           typeof option === 'string' && option.toLowerCase() === tag.toLowerCase()
         )
       );
+      
+      console.log("Valid tags found:", validTags);
       setSelectedTags(validTags);
       
-      // If we have valid tags but the scope is not set to users_with_tags, update it
-      if (validTags.length > 0 && rule.user_scope !== 'users_with_tags') {
-        onRuleUpdate('user_scope', 'users_with_tags');
+      // CRITICAL FIX: If we have valid tags, ensure user_scope is correct
+      if (validTags.length > 0) {
+        // Check if user_scope needs to be corrected
+        const expectedUserScope = rule.user_scope === 'users_with_no_tags' ? 'users_with_no_tags' : 'users_with_tags';
+        
+        if (rule.user_scope !== expectedUserScope && rule.user_scope !== 'users_with_no_tags') {
+          console.log("Fixing user_scope from", rule.user_scope, "to users_with_tags");
+          onRuleUpdate('user_scope', 'users_with_tags');
+        }
       }
       
       // If we have invalid tags, update the rule
@@ -50,14 +65,23 @@ export function BookingWindowRuleItem({
       setSelectedTags([]);
       // If no tags but scope was set to users_with_tags, reset to all_users
       if (rule.user_scope === 'users_with_tags') {
+        console.log("No tags found, resetting user_scope to all_users");
         onRuleUpdate('user_scope', 'all_users');
       }
     }
-  }, [rule.tags, tagOptions, onRuleUpdate, rule.user_scope]);
+  }, [rule.tags, rule.user_scope, tagOptions, onRuleUpdate]);
 
   const handleTagSelection = (selected: string[]) => {
+    console.log("Tag selection changed:", selected);
     setSelectedTags(selected);
     onRuleUpdate('tags', selected);
+    
+    // Auto-adjust user_scope based on tag selection
+    if (selected.length > 0 && rule.user_scope !== 'users_with_no_tags') {
+      onRuleUpdate('user_scope', 'users_with_tags');
+    } else if (selected.length === 0 && rule.user_scope === 'users_with_tags') {
+      onRuleUpdate('user_scope', 'all_users');
+    }
   };
 
   const handleUnitChange = (newUnit: "hours" | "days" | "weeks") => {

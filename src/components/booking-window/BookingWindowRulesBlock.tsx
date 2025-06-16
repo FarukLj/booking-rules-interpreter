@@ -1,3 +1,4 @@
+
 // Force rebuild after GitHub commit - 2025-06-13 14:35:00
 import { useState } from "react";
 import { BookingWindowRule, RuleResult } from "@/types/RuleResult";
@@ -12,16 +13,35 @@ interface BookingWindowRulesBlockProps {
 }
 
 export function BookingWindowRulesBlock({ initialRules = [], ruleResult }: BookingWindowRulesBlockProps) {
-  const [rules, setRules] = useState<BookingWindowRule[]>(
-    initialRules.length > 0 ? initialRules : [{
+  // Add debugging to see what we receive
+  console.log("BookingWindowRulesBlock - initialRules:", initialRules);
+  
+  // Improved state initialization - preserve the exact data from backend
+  const [rules, setRules] = useState<BookingWindowRule[]>(() => {
+    if (initialRules.length > 0) {
+      // Validate and correct any inconsistent data from backend
+      return initialRules.map(rule => {
+        // If rule has tags but incorrect user_scope, fix it
+        if (rule.tags && rule.tags.length > 0 && rule.user_scope === "all_users") {
+          console.log("Correcting user_scope for rule with tags:", rule);
+          return {
+            ...rule,
+            user_scope: "users_with_tags"
+          };
+        }
+        return rule;
+      });
+    }
+    
+    return [{
       user_scope: "all_users",
       constraint: "less_than",
       value: 72,
       unit: "hours",
       spaces: ["Space 1"],
       explanation: "Default booking window rule"
-    }]
-  );
+    }];
+  });
   
   const [logicOperators, setLogicOperators] = useState<string[]>(
     new Array(Math.max(0, rules.length - 1)).fill("AND")
