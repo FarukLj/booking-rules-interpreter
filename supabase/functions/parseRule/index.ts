@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -18,6 +19,12 @@ const HORIZON_CAP_PATTERNS = [
 const MINIMUM_NOTICE_PATTERNS = [
   /(?:at\s+least|minimum|min\.?|not\s+less\s+than|must\s+book\s+at\s+least)\s+(\d+)\s*(day|days|week|weeks|hour|hours)\s+(?:in\s+advance|ahead|before|prior)/gi,
   /(?:need|require)\s+(\d+)\s*(day|days|week|weeks|hour|hours)\s+(?:notice|advance|ahead)/gi
+];
+
+// NEW: User exclusion patterns for booking windows
+const USER_EXCLUSION_PATTERNS = [
+  /(?:everyone|all\s+users?|everybody)\s+except\s+(?:the\s+)?([A-Za-z\s]+?)(?:\s+team|\s+group)?\s+(?:has\s+to|must|need|require)/gi,
+  /(?:everyone|all\s+users?|everybody)\s+(?:but|besides|other\s+than)\s+(?:the\s+)?([A-Za-z\s]+?)(?:\s+team|\s+group)?\s+(?:has\s+to|must|need|require)/gi
 ];
 
 const SPECIFIC_DATE_PATTERNS = [
@@ -58,6 +65,7 @@ const SPACE_NAME_PATTERNS = [
   /(?:Court\s+[A-Z0-9]+)/gi,
   /(?:Field\s+[A-Z0-9]+)/gi,
   /(?:Rink\s+[A-Z0-9]+)/gi,
+  /(?:Board\s+Room)/gi,
   // Generic patterns - match capitalized words that could be space names
   /\b([A-Z][a-z]+(?:\s+[A-Z][a-z]*)*(?:\s+[A-Z0-9]+)?)\b/g
 ];
@@ -72,6 +80,40 @@ const QUOTA_USER_SCOPE_PATTERNS = [
 const DURATION_RX = /(\d+(?:\.\d+)?)(?:\s?)(min|minutes?|h|hr|hrs?|hour|hours?)/gi;
 const DIR_RX = /(min(?:imum)?|at\s+least|under|below|less\s+than|shorter\s+than|max(?:imum)?|over|above|more\s+than|longer\s+than|≥|>=|≤|<=|<|>)/gi;
 const ADVANCE_CONTEXT_RX = /(?:in\s+advance|before|ahead\s+of|prior\s+to)/gi;
+
+// NEW: Function to detect user exclusion patterns
+function detectUserExclusion(text: string): {
+  hasExclusion: boolean;
+  excludedTag: string | null;
+  spaceNames: string[];
+} {
+  console.log(`[USER EXCLUSION] Analyzing text: "${text}"`);
+  
+  let hasExclusion = false;
+  let excludedTag: string | null = null;
+  const spaceNames: string[] = [];
+  
+  // Check for exclusion patterns
+  for (const pattern of USER_EXCLUSION_PATTERNS) {
+    const matches = [...text.matchAll(pattern)];
+    if (matches.length > 0) {
+      hasExclusion = true;
+      matches.forEach(match => {
+        const tagName = match[1].trim();
+        // Clean up the tag name
+        const cleanTag = tagName.replace(/\s+/g, ' ').replace(/^(the\s+)?/i, '');
+        excludedTag = cleanTag.charAt(0).toUpperCase() + cleanTag.slice(1).toLowerCase();
+        console.log(`[USER EXCLUSION] Found excluded tag: "${excludedTag}"`);
+      });
+    }
+  }
+  
+  // Extract space names from the text
+  const extractedSpaces = extractSpaceNamesFromText(text);
+  spaceNames.push(...extractedSpaces);
+  
+  return { hasExclusion, excludedTag, spaceNames };
+}
 
 // NEW: Space Name Extraction Function
 function extractSpaceNamesFromText(text: string): string[] {
@@ -462,6 +504,35 @@ async function resolveSpaces(spaceNames: string[]) {
 async function sanitizeRules(parsedResponse: any, originalRule: string): Promise<any> {
   console.log('Starting enhanced rule sanitization with improved pattern detection...');
   
+  // NEW: Check for user exclusion patterns first
+  const userExclusion = detectUserExclusion(originalRule);
+  if (userExclusion.hasExclusion) {
+    console.log('[USER EXCLUSION GUARD] Detected user exclusion pattern, preventing unnecessary booking conditions');
+    
+    // If we have booking window rules with exclusion, ensure proper user scope
+    if (parsedResponse.booking_window_rules && parsedResponse.booking_window_rules.length > 0) {
+      parsedResponse.booking_window_rules.forEach((rule: any) => {
+        if (userExclusion.excludedTag) {
+          rule.user_scope = 'users_with_no_tags';
+          rule.tags = [userExclusion.excludedTag];
+          console.log(`[USER EXCLUSION GUARD] Set user_scope to users_with_no_tags with tag: ${userExclusion.excludedTag}`);
+        }
+        
+        // Ensure spaces are set correctly
+        if (userExclusion.spaceNames.length > 0) {
+          rule.spaces = userExclusion.spaceNames;
+          console.log(`[USER EXCLUSION GUARD] Set spaces to: ${userExclusion.spaceNames.join(', ')}`);
+        }
+      });
+      
+      // Remove booking conditions for simple exclusion cases
+      if (parsedResponse.booking_conditions) {
+        console.log('[USER EXCLUSION GUARD] Removing unnecessary booking conditions for exclusion-based booking window rule');
+        delete parsedResponse.booking_conditions;
+      }
+    }
+  }
+  
   // NEW: Check for quota patterns first to prevent incorrect duration guard conversion
   const quotaAnalysis = detectQuotaPattern(originalRule);
   if (quotaAnalysis.hasQuotaConstraints) {
@@ -540,10 +611,10 @@ async function sanitizeRules(parsedResponse: any, originalRule: string): Promise
   }
   
   // Duration Guard: Check if booking_window_rules should be booking_conditions
-  // BUT SKIP if quota patterns are detected
+  // BUT SKIP if quota patterns are detected OR if user exclusion patterns are detected
   const durationGuard = detectDurationGuard(originalRule);
   
-  if (durationGuard.hasDurationConstraints && parsedResponse.booking_window_rules && parsedResponse.booking_window_rules.length > 0 && !quotaAnalysis.hasQuotaConstraints) {
+  if (durationGuard.hasDurationConstraints && parsedResponse.booking_window_rules && parsedResponse.booking_window_rules.length > 0 && !quotaAnalysis.hasQuotaConstraints && !userExclusion.hasExclusion) {
     console.log('[DURATION GUARD] Converting misclassified booking window rules to booking conditions');
     
     // Convert booking window rules to booking conditions
@@ -753,6 +824,7 @@ serve(async (req) => {
     const bookingWindowAnalysis = detectBookingWindowType(rule);
     const quotaAnalysis = detectQuotaPattern(rule);
     const spaceSharingAnalysis = detectSpaceSharingPattern(rule);
+    const userExclusion = detectUserExclusion(rule);
     
     const durationGuardHint = durationGuard.hasDurationConstraints 
       ? `\n\nDURATION GUARD DETECTED: This prompt contains duration constraints (${durationGuard.details.map(d => d.raw).join(', ')}). These should be parsed as BOOKING CONDITIONS with condition_type="duration", NOT as booking window rules.`
@@ -768,6 +840,10 @@ serve(async (req) => {
 
     const spaceSharingHint = spaceSharingAnalysis.hasSpaceSharing
       ? `\n\nSPACE SHARING DETECTED: This prompt contains space interdependency patterns (${spaceSharingAnalysis.spacePairs.map(p => `${p.from} → ${p.to}`).join(', ')}). These should be parsed as SPACE SHARING rules with field name "space_sharing", NOT "split_space_dependency_rules".`
+      : '';
+
+    const userExclusionHint = userExclusion.hasExclusion
+      ? `\n\nUSER EXCLUSION DETECTED: This prompt contains user exclusion patterns ("except ${userExclusion.excludedTag}"). This should be parsed as ONE booking window rule with user_scope="users_with_no_tags" and tags=["${userExclusion.excludedTag}"], NOT as separate booking conditions. Do NOT generate booking_conditions for simple exclusion cases.`
       : '';
 
     const prompt = `
@@ -786,6 +862,36 @@ Your job:
 • fill every field exactly as the UI expects
 • never invent components the UI lacks
 • when a request is impossible, explain briefly **why** and offer the closest supported alternative
+
+────────────────────────────────────────  USER EXCLUSION PATTERNS (CRITICAL)
+
+**USER EXCLUSION DETECTION:**
+When you see patterns like "Everyone except [TAG]" or "All users but [TAG]", this should create ONE booking window rule with:
+- user_scope: "users_with_no_tags"
+- tags: [extracted_tag_name]
+- constraint: based on the booking window requirement
+- spaces: extracted space names
+
+**CRITICAL: DO NOT CREATE BOOKING CONDITIONS FOR SIMPLE USER EXCLUSIONS**
+If the rule is just about timing restrictions with user exclusions, only create a booking window rule.
+
+**EXAMPLE:**
+"Everyone except the Marketing team has to give at least a week's notice to book the board room" →
+{
+  "booking_window_rules": [
+    {
+      "user_scope": "users_with_no_tags",
+      "tags": ["Marketing"],
+      "constraint": "less_than",
+      "value": 1,
+      "unit": "week",
+      "spaces": ["Board Room"],
+      "explanation": "Everyone except the Marketing team must book the Board Room at least 1 week in advance"
+    }
+  ]
+}
+
+**DO NOT generate booking_conditions for this pattern unless there are additional access restrictions beyond timing.**
 
 ────────────────────────────────────────  SPACE SHARING RULES GUIDELINES (NEW)
 
@@ -926,6 +1032,11 @@ If you detect quota language (limit, per week, each player, etc.), always create
    • "need X days notice" → constraint: "less_than" (blocks within X days)
    • Keywords: "at least", "minimum", "notice", "in advance"
 
+**USER SCOPE FOR EXCLUSIONS:**
+• "Everyone except [TAG]" → user_scope: "users_with_no_tags", tags: [TAG]
+• "All users but [TAG]" → user_scope: "users_with_no_tags", tags: [TAG]
+• "[TAG] only" → user_scope: "users_with_tags", tags: [TAG]
+
 **UNIT PRESERVATION:**
 • Keep user's original units: "30 days" stays "30 days" (NOT 720 hours)
 • Only convert if user explicitly used hours
@@ -968,27 +1079,34 @@ Create **no rule blocks** that pretend date logic exists.
 
 CRITICAL PARSING INSTRUCTIONS:
 
-1. **SPACE SHARING RULES PRIORITY (NEW)**:
-   a) **ALWAYS CHECK FOR SPACE SHARING PATTERNS FIRST** before any other rule type
+1. **USER EXCLUSION PRIORITY (NEW)**:
+   a) **ALWAYS CHECK FOR USER EXCLUSION PATTERNS FIRST** before any other rule type
+   b) User exclusion keywords: "everyone except", "all users but", "everybody other than"
+   c) If detected with booking window timing, create ONE booking window rule with correct user_scope and tags
+   d) **DO NOT CREATE BOOKING CONDITIONS** for simple exclusion + timing patterns
+   e) Example: "Everyone except Marketing team needs 1 week notice" → ONE booking window rule only
+
+2. **SPACE SHARING RULES PRIORITY**:
+   a) **ALWAYS CHECK FOR SPACE SHARING PATTERNS** before any other rule type
    b) Space sharing keywords: "if X is booked Y becomes unavailable", "mutual exclusion", "vice-versa"
    c) If detected, create space_sharing rules, NOT booking_conditions or other types
    d) Example: "If A is booked, B becomes unavailable" → space_sharing rule with from="A", to="B"
    e) **CRITICAL: Use field name "space_sharing", NOT "split_space_dependency_rules"**
 
-2. **QUOTA RULES PRIORITY**:
-   a) **ALWAYS CHECK FOR QUOTA PATTERNS FIRST** before any other rule type
+3. **QUOTA RULES PRIORITY**:
+   a) **ALWAYS CHECK FOR QUOTA PATTERNS** before any other rule type
    b) Quota keywords: "limit", "each player", "per week", "per day", "per month", "maximum per user"
    c) If detected, create quota_rules, NOT booking_conditions or booking_window_rules
    d) Example: "limit each player to 6 hours per week" → quota_rule with target="individuals", value="6h", period="week"
 
-3. **PRICING RULES PRIORITY**:
+4. **PRICING RULES PRIORITY**:
    a) Parse time ranges correctly: "6 AM-4 PM" → "06:00–16:00"
    b) Extract prices correctly: "$10 per hour" → amount: 10
    c) Include space names: "indoor track" → ["Indoor Track"]
    d) Default to all 7 days if not specified
    e) Use default condition: "is_greater_than_or_equal_to" "15min" for non-tag rules
 
-4. **BOOKING WINDOW LOGIC (MOST CRITICAL)**:
+5. **BOOKING WINDOW LOGIC (MOST CRITICAL)**:
    a) **HORIZON CAPS** (use constraint: "more_than"):
       - "up to 30 days" → more_than 30 days (blocks beyond 30 days)
       - "next 3 days" → more_than 3 days (blocks beyond 3 days)
@@ -998,21 +1116,25 @@ CRITICAL PARSING INSTRUCTIONS:
       - "at least 24 hours in advance" → less_than 24 hours (blocks within 24 hours)
       - "need 2 days notice" → less_than 2 days (blocks within 2 days)
 
-   c) **SPACES FIELD - ABSOLUTELY CRITICAL**:
+   c) **USER SCOPE FOR EXCLUSIONS**:
+      - "Everyone except [TAG]" → user_scope: "users_with_no_tags", tags: [TAG]
+      - "[TAG] only" → user_scope: "users_with_tags", tags: [TAG]
+
+   d) **SPACES FIELD - ABSOLUTELY CRITICAL**:
       - **NEVER OMIT the "spaces" field** from booking window rules
       - Extract space names from rule text: "Tennis Courts", "Batting Cage A", etc.
       - If no specific spaces mentioned, use ["all spaces"]
       - This field is REQUIRED for the UI to display the rule correctly
 
-5. **UNIT PRESERVATION**: Keep user units unless they explicitly used hours.
+6. **UNIT PRESERVATION**: Keep user units unless they explicitly used hours.
 
-6. **SPECIFIC DATES**: If you detect calendar dates, return guidance message only.
+7. **SPECIFIC DATES**: If you detect calendar dates, return guidance message only.
 
-7. **DURATION CONSTRAINTS**: Session length limits go to booking_conditions, NOT quota_rules, UNLESS they mention "per week/day/month" or "each user/player".
+8. **DURATION CONSTRAINTS**: Session length limits go to booking_conditions, NOT quota_rules, UNLESS they mention "per week/day/month" or "each user/player".
 
-8. **"ONLY" PATTERNS**: "only [users] can book" → operator: "contains_none_of" with allowed tags.
+9. **"ONLY" PATTERNS**: "only [users] can book" → operator: "contains_none_of" with allowed tags.
 
-9. **MULTI-ROW CONDITIONS**: Use "rules" array with "logic_operators" for compound conditions.
+10. **MULTI-ROW CONDITIONS**: Use "rules" array with "logic_operators" for compound conditions.
 
 RESPONSE FORMAT:
 Return a JSON object with appropriate rule arrays. If specific dates detected, return only:
@@ -1030,7 +1152,7 @@ Otherwise, return full rule structure with:
 - buffer_time_rules, as needed
 - summary: "Comprehensive summary (≤ 4 lines)"
 
-${durationGuardHint}${specificDateHint}${quotaHint}${spaceSharingHint}
+${durationGuardHint}${specificDateHint}${quotaHint}${spaceSharingHint}${userExclusionHint}
 
 Now analyze this booking rule and extract ALL applicable rule structures:
 
