@@ -4,85 +4,58 @@ import { PricingRule } from "@/types/RuleResult";
 import { handleSmartTimeRange, timeRangeFromKeyword, normaliseTimeRange } from "@/utils/pricingFormatters";
 
 export function usePricingRules(initialRules: PricingRule[] = []) {
-  console.log('[PRICING RULES HOOK] Received initialRules:', initialRules);
-  console.log('[PRICING RULES HOOK] Initial rules count:', initialRules.length);
+  // Sort rules: fixed rates first, then per-period rates
+  const sortedInitialRules = initialRules.sort((a, b) => {
+    if (a.rate?.unit === "fixed" && b.rate?.unit !== "fixed") return -1;
+    if (a.rate?.unit !== "fixed" && b.rate?.unit === "fixed") return 1;
+    return 0;
+  });
   
-  const [rules, setRules] = useState<PricingRule[]>([]);
+  const [rules, setRules] = useState<PricingRule[]>(
+    sortedInitialRules.length > 0 ? sortedInitialRules : [{
+      space: ["Space 1"],
+      time_range: "09:00–17:00",
+      days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+      rate: { amount: 25, unit: "per_hour" },
+      condition_type: "duration",
+      operator: "is_greater_than_or_equal_to",
+      value: "15min",
+      explanation: "Default pricing rule"
+    }]
+  );
   
-  const [logicOperators, setLogicOperators] = useState<string[]>([]);
+  const [logicOperators, setLogicOperators] = useState<string[]>(
+    new Array(Math.max(0, rules.length - 1)).fill("AND")
+  );
 
   // Enhanced initialization from parseRule response
   useEffect(() => {
-    console.log('[PRICING RULES HOOK] useEffect triggered with initialRules:', initialRules);
-    console.log('[PRICING RULES HOOK] initialRules.length:', initialRules.length);
-    
     if (initialRules.length > 0) {
       console.log('Initializing pricing rules from parseRule:', initialRules);
       
-      // Ensure all rules have proper defaults and normalize units
-      const processedRules = initialRules.map((rule, index) => {
-        console.log(`[PRICING RULES HOOK] Processing rule ${index}:`, rule);
-        
-        // Normalize unit: "hour" -> "per_hour"
-        let normalizedUnit = rule.rate?.unit || "per_hour";
-        if (normalizedUnit === "hour") {
-          normalizedUnit = "per_hour";
-          console.log(`[PRICING RULES HOOK] Normalized unit from "hour" to "per_hour" for rule ${index}`);
-        }
-        
-        // Ensure condition_type is properly typed
-        const normalizedConditionType = rule.condition_type === "user_tags" ? "user_tags" : "duration";
-        
-        const processedRule: PricingRule = {
-          ...rule,
-          // Ensure all 7 days are selected if not specified
-          days: rule.days && rule.days.length > 0 ? rule.days : 
-            ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
-          // Ensure space is an array
-          space: Array.isArray(rule.space) ? rule.space : [rule.space || "Space 1"],
-          // Ensure rate has amount set with normalized unit
-          rate: {
-            amount: rule.rate?.amount || 0,
-            unit: normalizedUnit
-          },
-          // Ensure proper defaults for conditions with fallback to 15min
-          condition_type: normalizedConditionType,
-          operator: rule.operator || "is_greater_than_or_equal_to",
-          value: rule.value || "15min"
-        };
-        
-        console.log(`[PRICING RULES HOOK] Processed rule ${index}:`, processedRule);
-        return processedRule;
-      });
-      
-      console.log('[PRICING RULES HOOK] All processed rules:', processedRules);
-      console.log('[PRICING RULES HOOK] Setting rules count:', processedRules.length);
+      // Ensure all rules have proper defaults
+      const processedRules = initialRules.map(rule => ({
+        ...rule,
+        // Ensure all 7 days are selected if not specified
+        days: rule.days && rule.days.length > 0 ? rule.days : 
+          ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+        // Ensure space is an array
+        space: Array.isArray(rule.space) ? rule.space : [rule.space || "Space 1"],
+        // Ensure rate has amount set
+        rate: {
+          amount: rule.rate?.amount || 0,
+          unit: rule.rate?.unit || "per_hour"
+        },
+        // Ensure proper defaults for conditions
+        condition_type: rule.condition_type || "duration",
+        operator: rule.operator || "is_greater_than_or_equal_to",
+        value: rule.value || "15min"
+      }));
       
       setRules(processedRules);
-      setLogicOperators(new Array(Math.max(0, processedRules.length - 1)).fill("AND"));
-    } else {
-      // Default rule when no initialRules provided - with proper typing
-      console.log('[PRICING RULES HOOK] No initial rules, setting default rule');
-      const defaultRule: PricingRule = {
-        space: ["Space 1"],
-        time_range: "09:00–17:00",
-        days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
-        rate: { amount: 25, unit: "per_hour" },
-        condition_type: "duration" as const,
-        operator: "is_greater_than_or_equal_to",
-        value: "15min",
-        explanation: "Default pricing rule"
-      };
-      setRules([defaultRule]);
-      setLogicOperators([]);
+      console.log('Processed pricing rules:', processedRules);
     }
   }, [initialRules]);
-
-  // Additional useEffect to log when rules state changes
-  useEffect(() => {
-    console.log('[PRICING RULES HOOK] Rules state updated:', rules);
-    console.log('[PRICING RULES HOOK] Current rules count in state:', rules.length);
-  }, [rules]);
 
   // Validation for positive pricing logic
   useEffect(() => {
@@ -96,33 +69,36 @@ export function usePricingRules(initialRules: PricingRule[] = []) {
     });
   }, [rules]);
 
-  const updateRule = (
-    index: number,
-    field: keyof PricingRule | "time_keyword",
-    value: any
-  ) => {
-    console.log(`Updating rule ${index}, field: ${field}, value:`, value);
-    
-    // keyword branch — run before we touch state
-    if (field === "time_keyword") {
-      const range = normaliseTimeRange(String(value));
-      if (range) {
-        setRules(prev =>
-          prev.map((rule, i) =>
-            i === index ? { ...rule, time_range: range } : rule
-          )
-        );
-      }
-      return;
+  // ───────────────────────────────────────────────────────────
+//  Updates a single field **or** handles our special keyword
+//  "after 18:00" → time_range = "18:00–24:00"
+const updateRule = (
+  index: number,
+  field: keyof PricingRule | "time_keyword",
+  value: any
+) => {
+  console.log(`Updating rule ${index}, field: ${field}, value:`, value);
+  
+  // ••• 1) keyword branch — run before we touch state •••
+  if (field === "time_keyword") {
+    const range = normaliseTimeRange(String(value));
+    if (range) {
+      setRules(prev =>
+        prev.map((rule, i) =>
+          i === index ? { ...rule, time_range: range } : rule
+        )
+      );
     }
+    return;                           // nothing else to do
+  }
 
-    // regular field update
-    setRules(prev =>
-      prev.map((rule, i) =>
-        i === index ? { ...rule, [field]: value } : rule
-      )
-    );
-  };
+  // ••• 2) regular field update •••
+  setRules(prev =>
+    prev.map((rule, i) =>
+      i === index ? { ...rule, [field]: value } : rule
+    )
+  );
+};
 
   const updateRateField = (index: number, field: 'amount' | 'unit', value: any) => {
     console.log(`Updating rate field ${field} for rule ${index}:`, value);
@@ -145,7 +121,7 @@ export function usePricingRules(initialRules: PricingRule[] = []) {
         sub_conditions: [
           ...(rule.sub_conditions || []),
           {
-            condition_type: "duration" as const,
+            condition_type: "duration",
             operator: "is_greater_than",
             value: "1h",
             logic: "AND"
