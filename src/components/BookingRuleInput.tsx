@@ -1,7 +1,9 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { useVoiceInput } from "@/hooks/useVoiceInput";
+import { VoiceInputButton } from "@/components/VoiceInputButton";
 
 interface BookingRuleInputProps {
   onSubmit: (rule: string) => void;
@@ -10,6 +12,28 @@ interface BookingRuleInputProps {
 
 export function BookingRuleInput({ onSubmit, isLoading }: BookingRuleInputProps) {
   const [ruleText, setRuleText] = useState("");
+  const {
+    isSupported: isVoiceSupported,
+    state: voiceState,
+    transcript,
+    interimTranscript,
+    error: voiceError,
+    startListening,
+    stopListening,
+    resetTranscription
+  } = useVoiceInput();
+
+  // Auto-populate textarea when voice transcript is available
+  useEffect(() => {
+    if (transcript) {
+      setRuleText(prev => {
+        // If there's existing text, add the transcript with a space
+        const newText = prev ? `${prev} ${transcript}` : transcript;
+        return newText;
+      });
+      resetTranscription();
+    }
+  }, [transcript, resetTranscription]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,14 +52,42 @@ export function BookingRuleInput({ onSubmit, isLoading }: BookingRuleInputProps)
   return (
     <div className="bg-white p-6 rounded-lg shadow-lg border border-slate-200/50 backdrop-blur-sm">
       <h2 className="text-xl font-semibold text-slate-800 mb-4">Enter a Booking Rule</h2>
+      
+      {/* Voice input error display */}
+      {voiceError && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+          <p className="text-sm text-red-600">{voiceError}</p>
+        </div>
+      )}
+      
+      {/* Interim transcript preview */}
+      {interimTranscript && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+          <p className="text-sm text-blue-600">
+            <span className="font-medium">Listening:</span> {interimTranscript}
+          </p>
+        </div>
+      )}
+      
       <form onSubmit={handleSubmit}>
         <div className="relative">
+          {/* Voice input button positioned at top-left of textarea */}
+          <div className="absolute top-2 left-2 z-10">
+            <VoiceInputButton
+              state={voiceState}
+              isSupported={isVoiceSupported}
+              onStartListening={startListening}
+              onStopListening={stopListening}
+            />
+          </div>
+          
           <textarea
             className="w-full resize-none focus:outline-none bg-white border border-gray-300 rounded-lg text-base leading-relaxed px-4 py-3 pr-16
                        h-[200px] md:h-[280px]
                        overflow-y-auto
                        focus:border-blue-600 focus:ring-2 focus:ring-blue-600 focus:ring-opacity-20
                        scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
+            style={{ paddingLeft: isVoiceSupported ? '3rem' : '1rem' }}
             placeholder="E.g., Only The Team can book Space 1 from 9am to 10pm at $25/hour or $150 full day"
             value={ruleText}
             onChange={(e) => setRuleText(e.target.value)}
@@ -74,9 +126,18 @@ export function BookingRuleInput({ onSubmit, isLoading }: BookingRuleInputProps)
           </button>
         </div>
       </form>
+      
       <p className="text-xs text-slate-500 mt-3">
-        Describe your booking rule in natural language and our AI will interpret it. Press Cmd/Ctrl+Enter to submit.
+        Describe your booking rule in natural language and our AI will interpret it. 
+        {isVoiceSupported && " Click the microphone to speak your rule or"} Press Cmd/Ctrl+Enter to submit.
       </p>
+      
+      {/* Browser compatibility notice */}
+      {!isVoiceSupported && (
+        <p className="text-xs text-amber-600 mt-2">
+          Voice input is only supported in Chrome and Edge browsers.
+        </p>
+      )}
     </div>
   );
 }
