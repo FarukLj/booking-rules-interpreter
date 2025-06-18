@@ -16,6 +16,8 @@ import { QuotaRulesBlock } from "@/components/QuotaRulesBlock";
 import { BufferTimeRulesBlock } from "@/components/BufferTimeRulesBlock";
 import { BookingWindowRulesBlock } from "@/components/booking-window/BookingWindowRulesBlock";
 import { SpaceSharingRulesBlock } from "@/components/SpaceSharingRulesBlock";
+import { useNavigate } from "react-router-dom";
+import { TestTube } from "lucide-react";
 
 interface RuleModalProps {
   result: RuleResult;
@@ -24,9 +26,17 @@ interface RuleModalProps {
 }
 
 export function RuleModal({ result, isOpen, onClose }: RuleModalProps) {
+  const navigate = useNavigate();
+  
   // Check if we have new format data
   const hasNewFormat = result.booking_conditions || result.pricing_rules || result.quota_rules || 
                       result.buffer_time_rules || result.booking_window_rules || result.space_sharing || result.summary;
+
+  const handleTestConditions = () => {
+    // Navigate to simulation page with rule data
+    navigate("/simulation", { state: { rules: result } });
+    onClose(); // Close the modal
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -194,7 +204,18 @@ export function RuleModal({ result, isOpen, onClose }: RuleModalProps) {
           </div>
         </div>
         
-        <DialogFooter>
+        <DialogFooter className="gap-2">
+          {/* Test Conditions Preview Button - only show if we have rules to test */}
+          {hasNewFormat && (
+            <Button
+              onClick={handleTestConditions}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <TestTube className="h-4 w-4" />
+              Test conditions preview
+            </Button>
+          )}
           <Button onClick={onClose}>Close</Button>
         </DialogFooter>
       </DialogContent>

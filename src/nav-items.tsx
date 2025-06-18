@@ -5,6 +5,7 @@ import Admin from "./pages/Admin";
 import Auth from "./pages/Auth";
 import CategoryPage from "./pages/CategoryPage";
 import NotFound from "./pages/NotFound";
+import SimulationPage from "./pages/SimulationPage";
 
 export interface NavItem {
   to: string;
@@ -23,6 +24,10 @@ export const navItems: NavItem[] = [
   {
     to: "/auth",
     page: <Auth />,
+  },
+  {
+    to: "/simulation",
+    page: <SimulationPage />,
   },
   {
     to: "/category/:category",
