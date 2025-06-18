@@ -1,8 +1,9 @@
-
 import React from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useNavigate } from "react-router-dom";
+import { TestTube } from "lucide-react";
 import { RuleResult } from "@/types/RuleResult";
 import { BookingConditionsBlock } from "@/components/BookingConditionsBlock";
 import { PricingRulesBlock } from "@/components/PricingRulesBlock";
@@ -28,10 +29,21 @@ export const SetupGuideModal = ({
   onClose, 
   mode = "ai"
 }: SetupGuideModalProps) => {
+  const navigate = useNavigate();
   
   // Helper function to extract space name from space object or string
   const getSpaceName = (space: string | { id: string; name: string }): string => {
     return typeof space === 'string' ? space : space.name;
+  };
+
+  // Check if we have new format data for testing
+  const hasNewFormat = result.booking_conditions || result.pricing_rules || result.quota_rules || 
+                      result.buffer_time_rules || result.booking_window_rules || result.space_sharing || result.summary;
+
+  const handleTestConditions = () => {
+    // Navigate to simulation page with rule data
+    navigate("/simulation", { state: { rules: result } });
+    onClose(); // Close the modal
   };
 
   // Build setup guide for AI mode only
@@ -228,6 +240,21 @@ export const SetupGuideModal = ({
             ))}
           </div>
         </ScrollArea>
+        
+        <DialogFooter className="gap-2">
+          {/* Test Conditions Preview Button - only show if we have rules to test */}
+          {hasNewFormat && (
+            <Button
+              onClick={handleTestConditions}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <TestTube className="h-4 w-4" />
+              Test conditions preview
+            </Button>
+          )}
+          <Button onClick={onClose}>Close</Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
