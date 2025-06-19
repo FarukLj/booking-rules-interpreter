@@ -1,3 +1,4 @@
+
 import { RuleResult, PricingRule, BookingCondition, QuotaRule, BookingWindowRule, BufferTimeRule } from "@/types/RuleResult";
 
 export interface SimulationInput {
@@ -100,6 +101,11 @@ export class RuleEvaluationEngine {
         continue;
       }
 
+      // Debug: Log the condition being evaluated
+      console.log("🔍 Evaluating condition for space:", input.space);
+      console.log("Condition rules:", condition.rules);
+      console.log("Duration:", duration);
+
       // Collect all violations for this condition
       const violations = this.collectAllViolations(condition, input, duration);
       if (violations.length > 0) {
@@ -119,7 +125,14 @@ export class RuleEvaluationEngine {
 
     // Process rules (multi-row conditions)
     if (condition.rules) {
-      for (const rule of condition.rules) {
+      // Debug: Log all rules for this condition
+      console.log("📋 Processing", condition.rules.length, "rules");
+      
+      // Apply defensive logic for duration rules
+      const correctedRules = this.applyDefensiveDurationLogic(condition.rules);
+      console.log("🔧 Applied defensive logic, corrected rules:", correctedRules);
+
+      for (const rule of correctedRules) {
         const violation = this.checkConditionRule(rule, input, duration);
         if (violation) {
           violations.push(violation);
@@ -134,6 +147,58 @@ export class RuleEvaluationEngine {
     }
 
     return violations;
+  }
+
+  private applyDefensiveDurationLogic(rules: any[]): any[] {
+    const durationRules = rules.filter(rule => rule.condition_type === "duration");
+    
+    if (durationRules.length < 2) {
+      return rules; // No need for correction if less than 2 duration rules
+    }
+
+    console.log("🛡️ Applying defensive logic for duration rules:", durationRules);
+
+    // Sort duration rules by value to identify min/max
+    const sortedDurationRules = [...durationRules].sort((a, b) => {
+      const valueA = parseFloat(a.value.replace(/[^\d.]/g, ''));
+      const valueB = parseFloat(b.value.replace(/[^\d.]/g, ''));
+      return valueA - valueB;
+    });
+
+    console.log("📊 Sorted duration rules:", sortedDurationRules);
+
+    const correctedRules = rules.map(rule => {
+      if (rule.condition_type !== "duration") {
+        return rule; // Keep non-duration rules as-is
+      }
+
+      const ruleValue = parseFloat(rule.value.replace(/[^\d.]/g, ''));
+      const isSmallestValue = rule === sortedDurationRules[0];
+      const isLargestValue = rule === sortedDurationRules[sortedDurationRules.length - 1];
+
+      // Defensive correction logic
+      let correctedRule = { ...rule };
+
+      if (isSmallestValue) {
+        // Smallest value should be a minimum constraint
+        if (rule.operator === "is_less_than" || rule.operator === "is_less_than_or_equal_to") {
+          console.log("🔄 Correcting minimum rule: changing", rule.operator, "to is_greater_than_or_equal_to");
+          correctedRule.operator = "is_greater_than_or_equal_to";
+        }
+      }
+
+      if (isLargestValue) {
+        // Largest value should be a maximum constraint  
+        if (rule.operator === "is_greater_than" || rule.operator === "is_greater_than_or_equal_to") {
+          console.log("🔄 Correcting maximum rule: changing", rule.operator, "to is_less_than_or_equal_to");
+          correctedRule.operator = "is_less_than_or_equal_to";
+        }
+      }
+
+      return correctedRule;
+    });
+
+    return correctedRules;
   }
 
   private checkConditionRule(rule: any, input: SimulationInput, duration: number): string | null {
@@ -196,6 +261,13 @@ export class RuleEvaluationEngine {
     const isHours = rule.value.includes('h');
     const ruleHours = isHours ? value : value / 60;
 
+    console.log("⏱️ Checking duration rule:", {
+      operator: rule.operator,
+      ruleValue: rule.value,
+      ruleHours,
+      actualDuration: duration
+    });
+
     switch (rule.operator) {
       case "is_greater_than":
         if (duration <= ruleHours) {
@@ -225,6 +297,7 @@ export class RuleEvaluationEngine {
         break;
     }
 
+    console.log("✅ Duration rule passed");
     return null;
   }
 
