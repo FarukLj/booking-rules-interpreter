@@ -1,4 +1,3 @@
-
 import { RuleResult, PricingRule, BookingCondition, QuotaRule, BookingWindowRule, BufferTimeRule } from "@/types/RuleResult";
 
 export interface SimulationInput {
@@ -91,7 +90,7 @@ export class RuleEvaluationEngine {
 
     for (const condition of this.rules.booking_conditions) {
       // Check if this condition applies to the selected space
-      if (!condition.space.includes(input.space)) {
+      if (!condition.space?.includes(input.space)) {
         continue;
       }
 
@@ -101,75 +100,146 @@ export class RuleEvaluationEngine {
         continue;
       }
 
-      // Process rules (multi-row conditions)
-      if (condition.rules) {
-        for (const rule of condition.rules) {
-          const violation = this.checkConditionRule(rule, input, duration);
-          if (violation) {
-            return {
-              allowed: false,
-              errorReason: violation,
-              violatedRule: condition.explanation
-            };
-          }
-        }
-      } else if (condition.condition_type) {
-        // Legacy single condition
-        const violation = this.checkConditionRule(condition, input, duration);
-        if (violation) {
-          return {
-            allowed: false,
-            errorReason: violation,
-            violatedRule: condition.explanation
-          };
-        }
+      // Collect all violations for this condition
+      const violations = this.collectAllViolations(condition, input, duration);
+      if (violations.length > 0) {
+        return {
+          allowed: false,
+          errorReason: violations.join(' '),
+          violatedRule: condition.explanation
+        };
       }
     }
 
     return { allowed: true };
   }
 
-  private checkConditionRule(rule: any, input: SimulationInput, duration: number): string | null {
-    if (rule.condition_type === "duration") {
-      const value = parseFloat(rule.value.replace(/[^\d.]/g, ''));
-      const isHours = rule.value.includes('h');
-      const ruleHours = isHours ? value : value / 60;
+  private collectAllViolations(condition: any, input: SimulationInput, duration: number): string[] {
+    const violations: string[] = [];
 
-      switch (rule.operator) {
-        case "is_greater_than":
-          if (duration <= ruleHours) {
-            return `Booking must be longer than ${rule.value}`;
-          }
-          break;
-        case "is_greater_than_or_equal_to":
-          if (duration < ruleHours) {
-            return `Booking must be at least ${rule.value}`;
-          }
-          break;
-        case "is_less_than":
-          if (duration >= ruleHours) {
-            return `Booking must be shorter than ${rule.value}`;
-          }
-          break;
-        case "is_less_than_or_equal_to":
-          if (duration > ruleHours) {
-            return `Booking cannot exceed ${rule.value}`;
-          }
-          break;
+    // Process rules (multi-row conditions)
+    if (condition.rules) {
+      for (const rule of condition.rules) {
+        const violation = this.checkConditionRule(rule, input, duration);
+        if (violation) {
+          violations.push(violation);
+        }
       }
-    } else if (rule.condition_type === "user_tags") {
-      const requiredTags = Array.isArray(rule.value) ? rule.value : [rule.value];
-      
-      if (rule.operator === "contains_any_of") {
-        const hasAnyTag = requiredTags.some(tag => input.userTags.includes(tag));
-        if (!hasAnyTag) {
-          return `Only users with tags: ${requiredTags.join(', ')} can book this space`;
+    } else if (condition.condition_type) {
+      // Legacy single condition
+      const violation = this.checkConditionRule(condition, input, duration);
+      if (violation) {
+        violations.push(violation);
+      }
+    }
+
+    return violations;
+  }
+
+  private checkConditionRule(rule: any, input: SimulationInput, duration: number): string | null {
+    // Check interval alignment rules first
+    if (rule.condition_type === "interval_start" || rule.condition_type === "interval_end") {
+      return this.checkIntervalAlignment(rule, input);
+    }
+
+    // Check duration rules
+    if (rule.condition_type === "duration") {
+      return this.checkDurationRule(rule, duration);
+    }
+
+    // Check user tag rules
+    if (rule.condition_type === "user_tags") {
+      return this.checkUserTagRule(rule, input);
+    }
+
+    return null;
+  }
+
+  private checkIntervalAlignment(rule: any, input: SimulationInput): string | null {
+    if (rule.operator === "multiple_of") {
+      const intervalValue = rule.value;
+      let intervalMinutes = 0;
+
+      // Parse interval value (e.g., "1h" -> 60 minutes)
+      if (intervalValue.includes('h')) {
+        intervalMinutes = parseFloat(intervalValue.replace('h', '')) * 60;
+      } else if (intervalValue.includes('m')) {
+        intervalMinutes = parseFloat(intervalValue.replace('m', ''));
+      }
+
+      if (intervalMinutes > 0) {
+        const startMinutes = this.timeToMinutes(input.startTime);
+        const endMinutes = this.timeToMinutes(input.endTime);
+
+        // Check if start and end times align with the interval
+        const startAligned = startMinutes % intervalMinutes === 0;
+        const endAligned = endMinutes % intervalMinutes === 0;
+
+        if (!startAligned || !endAligned) {
+          if (intervalMinutes === 60) {
+            return "Bookings must start and end on the hour (e.g., 9:00, 10:00).";
+          } else {
+            const intervalDisplay = intervalMinutes >= 60 
+              ? `${intervalMinutes / 60}-hour` 
+              : `${intervalMinutes}-minute`;
+            return `Bookings must start and end on ${intervalDisplay} intervals.`;
+          }
         }
-      } else if (rule.operator === "contains_none_of") {
-        const hasRestrictedTag = requiredTags.some(tag => input.userTags.includes(tag));
-        if (hasRestrictedTag) {
-          return `Users with tags: ${requiredTags.join(', ')} cannot book this space`;
+      }
+    }
+
+    return null;
+  }
+
+  private checkDurationRule(rule: any, duration: number): string | null {
+    const value = parseFloat(rule.value.replace(/[^\d.]/g, ''));
+    const isHours = rule.value.includes('h');
+    const ruleHours = isHours ? value : value / 60;
+
+    switch (rule.operator) {
+      case "is_greater_than":
+        if (duration <= ruleHours) {
+          return `Booking must be longer than ${rule.value}.`;
         }
+        break;
+      case "is_greater_than_or_equal_to":
+        if (duration < ruleHours) {
+          return `Booking must be at least ${rule.value}.`;
+        }
+        break;
+      case "is_less_than":
+        if (duration >= ruleHours) {
+          return `Booking must be shorter than ${rule.value}.`;
+        }
+        break;
+      case "is_less_than_or_equal_to":
+        if (duration > ruleHours) {
+          return `Booking cannot exceed ${rule.value}.`;
+        }
+        break;
+      case "multiple_of":
+        const remainder = duration % ruleHours;
+        if (Math.abs(remainder) > 0.01) { // Allow for floating point precision
+          return `Booking duration must be in ${rule.value} increments.`;
+        }
+        break;
+    }
+
+    return null;
+  }
+
+  private checkUserTagRule(rule: any, input: SimulationInput): string | null {
+    const requiredTags = Array.isArray(rule.value) ? rule.value : [rule.value];
+    
+    if (rule.operator === "contains_any_of") {
+      const hasAnyTag = requiredTags.some(tag => input.userTags.includes(tag));
+      if (!hasAnyTag) {
+        return `Only users with tags: ${requiredTags.join(', ')} can book this space.`;
+      }
+    } else if (rule.operator === "contains_none_of") {
+      const hasRestrictedTag = requiredTags.some(tag => input.userTags.includes(tag));
+      if (hasRestrictedTag) {
+        return `Users with tags: ${requiredTags.join(', ')} cannot book this space.`;
       }
     }
 
@@ -279,7 +349,7 @@ export class RuleEvaluationEngine {
       let matchScore = 0;
 
       // Check space match
-      if (!rule.space.includes(input.space)) {
+      if (!rule.space?.includes(input.space)) {
         continue;
       }
       matchScore += 10;
