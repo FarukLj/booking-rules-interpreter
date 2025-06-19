@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -118,7 +119,7 @@ const SimulationPage = () => {
                   <h3 className="font-medium text-slate-800 mb-2">Booking Conditions</h3>
                   {rules.booking_conditions.map((condition, i) => (
                     <div key={i} className="text-sm text-slate-600 mb-2">
-                      <strong>Spaces:</strong> {condition.space.join(', ')}
+                      <strong>Spaces:</strong> {condition.space?.join(', ') || 'No spaces specified'}
                       <br />
                       <strong>Explanation:</strong> {condition.explanation}
                     </div>
@@ -132,7 +133,7 @@ const SimulationPage = () => {
                   <h3 className="font-medium text-slate-800 mb-2">Pricing Rules</h3>
                   {rules.pricing_rules.map((rule, i) => (
                     <div key={i} className="text-sm text-slate-600 mb-2">
-                      <strong>Spaces:</strong> {rule.space.join(', ')}
+                      <strong>Spaces:</strong> {rule.space?.join(', ') || 'No spaces specified'}
                       <br />
                       <strong>Rate:</strong> ${rule.rate.amount} {rule.rate.unit.replace('_', ' ')}
                       <br />
