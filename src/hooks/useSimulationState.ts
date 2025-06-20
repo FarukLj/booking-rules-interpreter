@@ -22,33 +22,47 @@ export function useSimulationState(rules: RuleResult) {
     const tags = new Set<string>();
     
     // Extract from booking conditions
-    rules.booking_conditions?.forEach(condition => {
-      if (condition.condition_type === "user_tags" && Array.isArray(condition.value)) {
-        condition.value.forEach(tag => tags.add(tag));
-      }
-      condition.rules?.forEach(rule => {
+    if (rules.booking_conditions && Array.isArray(rules.booking_conditions)) {
+      rules.booking_conditions.forEach(condition => {
+        if (condition.condition_type === "user_tags" && Array.isArray(condition.value)) {
+          condition.value.forEach(tag => tags.add(tag));
+        }
+        if (condition.rules && Array.isArray(condition.rules)) {
+          condition.rules.forEach(rule => {
+            if (rule.condition_type === "user_tags" && Array.isArray(rule.value)) {
+              rule.value.forEach(tag => tags.add(tag));
+            }
+          });
+        }
+      });
+    }
+
+    // Extract from pricing rules
+    if (rules.pricing_rules && Array.isArray(rules.pricing_rules)) {
+      rules.pricing_rules.forEach(rule => {
         if (rule.condition_type === "user_tags" && Array.isArray(rule.value)) {
           rule.value.forEach(tag => tags.add(tag));
         }
       });
-    });
-
-    // Extract from pricing rules
-    rules.pricing_rules?.forEach(rule => {
-      if (rule.condition_type === "user_tags" && Array.isArray(rule.value)) {
-        rule.value.forEach(tag => tags.add(tag));
-      }
-    });
+    }
 
     // Extract from quota rules
-    rules.quota_rules?.forEach(rule => {
-      rule.tags?.forEach(tag => tags.add(tag));
-    });
+    if (rules.quota_rules && Array.isArray(rules.quota_rules)) {
+      rules.quota_rules.forEach(rule => {
+        if (rule.tags && Array.isArray(rule.tags)) {
+          rule.tags.forEach(tag => tags.add(tag));
+        }
+      });
+    }
 
     // Extract from booking window rules
-    rules.booking_window_rules?.forEach(rule => {
-      rule.tags?.forEach(tag => tags.add(tag));
-    });
+    if (rules.booking_window_rules && Array.isArray(rules.booking_window_rules)) {
+      rules.booking_window_rules.forEach(rule => {
+        if (rule.tags && Array.isArray(rule.tags)) {
+          rule.tags.forEach(tag => tags.add(tag));
+        }
+      });
+    }
 
     return ["Anonymous", ...Array.from(tags)];
   }, [rules]);
@@ -58,21 +72,37 @@ export function useSimulationState(rules: RuleResult) {
     const spaces = new Set<string>();
     
     // Extract from all rule types
-    rules.booking_conditions?.forEach(condition => {
-      condition.space.forEach(space => spaces.add(space));
-    });
+    if (rules.booking_conditions && Array.isArray(rules.booking_conditions)) {
+      rules.booking_conditions.forEach(condition => {
+        if (condition.space && Array.isArray(condition.space)) {
+          condition.space.forEach(space => spaces.add(space));
+        }
+      });
+    }
 
-    rules.pricing_rules?.forEach(rule => {
-      rule.space.forEach(space => spaces.add(space));
-    });
+    if (rules.pricing_rules && Array.isArray(rules.pricing_rules)) {
+      rules.pricing_rules.forEach(rule => {
+        if (rule.space && Array.isArray(rule.space)) {
+          rule.space.forEach(space => spaces.add(space));
+        }
+      });
+    }
 
-    rules.quota_rules?.forEach(rule => {
-      rule.affected_spaces.forEach(space => spaces.add(space));
-    });
+    if (rules.quota_rules && Array.isArray(rules.quota_rules)) {
+      rules.quota_rules.forEach(rule => {
+        if (rule.affected_spaces && Array.isArray(rule.affected_spaces)) {
+          rule.affected_spaces.forEach(space => spaces.add(space));
+        }
+      });
+    }
 
-    rules.booking_window_rules?.forEach(rule => {
-      rule.spaces.forEach(space => spaces.add(space));
-    });
+    if (rules.booking_window_rules && Array.isArray(rules.booking_window_rules)) {
+      rules.booking_window_rules.forEach(rule => {
+        if (rule.spaces && Array.isArray(rule.spaces)) {
+          rule.spaces.forEach(space => spaces.add(space));
+        }
+      });
+    }
 
     return Array.from(spaces);
   }, [rules]);
