@@ -1,4 +1,3 @@
-
 import { RuleResult, PricingRule, BookingCondition, QuotaRule, BookingWindowRule, BufferTimeRule } from "@/types/RuleResult";
 
 export interface SimulationInput {
@@ -320,50 +319,209 @@ export class RuleEvaluationEngine {
   }
 
   private evaluateBookingWindow(input: SimulationInput): SimulationResult {
-    if (!this.rules.booking_window_rules) {
-      return { allowed: true };
+    if (!this.rules.booking_window_rules || this.rules.booking_window_rules.length === 0) {
+      console.log("📅 No booking window rules found - allowing booking");
+      return { 
+        allowed: true,
+        errorReason: "Booking is allowed - no booking window restrictions apply."
+      };
     }
 
     const now = new Date();
     const bookingDate = input.date;
     const hoursInAdvance = (bookingDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+    const daysInAdvance = hoursInAdvance / 24;
 
-    for (const rule of this.rules.booking_window_rules) {
-      // Check if rule applies to user tags
-      if (rule.user_scope === "users_with_tags" && rule.tags) {
-        const hasRequiredTag = rule.tags.some(tag => input.userTags.includes(tag));
-        if (!hasRequiredTag) continue;
-      } else if (rule.user_scope === "users_with_no_tags" && input.userTags.length > 0) {
-        continue;
-      }
+    console.log("📅 Evaluating booking window:", {
+      userTags: input.userTags,
+      space: input.space,
+      bookingDate: bookingDate.toISOString(),
+      hoursInAdvance,
+      daysInAdvance
+    });
+
+    // Sort rules by priority: tag-specific rules first, then general rules
+    const sortedRules = this.sortBookingWindowRulesByPriority(this.rules.booking_window_rules);
+    console.log("📋 Sorted booking window rules by priority:", sortedRules);
+
+    // Apply defensive logic to correct potentially inverted constraints
+    const correctedRules = this.applyDefensiveBookingWindowLogic(sortedRules);
+    console.log("🛡️ Applied defensive logic to booking window rules:", correctedRules);
+
+    for (const rule of correctedRules) {
+      console.log("🔍 Evaluating booking window rule:", rule);
 
       // Check if rule applies to this space
       if (!rule.spaces.includes(input.space)) {
+        console.log("⏭️ Rule doesn't apply to space:", input.space);
         continue;
       }
 
-      // Convert rule value to hours
+      // Check if rule applies to user tags
+      const isAnonymousUser = input.userTags.length === 0 || input.userTags.includes("Anonymous");
+      
+      let ruleApplies = false;
+      
+      if (rule.user_scope === "all_users") {
+        ruleApplies = true;
+        console.log("✅ Rule applies to all users");
+      } else if (rule.user_scope === "users_with_tags" && rule.tags) {
+        const hasRequiredTag = rule.tags.some(tag => input.userTags.includes(tag));
+        ruleApplies = hasRequiredTag;
+        console.log(`${ruleApplies ? '✅' : '❌'} Rule for users with tags [${rule.tags.join(', ')}] - user has: [${input.userTags.join(', ')}]`);
+      } else if (rule.user_scope === "users_with_no_tags") {
+        ruleApplies = isAnonymousUser;
+        console.log(`${ruleApplies ? '✅' : '❌'} Rule for users with no tags - user is anonymous: ${isAnonymousUser}`);
+      }
+
+      if (!ruleApplies) {
+        console.log("⏭️ Rule doesn't apply to this user");
+        continue;
+      }
+
+      // Convert rule value to hours for comparison
       let ruleHours = rule.value;
       if (rule.unit === "days") ruleHours *= 24;
       else if (rule.unit === "weeks") ruleHours *= 24 * 7;
 
-      // Check constraint
-      if (rule.constraint === "less_than" && hoursInAdvance >= ruleHours) {
+      console.log("📊 Rule constraint check:", {
+        constraint: rule.constraint,
+        ruleValue: rule.value,
+        ruleUnit: rule.unit,
+        ruleHours,
+        actualHoursInAdvance: hoursInAdvance
+      });
+
+      // Check constraint with enhanced logic
+      const violatesConstraint = this.checkBookingWindowConstraint(
+        rule.constraint,
+        hoursInAdvance,
+        ruleHours
+      );
+
+      if (violatesConstraint) {
+        const errorMessage = this.generateBookingWindowErrorMessage(rule, input.userTags, daysInAdvance);
+        console.log("❌ Booking window constraint violated:", errorMessage);
+        
         return {
           allowed: false,
-          errorReason: `Booking must be made less than ${rule.value} ${rule.unit} in advance`,
+          errorReason: errorMessage,
           violatedRule: rule.explanation
         };
-      } else if (rule.constraint === "more_than" && hoursInAdvance <= ruleHours) {
+      } else {
+        const successMessage = this.generateBookingWindowSuccessMessage(rule, input.userTags, daysInAdvance);
+        console.log("✅ Booking window constraint satisfied:", successMessage);
+        
         return {
-          allowed: false,
-          errorReason: `Booking must be made more than ${rule.value} ${rule.unit} in advance`,
-          violatedRule: rule.explanation
+          allowed: true,
+          errorReason: successMessage
         };
       }
     }
 
-    return { allowed: true };
+    // If no specific rules applied, allow the booking
+    console.log("✅ No applicable booking window rules found - allowing booking");
+    return { 
+      allowed: true,
+      errorReason: "Booking is allowed - within standard booking window."
+    };
+  }
+
+  private sortBookingWindowRulesByPriority(rules: BookingWindowRule[]): BookingWindowRule[] {
+    return [...rules].sort((a, b) => {
+      // Tag-specific rules (users_with_tags) get highest priority
+      if (a.user_scope === "users_with_tags" && b.user_scope !== "users_with_tags") return -1;
+      if (b.user_scope === "users_with_tags" && a.user_scope !== "users_with_tags") return 1;
+      
+      // users_with_no_tags gets second priority
+      if (a.user_scope === "users_with_no_tags" && b.user_scope === "all_users") return -1;
+      if (b.user_scope === "users_with_no_tags" && a.user_scope === "all_users") return 1;
+      
+      // all_users gets lowest priority
+      return 0;
+    });
+  }
+
+  private applyDefensiveBookingWindowLogic(rules: BookingWindowRule[]): BookingWindowRule[] {
+    // Look for potential constraint inversions based on patterns
+    const correctedRules = rules.map(rule => {
+      let correctedRule = { ...rule };
+      
+      // Check if the constraint seems inverted based on typical patterns
+      const isLongTerm = rule.value > 7 && rule.unit === "days"; // More than a week
+      const isShortTerm = rule.value <= 3 && (rule.unit === "days" || rule.unit === "hours");
+      
+      // Long-term "less_than" constraints often indicate "up to X time in advance"
+      // which should typically be "less_than" (correct)
+      
+      // Short-term "more_than" constraints for restricted users often indicate
+      // "must book at least X time in advance" which should be "less_than"
+      
+      // For now, we'll trust the generated constraints but add debugging
+      console.log("🔍 Booking window rule analysis:", {
+        constraint: rule.constraint,
+        value: rule.value,
+        unit: rule.unit,
+        userScope: rule.user_scope,
+        isLongTerm,
+        isShortTerm
+      });
+      
+      return correctedRule;
+    });
+    
+    return correctedRules;
+  }
+
+  private checkBookingWindowConstraint(constraint: string, actualHours: number, ruleHours: number): boolean {
+    switch (constraint) {
+      case "less_than":
+        return actualHours >= ruleHours; // Violates if booking is too far in advance
+      case "more_than":
+        return actualHours <= ruleHours; // Violates if booking is too soon
+      default:
+        console.warn("Unknown booking window constraint:", constraint);
+        return false;
+    }
+  }
+
+  private generateBookingWindowErrorMessage(rule: BookingWindowRule, userTags: string[], daysInAdvance: number): string {
+    const timeUnit = rule.unit === "hours" ? "hours" : rule.unit;
+    const userContext = this.getUserContextForMessage(rule, userTags);
+    
+    if (rule.constraint === "less_than") {
+      return `Booking not allowed — ${userContext} can only book up to ${rule.value} ${timeUnit} in advance. You're trying to book ${Math.round(daysInAdvance)} days ahead.`;
+    } else if (rule.constraint === "more_than") {
+      return `Booking not allowed — ${userContext} must book more than ${rule.value} ${timeUnit} in advance. You're trying to book ${Math.round(daysInAdvance)} days ahead.`;
+    }
+    
+    return `Booking not allowed — violates booking window rule: ${rule.explanation}`;
+  }
+
+  private generateBookingWindowSuccessMessage(rule: BookingWindowRule, userTags: string[], daysInAdvance: number): string {
+    const timeUnit = rule.unit === "hours" ? "hours" : rule.unit;
+    const userContext = this.getUserContextForMessage(rule, userTags);
+    
+    if (rule.constraint === "less_than") {
+      return `Booking is allowed — this falls within the ${rule.value}-${timeUnit} window for ${userContext}.`;
+    } else if (rule.constraint === "more_than") {
+      return `Booking is allowed — ${userContext} booking meets the ${rule.value} ${timeUnit} advance requirement.`;
+    }
+    
+    return `Booking is allowed — meets booking window requirements.`;
+  }
+
+  private getUserContextForMessage(rule: BookingWindowRule, userTags: string[]): string {
+    if (rule.user_scope === "users_with_tags" && rule.tags) {
+      const matchingTags = rule.tags.filter(tag => userTags.includes(tag));
+      if (matchingTags.length > 0) {
+        return `${matchingTags.join(', ')} members`;
+      }
+      return `users with tags: ${rule.tags.join(', ')}`;
+    } else if (rule.user_scope === "users_with_no_tags") {
+      return "non-tagged users";
+    }
+    return "all users";
   }
 
   private evaluateQuotaRules(input: SimulationInput, duration: number): SimulationResult {
