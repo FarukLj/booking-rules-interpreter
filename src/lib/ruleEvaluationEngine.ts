@@ -329,7 +329,12 @@ export class RuleEvaluationEngine {
 
     const now = new Date();
     const bookingDate = input.date;
-    const hoursInAdvance = (bookingDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+    
+    // FIXED: Ensure we're comparing dates correctly by setting time to start of day
+    const bookingDateStart = new Date(bookingDate.getFullYear(), bookingDate.getMonth(), bookingDate.getDate());
+    const nowStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    const hoursInAdvance = (bookingDateStart.getTime() - nowStart.getTime()) / (1000 * 60 * 60);
     const daysInAdvance = hoursInAdvance / 24;
 
     console.log("📅 BOOKING WINDOW EVALUATION START");
@@ -337,7 +342,9 @@ export class RuleEvaluationEngine {
       userTags: input.userTags,
       space: input.space,
       bookingDate: bookingDate.toISOString(),
+      bookingDateStart: bookingDateStart.toISOString(),
       currentTime: now.toISOString(),
+      nowStart: nowStart.toISOString(),
       hoursInAdvance: Math.round(hoursInAdvance * 100) / 100,
       daysInAdvance: Math.round(daysInAdvance * 100) / 100
     });
@@ -355,6 +362,9 @@ export class RuleEvaluationEngine {
       successMessage?: string;
     }> = [];
 
+    // Track if we've found a specific rule that applies to this user
+    let foundSpecificRule = false;
+
     for (const rule of sortedRules) {
       console.log("\n🔍 Evaluating rule:", rule);
 
@@ -371,14 +381,21 @@ export class RuleEvaluationEngine {
       let ruleApplies = false;
       
       if (rule.user_scope === "all_users") {
-        ruleApplies = true;
-        console.log("✅ Rule applies to all users");
+        // FIXED: Only apply all_users rule if no specific rule has been found
+        ruleApplies = !foundSpecificRule;
+        console.log(`${ruleApplies ? '✅' : '⏭️'} Rule applies to all users (foundSpecificRule: ${foundSpecificRule})`);
       } else if (rule.user_scope === "users_with_tags" && rule.tags) {
         const hasRequiredTag = rule.tags.some(tag => input.userTags.includes(tag));
         ruleApplies = hasRequiredTag;
+        if (ruleApplies) {
+          foundSpecificRule = true;
+        }
         console.log(`${ruleApplies ? '✅' : '❌'} Rule for users with tags [${rule.tags.join(', ')}] - user has: [${input.userTags.join(', ')}]`);
       } else if (rule.user_scope === "users_with_no_tags") {
         ruleApplies = isAnonymousUser;
+        if (ruleApplies) {
+          foundSpecificRule = true;
+        }
         console.log(`${ruleApplies ? '✅' : '❌'} Rule for users with no tags - user is anonymous: ${isAnonymousUser}`);
       }
 

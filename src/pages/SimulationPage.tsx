@@ -1,9 +1,9 @@
-
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { BookingSimulationForm } from "@/components/BookingSimulationForm";
+import { BookingWindowDebug } from "@/components/BookingWindowDebug";
 import { RuleModal } from "@/components/RuleModal";
 import { RuleResult } from "@/types/RuleResult";
 import { toast } from "sonner";
@@ -62,6 +62,13 @@ const SimulationPage = () => {
 
           {/* Simulation Form */}
           <BookingSimulationForm rules={rules} />
+
+          {/* Debug Component for Development */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="mt-6">
+              <BookingWindowDebug rules={rules} />
+            </div>
+          )}
         </div>
       </div>
 
